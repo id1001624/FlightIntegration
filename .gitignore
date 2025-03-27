@@ -1,7 +1,7 @@
 # 敏感資訊
 .env
 .flaskenv
-app/config.py
+backend/app/config.py
 *.pem
 *.key
 
