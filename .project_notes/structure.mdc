@@ -1,0 +1,134 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 專案結構
+
+- 專案結構請依照以下進行管理，隨時保持結構清晰，避免出現冗贅、多餘、重複的現象
+
+FlightIntegration/
+├── backend/                   # Flask 後端
+│   ├── app/
+│   │   ├── models/            # 數據模型
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py
+│   │   │   └── product.py
+│   │   ├── controllers/       # 控制器/路由處理
+│   │   │   ├── __init__.py
+│   │   │   ├── auth.py
+│   │   │   └── api.py
+│   │   ├── services/          # 業務邏輯
+│   │   │   ├── __init__.py
+│   │   │   ├── user_service.py
+│   │   │   └── email_service.py
+│   │   ├── schemas/           # 資料驗證/序列化
+│   │   │   ├── __init__.py
+│   │   │   └── user_schema.py
+│   │   ├── templates/         # HTML 模板 (如果需要)
+│   │   │   ├── base.html
+│   │   │   └── index.html
+│   │   ├── static/            # 靜態資源
+│   │   │   ├── css/
+│   │   │   ├── js/
+│   │   │   └── images/
+│   │   └── utils/             # 工具函數
+│   │   │   ├── __init__.py
+│   │   │   └── helpers.py
+│   │   │     
+│   │   ├── __init__.py        # Flask 應用初始化
+│   │   ├── config.py          # 配置檔案
+│   │   └── config.template
+│   │
+│   ├── logs/                  # 日誌文件
+│   │   ├── error.log
+│   │   ├── access.log
+│   │   └── app.log
+│   │
+│   ├── tests/                 # 測試
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── conftest.py
+│   │
+│   ├── debug/                 # 調試工具和腳本
+│   │   ├── profiler.py
+│   │   └── debug_tools.py
+│   │
+│   ├── venv/                  # 虛擬環境
+│   ├── migrations             # 資料庫遷移文件
+│   ├── .env                   # 環境變數
+│   ├── .env.example
+│   ├── .flaskenv              # Flask 特定環境變數
+│   └── run.py                 # 啟動腳本
+│
+├── frontend/                  # Vue 前端
+│   ├── public/
+│   │   ├── index.html         # 主 HTML 文件
+│   │   └── favicon.ico
+│   │
+│   ├── src/
+│   │   ├── assets/            # 靜態資源
+│   │   │   ├── images/
+│   │   │   ├── fonts/
+│   │   │   └── styles/
+│   │   │
+│   │   ├── components/        # 可複用元件
+│   │   │   ├── common/        # 通用元件
+│   │   │   │   ├── Button.vue
+│   │   │   │   └── Card.vue
+│   │   │   └── specific/      # 特定業務元件
+│   │   │       └── UserProfile.vue
+│   │   │
+│   │   ├── views/             # 頁面
+│   │   │   ├── Home.vue
+│   │   │   └── Dashboard.vue
+│   │   │
+│   │   ├── router/            # 路由
+│   │   │   └── index.js
+│   │   │
+│   │   ├── store/             # Vuex 狀態管理
+│   │   │   ├── index.js
+│   │   │   └── modules/
+│   │   │       ├── auth.js
+│   │   │       └── user.js
+│   │   │
+│   │   ├── api/               # API 請求
+│   │   │   ├── index.js       # axios 設定
+│   │   │   └── services/
+│   │   │       ├── auth.js
+│   │   │       └── user.js
+│   │   │
+│   │   ├── utils/             # 工具函數
+│   │   │   ├── validators.js
+│   │   │   └── formatters.js
+│   │   │
+│   │   ├── mixins/            # Vue mixins
+│   │   ├── debug/             # 前端調試工具
+│   │   │   └── logger.js
+│   │   │
+│   │   ├── App.vue
+│   │   └── main.js
+│   │
+│   ├── tests/                 # 測試
+│   │   ├── unit/
+│   │   └── e2e/
+│   │
+│   ├── .eslintrc.js
+│   ├── babel.config.js
+│   ├── Dockerfile
+│   └── package.json
+│
+├── docs/                      # 專案文檔
+│   ├── api/                   # API 文檔
+│   ├── development/           # 開發指南
+│   └── deployment/            # 部署指南
+│
+├── logs/                      # 項目級別日誌
+│   └── deployment.log
+│
+├── .dockerignore
+├── .gitignore
+├── docker-compose.yml
+├── README.md
+└── requirements .txt
+

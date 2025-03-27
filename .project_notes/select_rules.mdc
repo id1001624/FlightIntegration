@@ -1,0 +1,354 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 視圖、預存程序、更新系統使用方法。
+
+## 視圖 (Views) 使用方法
+
+視圖就像是預先設定好的查詢，使用起來跟一般資料表一樣簡單。
+
+### 1. taiwanese_airlines - 台灣航空公司資料
+
+```sql
+-- 查詢所有台灣航空公司
+SELECT * FROM taiwanese_airlines;
+
+-- 查詢特定航空公司
+SELECT * FROM taiwanese_airlines WHERE iata_code = 'CI';
+
+-- 只查詢航空公司名稱和聯絡方式
+SELECT name_zh, name_en, contact_phone, website FROM taiwanese_airlines;
+```
+
+### 2. taiwan_flights - 台灣相關航班資訊
+
+```sql
+-- 查詢所有與台灣相關的航班
+SELECT * FROM taiwan_flights;
+
+-- 查詢特定日期從台北出發的航班
+SELECT * FROM taiwan_flights 
+WHERE departure_airport = 'TPE' 
+AND DATE(scheduled_departure) = '2025-04-01';
+
+-- 查詢中華航空的所有航班
+SELECT * FROM taiwan_flights WHERE airline_code = 'CI';
+
+-- 查詢台北到香港的航班
+SELECT * FROM taiwan_flights 
+WHERE departure_airport = 'TPE' AND arrival_airport = 'HKG'
+ORDER BY scheduled_departure;
+```
+
+### 3. latest_prices - 最新票價資料
+
+```sql
+-- 查詢所有最新票價
+SELECT * FROM latest_prices;
+
+-- 查詢特定航線的最新票價
+SELECT * FROM latest_prices 
+WHERE departure_airport = 'TPE' AND arrival_airport = 'HKG';
+
+-- 查詢經濟艙的最新票價並按價格排序
+SELECT * FROM latest_prices 
+WHERE class_type = '經濟' 
+ORDER BY base_price;
+
+-- 查詢特定航空公司的票價
+SELECT * FROM latest_prices WHERE airline_code = 'CI';
+```
+
+### 4. price_statistics - 票價統計分析
+
+```sql
+-- 查詢所有航線的票價統計
+SELECT * FROM price_statistics;
+
+-- 查詢特定航線的票價統計
+SELECT * FROM price_statistics 
+WHERE departure_airport = 'TPE' AND arrival_airport = 'HKG';
+
+-- 查詢價格波動最大的航線（最高價與最低價差距）
+SELECT *, (max_price - min_price) AS price_range 
+FROM price_statistics 
+ORDER BY price_range DESC
+LIMIT 10;
+
+-- 查詢平均票價最高的航線
+SELECT * FROM price_statistics 
+ORDER BY avg_price DESC
+LIMIT 10;
+```
+
+## 預存程序 (Stored Procedures) 使用方法
+
+預存程序需要傳入特定參數來執行。
+
+### 1. get_taiwan_direct_flights - 快速查詢台灣直飛航班
+
+**參數**：
+- `p_departure_iata`: 出發機場IATA代碼 (例如: 'TPE')
+- `p_arrival_iata`: 抵達機場IATA代碼 (例如: 'HKG')
+- `p_departure_date`: 出發日期 (例如: '2025-04-01')
+
+```sql
+-- 查詢從台北到香港明天的航班
+SELECT * FROM get_taiwan_direct_flights('TPE', 'HKG', CURRENT_DATE + 1);
+
+-- 查詢從台北到東京下週的航班
+SELECT * FROM get_taiwan_direct_flights('TPE', 'NRT', CURRENT_DATE + 7);
+
+-- 查詢從高雄到上海特定日期的航班
+SELECT * FROM get_taiwan_direct_flights('KHH', 'PVG', '2025-05-01');
+
+-- 只查詢航班號和票價
+SELECT flight_number, economy_price, business_price, first_price 
+FROM get_taiwan_direct_flights('TPE', 'HKG', CURRENT_DATE + 1);
+```
+
+### 2. analyze_price_trend - 分析票價趨勢並提供購買建議
+
+**參數**：
+- `p_flight_id`: 航班ID (UUID格式)
+- `p_class_type`: 艙等類型 ('經濟', '商務', '頭等')
+
+```sql
+-- 首先找到航班ID (通常需要先從flights或taiwan_flights表中查詢)
+SELECT flight_id FROM flights 
+WHERE flight_number = 'CI601' 
+AND scheduled_departure::date = '2025-04-01';
+
+-- 然後分析該航班的經濟艙票價趨勢
+SELECT * FROM analyze_price_trend('a92dc321-c720-49c4-936e-5395e3ab0118', '經濟');
+
+-- 分析商務艙票價趨勢
+SELECT * FROM analyze_price_trend('a92dc321-c720-49c4-936e-5395e3ab0118', '商務');
+
+-- 只查看票價趨勢和建議
+SELECT flight_number, airline_name, current_price, price_trend, recommendation 
+FROM analyze_price_trend('a92dc321-c720-49c4-936e-5395e3ab0118', '經濟');
+```
+
+### 3. get_price_history_data - 獲取歷史票價數據用於趨勢圖
+
+**參數**：
+- `p_flight_id`: 航班ID (UUID格式)
+- `p_class_type`: 艙等類型 ('經濟', '商務', '頭等')
+- `p_days_back`: 往回查詢的天數 (例如: 30)
+
+```sql
+-- 獲取特定航班經濟艙最近30天的票價歷史
+SELECT * FROM get_price_history_data('a92dc321-c720-49c4-936e-5395e3ab0118', '經濟', 30);
+
+-- 獲取最近7天的票價歷史
+SELECT * FROM get_price_history_data('a92dc321-c720-49c4-936e-5395e3ab0118', '經濟', 7);
+
+-- 獲取商務艙的票價歷史
+SELECT * FROM get_price_history_data('a92dc321-c720-49c4-936e-5395e3ab0118', '商務', 30);
+
+-- 獲取特定日期範圍的歷史價格
+SELECT * FROM get_price_history_data('a92dc321-c720-49c4-936e-5395e3ab0118', '經濟', 90)
+WHERE recorded_date BETWEEN '2025-01-01' AND '2025-02-01';
+```
+
+## 實用組合查詢範例
+
+### 範例1: 尋找最便宜的台北到東京航班
+
+```sql
+SELECT tf.flight_number, tf.airline_name, tf.scheduled_departure, 
+       lp.base_price AS economy_price
+FROM taiwan_flights tf
+JOIN latest_prices lp ON tf.flight_id = lp.flight_id
+WHERE tf.departure_airport = 'TPE' 
+  AND tf.arrival_airport = 'NRT'
+  AND DATE(tf.scheduled_departure) = '2025-04-01'
+  AND lp.class_type = '經濟'
+ORDER BY lp.base_price
+LIMIT 5;
+```
+
+### 範例2: 查詢長榮航空所有航線的價格趨勢
+
+```sql
+-- 先獲取長榮航空的航班ID
+WITH eva_flights AS (
+    SELECT flight_id
+    FROM flights
+    WHERE airline_id = (SELECT airline_id FROM airlines WHERE iata_code = 'BR')
+)
+-- 然後分析每個航班的價格趨勢
+SELECT f.flight_number, a.name_zh, 
+       (SELECT recommendation FROM analyze_price_trend(f.flight_id, '經濟')) AS recommendation
+FROM flights f
+JOIN airlines a ON f.airline_id = a.airline_id
+JOIN eva_flights ef ON f.flight_id = ef.flight_id;
+```
+
+### 範例3: 找出價格波動最大的台灣航線
+
+```sql
+SELECT ps.*, ta.name_zh AS airline_name
+FROM price_statistics ps
+JOIN taiwanese_airlines ta ON ps.airline_code = ta.iata_code
+WHERE ps.departure_airport IN (SELECT iata_code FROM airports WHERE country = '臺灣')
+ORDER BY (ps.max_price - ps.min_price) DESC
+LIMIT 10;
+```
+# 更新資料
+
+### 1. 單一機場更新
+
+使用方式：
+```sql
+CALL update_airport_data(
+    '機場代碼',    -- 例如：'TPE'
+    '中文名稱',    -- 例如：'臺灣桃園國際機場'
+    '英文名稱',    -- 例如：'Taiwan Taoyuan International Airport'
+    '城市',        -- 例如：'桃園'
+    '國家',        -- 例如：'臺灣'
+    '時區',        -- 例如：'Asia/Taipei'
+    '聯絡電話',    -- 選填，例如：'+886-3-398-2050'
+    '網站',        -- 選填，例如：'https://www.taoyuan-airport.com'
+    '英文城市名'   -- 選填，例如：'Taoyuan'
+);
+```
+
+這個函數會自動判斷機場是「新增」還是「更新」，並記錄操作歷史。
+
+### 2. 批量更新（API同步）
+
+使用方式：
+```sql
+-- API資料格式必須是JSON陣列
+CALL sync_airports_from_api('[
+    {
+        "iata_code": "HKG",
+        "name_zh": "香港國際機場",
+        ...其他欄位...
+    },
+    {
+        "iata_code": "NRT",
+        "name_zh": "東京成田國際機場",
+        ...其他欄位...
+    }
+]');
+```
+
+這個函數可以一次處理多個機場資料，非常適合與API整合。
+
+### 3. 查看更新記錄
+
+```sql
+-- 查看機場更新日誌
+SELECT * FROM airport_update_log
+ORDER BY update_time DESC
+LIMIT 10;
+
+-- 查看系統操作日誌
+SELECT * FROM system_logs
+ORDER BY log_time DESC
+LIMIT 10;
+
+```
+
+透過這套完整的機場資料更新系統，您可以輕鬆維護機場資料，追蹤所有變更，並確保資料的一致性和準確性。
+
+### 3. 變更追蹤系統
+
+系統會自動記錄每次機場資料的變更，包括：
+- 變更類型（新增/更新）
+- 變更前的資料（更新時）
+- 變更後的資料
+- 變更時間和機場代碼
+
+### 4. 系統日誌
+
+系統會記錄所有操作，包括：
+- 成功訊息
+- 錯誤訊息
+- 批量處理的統計資訊
+
+### 5. 統計報表
+
+您可以使用以下函數生成更新統計報表：
+```sql
+-- 查看最近30天的更新統計
+SELECT * FROM generate_airport_update_report(30);
+```
+
+報表會顯示每天的新增數量、更新數量和總操作數量。
+
+## 測試結果
+
+系統已經過測試，運作正常：
+
+1. 單一機場更新：成功更新了 TPE 機場的聯絡資訊和網站
+2. 批量更新：成功同步了 HKG 和 NRT 兩個機場的資料
+3. 新機場新增：成功新增了 CDH（永州機場）的資料
+4. 所有變更都被正確記錄在日誌系統中
+
+## 使用建議
+
+1. **與API整合**：在您的後端程式中，當收到新機場資料時，將其轉換為JSON格式並傳遞給`sync_airports_from_api`函數。
+
+2. **定期維護**：設置定期排程任務，定期從可靠來源獲取機場資料並更新。
+
+3. **監控變更**：定期查看`airport_update_log`和`system_logs`表，了解系統運作狀況。
+
+4. **產生報表**：使用`generate_airport_update_report`函數產生管理報表，追蹤資料更新活動。
+
+## 觸發器
+| log_airport_changes() | 觸發器函數 | 自動記錄機場資料變更 | 在機場資料被修改時自動執行，記錄變更歷史 |
+| airport_audit | 觸發器 | 綁定觸發器函數到機場表 | 讓觸發器函數在資料變更時自動執行 |
+
+# 資料庫索引配置與優化建議
+
+## 已添加的索引
+
+### `flights` 表
+- **`idx_flights_search`**  
+  針對機場和起飛時間的複合索引，優化航班搜索查詢
+- **`idx_flights_airline`**  
+  針對航空公司的索引，加速查詢特定航空公司的航班
+- **`idx_flights_status`**  
+  針對航班狀態的索引，加速查詢特定狀態的航班
+
+### `price_history` 表
+- **`idx_price_history_flight_time`**  
+  針對航班ID和記錄時間的複合索引，加速價格歷史查詢
+- **`idx_price_history_class`**  
+  針對航班ID和艙位類型的複合索引，加速特定艙位的價格查詢
+
+### `user_search_history` 表
+- **`idx_user_search_history_user_time`**  
+  針對用戶ID和搜索時間的複合索引，優化用戶搜索歷史查詢
+- **`idx_user_search_route`**  
+  針對出發和到達機場的複合索引，加速特定路線的搜索統計
+
+### `weather` 表
+- **`idx_weather_airport_forecast`**  
+  針對機場ID和預報時間的複合索引，優化天氣預報查詢
+
+## 索引使用建議
+
+### 監控索引效能
+- 定期使用 `EXPLAIN ANALYZE` 檢查查詢計劃，確認索引是否被正確使用
+- 監控查詢執行時間，確認索引是否帶來效能提升
+
+### 考慮未來可能需要的索引
+- 針對 `user_queries` 表的 `user_id` 欄位添加索引（如果您經常查詢特定用戶的查詢歷史）
+- 如果系統經常根據時間範圍查詢資料，可以考慮為重要表的時間戳欄位添加獨立索引
+
+### 資料量增長後的優化
+- 當資料量增長到一定程度後，可能需要考慮：
+  - **部分索引 (Partial Indexes)**
+  - **表分區 (Table Partitioning)**
+- 對於較大的表，可以考慮使用 **BRIN 索引** 而非 B-tree 索引（特別是對於時間序列資料）
+
+### 定期維護
+- 定期進行 `VACUUM` 和 `ANALYZE`，以更新統計資訊並優化表結構
+- 移除不常使用的索引，以減少寫入操作的開銷

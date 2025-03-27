@@ -1,0 +1,252 @@
+.flight-search {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Microsoft JhengHei', Arial, sans-serif;
+}
+
+/* 搜尋表單樣式 */
+.search-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.form-group label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #333;
+}
+
+.form-group select,
+.form-group input {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.price-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.price-range input {
+  width: 100px;
+}
+
+.date-range-control {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range-control input {
+  width: 60px;
+}
+
+.search-button {
+  grid-column: span 2;
+  padding: 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s;
+}
+
+.search-button:hover {
+  background-color: #388E3C;
+}
+
+.search-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* 搜尋結果樣式 */
+.search-results {
+  margin-top: 30px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.no-results {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.flight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.flight-card {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  background-color: white;
+}
+
+.flight-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.airline {
+  display: flex;
+  flex-direction: column;
+}
+
+.airline strong {
+  font-size: 16px;
+  color: #333;
+}
+
+.airline span {
+  font-size: 14px;
+  color: #666;
+}
+
+.price {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e44d26;
+}
+
+.flight-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.departure, .arrival {
+  width: 100px;
+  text-align: center;
+}
+
+.time {
+  font-size: 18px;
+  font-weight: bold;
+  color: #333;
+}
+
+.code {
+  font-weight: bold;
+  margin: 3px 0;
+}
+
+.city {
+  font-size: 14px;
+  color: #666;
+}
+
+.flight-duration {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 15px;
+}
+
+.line {
+  width: 100%;
+  height: 2px;
+  background-color: #ddd;
+  position: relative;
+}
+
+.duration {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.flight-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.info-item {
+  font-size: 14px;
+  color: #555;
+}
+
+.purchase-link {
+  margin-left: auto;
+}
+
+.btn-purchase {
+  display: inline-block;
+  padding: 8px 15px;
+  background-color: #1976D2;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.btn-purchase:hover {
+  background-color: #1565C0;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+  
+  .search-button {
+    grid-column: 1;
+  }
+  
+  .flight-details {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .flight-duration {
+    width: 100%;
+    margin: 15px 0;
+  }
+  
+  .departure, .arrival {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
+}

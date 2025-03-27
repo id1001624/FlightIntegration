@@ -1,0 +1,35 @@
+# 敏感資訊
+.env
+.flaskenv
+app/config.py
+*.pem
+*.key
+
+# 資料庫檔案
+*.db
+*.sqlite
+*.sqlite3
+
+# Python 快取檔案
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 環境相關
+venv/
+env/
+.venv/
+
+# 日誌檔案
+*.log
+logs/
+
+# 測試覆蓋率報告
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 建置檔案
+build/
+dist/
+*.egg-info/
