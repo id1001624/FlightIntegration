@@ -22,11 +22,6 @@ Flight Features # 1000
 - Flightstats API 使用規則
 https://developer.cirium.com/apis/flightstats-apis/flight-status
 
-# Avionio
-
-- 提供全球機場航班到達和出發
-
-https://www.avionio.com/en
 
 # SeatGuru
 
@@ -47,7 +42,7 @@ https://openweathermap.org/appid
 
 ## OpenWeatherMap、WeatherAPI.com、weatherstack、Ambee、Tomorrow.io、中央氣象署（CWB）
 
-# skyscanner API、Piloterr
+# skyscanner API
 
 - 航班實時價格
 https://developers.skyscanner.net/docs/flights-live-prices/overview
@@ -73,6 +68,3 @@ https://developers.skyscanner.net/docs/flights-live-prices/refresh-prices
 # TDX API
 https://motc-ptx.gitbook.io/tdx-xin-shou-zhi-yin/api-shi-yong-shuo-ming/api-shou-quan-yan-zheng-yu-shi-yong-fang-shi
 
-# flightaware
-AeroAPI
-按需航班状态和跟踪数据API

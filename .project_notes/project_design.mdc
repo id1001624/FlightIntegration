@@ -42,11 +42,5 @@ alwaysApply: true
 
 ### 主要方案：Skyscanner API + Piloterr免費點數
 1. **基本航班搜索**：申請Skyscanner API非商業版，用於獲取基本航班和票價
-2. **補充數據**：使用Piloterr的免費50-100點數，針對Skyscanner無法提供的特定數據（如更詳細的票價歷史）
 
-### 理由：
-1. **成本控制**：兩者都提供免費方案，符合學校專案預算
-2. **功能互補**：
-   - Skyscanner提供標準化的航班搜索和基本票價
-   - Piloterr可獲取更豐富的價格歷史數據用於趨勢分析
 
