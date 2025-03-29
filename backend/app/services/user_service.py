@@ -231,22 +231,18 @@ class UserService:
     
     def get_user_by_id(self, user_id):
         """
-        透過ID獲取用戶
+        根據ID獲取用戶
         
         Args:
-            user_id (str or UUID): 用戶ID
+            user_id (int): 用戶ID
             
         Returns:
-            User: 用戶對象或None
+            User: 用戶對象，若不存在則返回None
         """
         try:
-            # 如果user_id是字符串，轉換為UUID
-            if isinstance(user_id, str):
-                user_id = uuid.UUID(user_id)
-                
             return User.query.get(user_id)
         except Exception as e:
-            logger.error(f"根據ID獲取用戶時發生錯誤: {str(e)}")
+            logger.error(f"獲取用戶時發生錯誤: {str(e)}")
             return None
     
     def logout(self, user_id):
@@ -408,22 +404,132 @@ class UserService:
             logger.error(error_msg)
             return False, error_msg
     
-    def get_search_history(self, user_id, limit=10):
+    def get_search_history(self, user_id, page=1, per_page=10):
         """
         獲取用戶搜索歷史
         
         Args:
-            user_id (str or UUID): 用戶ID
-            limit (int, optional): 限制返回的記錄數
+            user_id (int): 用戶ID
+            page (int, optional): 頁碼，默認為1
+            per_page (int, optional): 每頁數量，默認為10
             
         Returns:
-            list: 搜索歷史列表
+            dict: 包含分頁信息和搜索歷史記錄的字典
         """
         try:
-            return UserSearchHistory.get_by_user(user_id, limit)
+            # 查詢該用戶的搜索歷史
+            query = UserSearchHistory.query.filter_by(
+                user_id=user_id,
+                is_test_data=self.test_mode
+            ).order_by(UserSearchHistory.search_time.desc())
+            
+            # 獲取分頁結果
+            pagination = query.paginate(page=page, per_page=per_page)
+            
+            # 將結果轉換為字典
+            history_list = []
+            for history in pagination.items:
+                history_dict = history.to_dict()
+                # 解析搜索參數
+                import json
+                search_params = json.loads(history.search_params) if history.search_params else {}
+                history_dict['search_params'] = search_params
+                history_list.append(history_dict)
+            
+            # 構建分頁信息
+            return {
+                'history': history_list,
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': pagination.total,
+                    'pages': pagination.pages,
+                    'has_next': pagination.has_next,
+                    'has_prev': pagination.has_prev
+                }
+            }
+            
         except Exception as e:
             logger.error(f"獲取搜索歷史時發生錯誤: {str(e)}")
+            return {
+                'history': [],
+                'pagination': {
+                    'page': page,
+                    'per_page': per_page,
+                    'total': 0,
+                    'pages': 0,
+                    'has_next': False,
+                    'has_prev': False
+                }
+            }
+    
+    def get_frequent_searches(self, user_id, limit=5):
+        """
+        獲取用戶常用搜索
+        
+        Args:
+            user_id (int): 用戶ID
+            limit (int, optional): 返回的數量限制，默認為5
+            
+        Returns:
+            list: 常用搜索列表
+        """
+        try:
+            import json
+            from sqlalchemy import func
+            
+            # 查詢該用戶的搜索歷史
+            query = db.session.query(
+                UserSearchHistory.search_params,
+                func.count(UserSearchHistory.id).label('count')
+            ).filter(
+                UserSearchHistory.user_id == user_id,
+                UserSearchHistory.is_test_data == self.test_mode
+            ).group_by(
+                UserSearchHistory.search_params
+            ).order_by(
+                db.desc('count')
+            ).limit(limit)
+            
+            # 解析結果
+            frequent_searches = []
+            for search_params_str, count in query.all():
+                search_params = json.loads(search_params_str) if search_params_str else {}
+                frequent_searches.append({
+                    'search_params': search_params,
+                    'count': count
+                })
+            
+            return frequent_searches
+            
+        except Exception as e:
+            logger.error(f"獲取常用搜索時發生錯誤: {str(e)}")
             return []
+    
+    def clear_search_history(self, user_id):
+        """
+        清除用戶搜索歷史
+        
+        Args:
+            user_id (int): 用戶ID
+            
+        Returns:
+            bool: 操作是否成功
+        """
+        try:
+            # 刪除該用戶的所有搜索歷史
+            UserSearchHistory.query.filter_by(
+                user_id=user_id,
+                is_test_data=self.test_mode
+            ).delete()
+            
+            db.session.commit()
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"清除搜索歷史時發生錯誤: {str(e)}")
+            return False
     
     def save_user_query(self, user_id, platform, query_type, query_content, response_content=None):
         """
