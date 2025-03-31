@@ -10,7 +10,7 @@ class Airport(Base):
     __tablename__ = 'airports'
     
     airport_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    iata_code = db.Column(db.String, unique=True)
+    iata_code = db.Column(db.String)
     name_zh = db.Column(db.String, nullable=False)
     name_en = db.Column(db.String, nullable=False)
     city = db.Column(db.String, nullable=False)

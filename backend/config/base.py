@@ -7,7 +7,7 @@ import os
 SECRET_KEY = os.environ.get('SECRET_KEY', 'development_key')
 
 # 資料庫配置
-SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_v5X1mjPwFJgo@ep-blue-pond-a1mf0ja3-pooler.ap-southeast-1.aws.neon.tech:5432/flight_integration')
+SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'postgresql://neondb_owner:npg_v5X1mjPwFJgo@ep-blue-pond-a1mf0ja3-pooler.ap-southeast-1.aws.neon.tech/flight_integration?sslmode=require')
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 # API設定

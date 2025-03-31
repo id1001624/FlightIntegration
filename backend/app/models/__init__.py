@@ -29,5 +29,6 @@ __all__ = [
     'UserSearchHistory',
     'CommonPhrase',
     'UserQuery',
-    'FlightPrediction'
+    'FlightPrediction',
+    'FlightDelay'
 ]

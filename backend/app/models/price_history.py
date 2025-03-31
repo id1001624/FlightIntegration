@@ -14,13 +14,13 @@ class PriceHistory(Base):
     flight_id = db.Column(UUID(as_uuid=True), db.ForeignKey('flights.flight_id'), nullable=False)
     class_type = db.Column(db.String, nullable=False)
     price = db.Column(db.Numeric, nullable=False)
-    recorded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    recorded_at = db.Column(db.DateTime)
     
     def __repr__(self):
         return f"<PriceHistory {self.flight_id} {self.class_type} ${self.price} @ {self.recorded_at}>"
     
     @classmethod
-    def get_price_trend(cls, flight_id, class_type, days=30):
+    def get_price_trend(cls, flight_id, class_type, days=30, is_test_data=False):
         """
         獲取特定航班和艙位的價格趨勢
         
@@ -28,6 +28,7 @@ class PriceHistory(Base):
             flight_id: 航班ID
             class_type: 艙位類型
             days: 查詢過去的天數
+            is_test_data: 是否為測試數據
             
         Returns:
             價格歷史記錄列表，按時間排序
@@ -37,6 +38,7 @@ class PriceHistory(Base):
         return cls.query.filter(
             cls.flight_id == flight_id,
             cls.class_type == class_type,
+            cls.is_test_data == is_test_data,
             cls.recorded_at >= cutoff_date
         ).order_by(cls.recorded_at).all()
     

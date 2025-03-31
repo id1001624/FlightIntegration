@@ -3,11 +3,18 @@
       <nav>
         <router-link to="/">首頁</router-link> |
         <router-link to="/flight-search">航班查詢</router-link> |
-        <router-link to="/admin/tdx-manager">航班資料管理</router-link>
+        <router-link to="/admin/tdx-manager">航班資料管理</router-link> |
+        <router-link to="/test">測試頁面</router-link>
       </nav>
       <router-view/>
     </div>
   </template>
+  
+  <script>
+  export default {
+    name: 'App'
+  }
+  </script>
   
   <style>
   #app {
@@ -29,7 +36,7 @@
     margin: 0 10px;
   }
   
-  nav a.router-link-exact-active {
+  nav a.router-link-active {
     color: #42b983;
   }
   </style>

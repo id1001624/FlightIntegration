@@ -3,8 +3,10 @@
 .flaskenv
 app/config.py
 backend/app/config.py
+backend/config/
 *.pem
 *.key
+.cursor/
 
 # 資料庫檔案
 *.db

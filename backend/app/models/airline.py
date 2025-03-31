@@ -10,13 +10,12 @@ class Airline(Base):
     __tablename__ = 'airlines'
     
     airline_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    iata_code = db.Column(db.String, unique=True)
+    iata_code = db.Column(db.String)
     name_zh = db.Column(db.String, nullable=False)
     name_en = db.Column(db.String, nullable=False)
-    country = db.Column(db.String, nullable=False)
     website = db.Column(db.String)
     contact_phone = db.Column(db.String)
-    is_domestic = db.Column(db.Boolean, default=False)
+    is_domestic = db.Column(db.Boolean)
     
     # 關聯
     flights = db.relationship('Flight', backref='airline', lazy='dynamic')
@@ -30,9 +29,12 @@ class Airline(Base):
         return cls.query.filter_by(iata_code=iata_code).first()
     
     @classmethod
-    def get_by_country(cls, country):
-        """獲取指定國家的所有航空公司"""
-        return cls.query.filter_by(country=country).all()
+    def get_by_name(cls, name, lang='zh'):
+        """通過名稱獲取航空公司"""
+        if lang == 'zh':
+            return cls.query.filter(cls.name_zh.ilike(f"%{name}%")).all()
+        else:
+            return cls.query.filter(cls.name_en.ilike(f"%{name}%")).all()
     
     @classmethod
     def get_domestic(cls):

@@ -13,9 +13,6 @@ class Base(db.Model):
     """所有模型的基礎類"""
     __abstract__ = True
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
     def save(self):
         """保存當前實例到數據庫"""
         db.session.add(self)

@@ -15,7 +15,7 @@ class TicketPrice(Base):
     class_type = db.Column(db.String, nullable=False)
     base_price = db.Column(db.Numeric, nullable=False)
     available_seats = db.Column(db.Integer)
-    price_updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    price_updated_at = db.Column(db.DateTime)
     
     __table_args__ = (
         db.UniqueConstraint('flight_id', 'class_type', name='uq_flight_class'),
@@ -81,4 +81,14 @@ class TicketPrice(Base):
             Flight.flight_id, cls.class_type
         ).order_by(
             'min_price'
-        ).first() 
+        ).first()
+
+    @classmethod
+    def get_latest_price(cls, flight_id, class_type=None, is_test_data=False):
+        """獲取最新票價"""
+        query = cls.query.filter_by(flight_id=flight_id, is_test_data=is_test_data)
+        
+        if class_type:
+            query = query.filter_by(class_type=class_type)
+            
+        return query.order_by(cls.price_updated_at.desc()).first() 

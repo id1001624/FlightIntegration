@@ -1,39 +1,51 @@
 """
-主應用模組 - 負責初始化Flask應用及組件
+應用初始化模塊
 """
+from flask import Flask
+from flask_cors import CORS
+from flask_caching import Cache
+from .models.base import db
 import os
 import logging
-from flask import Flask, jsonify
-from flask_cors import CORS
+from logging.handlers import RotatingFileHandler
 
-# 設置日誌
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# 初始化緩存
+cache = Cache()
 
 def create_app(config_name=None):
     """
-    創建Flask應用
+    創建並初始化Flask應用
     
     Args:
-        config_name (str, optional): 配置名稱，例如'development', 'production'
-        
+        config_name: 配置名稱，用於選擇不同的配置環境
+    
     Returns:
-        Flask: Flask應用實例
+        flask.Flask: 初始化的Flask應用
     """
     app = Flask(__name__)
     
-    # 加載配置
-    configure_app(app, config_name)
+    # 配置應用
+    if not config_name:
+        config_name = os.environ.get('FLASK_ENV', 'development')
     
-    # 跨域支持
-    CORS(app)
+    if config_name == 'production':
+        app.config.from_object('config.production')
+    else:
+        app.config.from_object('config.base')
     
-    # 初始化資料庫
-    from app.models.base import db
+    # 設置跨域 - 允許所有來源訪問
+    CORS(app, resources={r"/api/*": {"origins": "*", 
+                                     "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                                     "allow_headers": ["Content-Type", "Authorization"]}})
+    
+    # 初始化數據庫
     db.init_app(app)
+    
+    # 初始化緩存
+    cache.init_app(app)
+    
+    # 配置日誌
+    setup_logging(app)
     
     # 註冊藍圖
     register_blueprints(app)
@@ -41,123 +53,57 @@ def create_app(config_name=None):
     # 註冊錯誤處理
     register_error_handlers(app)
     
-    # 註冊命令
-    register_commands(app)
-    
     return app
 
-def configure_app(app, config_name=None):
-    """
-    配置應用
+def setup_logging(app):
+    """設置日誌配置"""
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+        
+    log_level = getattr(logging, app.config.get('LOG_LEVEL', 'INFO'))
     
-    Args:
-        app (Flask): Flask應用實例
-        config_name (str, optional): 配置名稱
-    """
-    # 加載基本配置
-    app.config.from_object('config.base')
+    handler = RotatingFileHandler(
+        os.path.join(log_dir, 'app.log'),
+        maxBytes=10000000,  # 10MB
+        backupCount=5
+    )
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    handler.setFormatter(formatter)
+    handler.setLevel(log_level)
     
-    # 根據環境加載配置
-    if not config_name:
-        config_name = os.environ.get('FLASK_ENV', 'development')
+    app.logger.addHandler(handler)
+    app.logger.setLevel(log_level)
     
-    try:
-        app.config.from_object(f'config.{config_name}')
-    except ImportError:
-        app.config.from_object('config.development')
-    
-    # 加載環境變量配置
-    app.config.from_envvar('APP_CONFIG', silent=True)
-    
-    # 設置測試模式
-    app.config['TEST_MODE'] = os.environ.get('TEST_MODE', 'False').lower() == 'true'
-    
-    # 設置不要绕過緩存
-    app.config['BYPASS_CACHE'] = os.environ.get('BYPASS_CACHE', 'False').lower() == 'true'
-    
-    # 從環境變量獲取資料庫連接字符串
-    db_uri = os.environ.get('DATABASE_URL')
-    if db_uri:
-        # 適配 Heroku 的 postgres 連接字符串
-        if db_uri.startswith('postgres://'):
-            db_uri = db_uri.replace('postgres://', 'postgresql://', 1)
-        app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
-    
-    # 確保設置了密鑰
-    if not app.config.get('SECRET_KEY'):
-        app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_key')
-    
-    logger.info(f"應用配置加載完成，環境: {config_name}, 測試模式: {app.config['TEST_MODE']}")
+    # 同時輸出到控制台
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(log_level)
+    app.logger.addHandler(console_handler)
 
 def register_blueprints(app):
-    """
-    註冊藍圖
-    
-    Args:
-        app (Flask): Flask應用實例
-    """
-    from app.controllers import flight_bp, airport_bp, admin_bp, auth_bp, user_bp, weather_bp
+    """註冊所有藍圖"""
+    # 導入藍圖
+    from .controllers.airline import airline_bp
+    from .controllers.airport import airport_bp
+    from .controllers.flight import flight_bp
+    from .controllers.ticket_price import ticket_price_bp
     
     # 註冊藍圖
-    app.register_blueprint(flight_bp)
-    app.register_blueprint(airport_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(user_bp)
-    app.register_blueprint(weather_bp)
-    
-    logger.info("藍圖註冊完成")
+    app.register_blueprint(airline_bp, url_prefix='/api/airlines')
+    app.register_blueprint(airport_bp, url_prefix='/api/airports')
+    app.register_blueprint(flight_bp, url_prefix='/api/flights')
+    app.register_blueprint(ticket_price_bp, url_prefix='/api/ticket-prices')
 
 def register_error_handlers(app):
-    """
-    註冊錯誤處理器
-    
-    Args:
-        app (Flask): Flask應用實例
-    """
-    from app.utils.api_helper import api_response
-    
+    """註冊錯誤處理器"""
     @app.errorhandler(404)
     def not_found(error):
-        return api_response(False, message="資源未找到", status_code=404)
+        return {'error': 'Not found'}, 404
     
     @app.errorhandler(500)
-    def internal_server_error(error):
-        return api_response(False, message="伺服器內部錯誤", status_code=500)
-    
-    @app.errorhandler(400)
-    def bad_request(error):
-        return api_response(False, message=str(error), status_code=400)
-    
-    logger.info("錯誤處理器註冊完成")
-
-def register_commands(app):
-    """
-    註冊自定義命令
-    
-    Args:
-        app (Flask): Flask應用實例
-    """
-    @app.cli.command("init-db")
-    def init_db():
-        """初始化資料庫"""
-        from app.models.base import db
-        db.create_all()
-        print("資料庫初始化完成")
-    
-    @app.cli.command("seed-db")
-    def seed_db():
-        """填充初始資料"""
-        from app.models.base import db
-        from app.services import data_sync_service
-        
-        # 同步機場和航空公司資料
-        print("正在同步機場資料...")
-        data_sync_service.sync_airports()
-        
-        print("正在同步航空公司資料...")
-        data_sync_service.sync_airlines()
-        
-        print("資料填充完成")
-    
-    logger.info("命令註冊完成")
+    def server_error(error):
+        app.logger.error(error)
+        return {'error': 'Internal server error'}, 500

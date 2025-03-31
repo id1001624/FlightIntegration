@@ -17,7 +17,11 @@ class Flight(Base):
     arrival_airport_id = db.Column(UUID(as_uuid=True), db.ForeignKey('airports.airport_id'), nullable=False)
     scheduled_departure = db.Column(db.DateTime(timezone=True), nullable=False)
     scheduled_arrival = db.Column(db.DateTime(timezone=True), nullable=False)
-    status = db.Column(db.String, default='準時')
+    status = db.Column(db.String)
+    
+    # 只在Flight模型中添加時間戳欄位
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
     
     # 關聯
     ticket_prices = db.relationship('TicketPrice', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
@@ -37,7 +41,7 @@ class Flight(Base):
     def is_domestic(self):
         """檢查是否為國內航班"""
         # 此處簡單判斷，可能需要根據實際情況調整
-        return (self.departure_airport.country == 'Taiwan' and 
+        return (self.departure_airport.country == 'Taiwan' or 
                 self.arrival_airport.country == 'Taiwan')
                 
     @classmethod
@@ -94,3 +98,28 @@ class Flight(Base):
             return outbound_flights, return_flights
         
         return outbound_flights 
+
+    @classmethod
+    def search(cls, departure_airport_id=None, arrival_airport_id=None, 
+                departure_date=None, airline_id=None, is_test_data=False):
+        """搜尋航班"""
+        query = cls.query.filter_by(is_test_data=is_test_data)
+        
+        if departure_airport_id:
+            query = query.filter_by(departure_airport_id=departure_airport_id)
+        
+        if arrival_airport_id:
+            query = query.filter_by(arrival_airport_id=arrival_airport_id)
+        
+        if departure_date:
+            # 格式化字符串為日期對象
+            if isinstance(departure_date, str):
+                departure_date = datetime.strptime(departure_date, '%Y-%m-%d').date()
+            
+            # 查詢指定日期的航班
+            query = query.filter(db.func.date(cls.scheduled_departure) == departure_date)
+        
+        if airline_id:
+            query = query.filter_by(airline_id=airline_id)
+            
+        return query.all() 
