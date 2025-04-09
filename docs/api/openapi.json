@@ -1,0 +1,1295 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Flight Information Display System API",
+    "description": "## Introduction\nThe Flight Information Display System APIs, part of the [FlightStats APIs](/apis/flightstats-apis/overview), provide the data needed by Flight Information Display Systems (FIDS) such as the flight boards commonly visible in airport terminals, hotel lobbies, and other places travelers are found.\n\nFIDS APIs answer questions such as\n* Is my flight on time or cancelled?\n* What is my arrival gate and terminal?\n* What is the weather at the arrival airport?\n\nThe FIDS APIs return a list of departing or arriving flights for a given airport for a given time period around the current time at the airport.\n\nThe APIs are highly configurable, supporting not only a wide variety of parameters, but is also configurable to return only the information needed for the display. The information is returned in a simple flat structure that's drop-in ready for most applications.\n\n## Requested fields\nThe FIDS APIs provide a customizable set of data pertaining to flights for a particular airport. A FIDS request produces an XML or JSON response with a flat structure that contains only those fields chosen by the *requestedFields* query parameter. \n\nThe available fields are defined in the schema for the fidsData array object. You can see the list of fields by looking the response section of the API documentation below. \n\nFor example specifying \"airlineCode,flightNumber,city,currentTime,gate,remarks\" will return an array of FIDS objects with only those fields represented in the object. \n\n## Extended options\nThe FIDS APIs support _useHTTPErrors_ and _languageCode_ [extended options](/apis/flightstats-apis/get-started).\n\n## Licensing\nThe FIDS APIs are premium APIs and only available in the Contract plan. \n\nA breakdown of the available plans is available on [Get evaluation account](/apis/flightstats-apis/get-evaluation-account#)\n\n## Schemas\nClick the download button at the top of this document to download the OpenApi spec for this API. Other schemas:\n\nLong term support \n* REST - [WADL](https://api.flightstats.com/flex/fids/docs/v1/lts/rest/fids.wadl) [XSD](https://api.flightstats.com/flex/fids/docs/v1/lts/rest/fids.xsd)\n\nExtended fields\n* REST - [WADL](https://api.flightstats.com/flex/fids/rest/v1/schema/wadl) [XSD](https://api.flightstats.com/flex/fids/rest/v1/schema/xsd) [JSON](https://api.flightstats.com/flex/fids/rest/v1/schema/json)\n\n## Related articles\n[Update the Flight Information Display System (FIDS)](/showcase/update-flight-information-display-system) - Showcase article on how to use the FIDS API\n\n[Cirium flight status](/apis/data/Cirium-flight-status) - Explanation of Cirium flight status data set\n\n[Codeshares and wet lease relationships](/apis/data/codeshare-and-wet-lease-relationships) - Explanation of codeshares and wet lease relationships\n\n## Similar APIs \n[Flight Status](/apis/flightstats-apis/flight-status) - Current flight information for flights about three days in advance of departure until about seven days after arrival\n\n[Historical Flight Status](/apis/flightstats-apis/historical-flight-status) - Status for flights back to 2006\n\n[Flight Alerts](/apis/flightstats-apis/flight-alerts) - Push based alerts for single flights or bulk\n",
+    "termsOfService": "https://www.flightstats.com/company/legal/terms-of-use/",
+    "contact": {
+      "name": "Cirium Help Desk",
+      "url": "https://helpdesk.cirium.com/"
+    },
+    "version": "437"
+  },
+  "servers": [
+    {
+      "url": "https://api.flightstats.com/",
+      "description": "Cirium Flex API Endpoint"
+    }
+  ],
+  "security": [
+    {
+      "appIdQueryParam": [],
+      "appKeyQueryParam": []
+    },
+    {
+      "appIdHeader": [],
+      "appKeyHeader": []
+    }
+  ],
+  "paths": {
+    "/flex/fids/rest/v1/{format}/{airport}/arrivals": {
+      "get": {
+        "summary": "By arrivals",
+        "description": "Retrieve FIDS display data for flights arriving at a given airport,\nincluding fields selected by a comma-separated list\n",
+        "operationId": "byArrivalAirport",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "path",
+            "description": "The data format returned in the response",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "json",
+              "enum": [
+                "json",
+                "jsonp",
+                "xml"
+              ]
+            }
+          },
+          {
+            "name": "airport",
+            "in": "path",
+            "description": "Airport code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "PDX"
+          },
+          {
+            "name": "codeType",
+            "in": "query",
+            "description": "Airport code type. If not specified, the code searches in the order: IATA, ICAO, FS.",
+            "schema": {
+              "type": "string",
+              "example": "FS",
+              "enum": [
+                "IATA",
+                "ICAO",
+                "FS"
+              ]
+            }
+          },
+          {
+            "name": "requestedFields",
+            "in": "query",
+            "description": "List of fields to include in response (comma-separated). See fidsData object in response for a list of available fields.",
+            "schema": {
+              "type": "string",
+              "example": "airlineCode,flightNumber,city,currentTime,gate,remarks"
+            }
+          },
+          {
+            "name": "sortFields",
+            "in": "query",
+            "description": "List of fields to sort by, in order of precedence (comma-separated)",
+            "schema": {
+              "type": "string",
+              "example": "airlineCode,flightNumber"
+            }
+          },
+          {
+            "name": "excludeAirlines",
+            "in": "query",
+            "description": "Comma-separated list of airline codes to exclude (code type specified by the codeType query parameter). Cannot be combined with includeAirlines.",
+            "schema": {
+              "type": "string",
+              "example": "AS,AA"
+            }
+          },
+          {
+            "name": "includeAirlines",
+            "in": "query",
+            "description": "Comma-separated list of airline codes to include (code type specified by the codeType query parameter). Cannot be combined with excludeAirlines.",
+            "schema": {
+              "type": "string",
+              "example": "AS,AA"
+            }
+          },
+          {
+            "name": "includeCodeshares",
+            "in": "query",
+            "description": "Whether to include codeshares (multiple airlines sharing the same flight)",
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "enum": [
+                true,
+                false
+              ],
+              "example": true
+            }
+          },
+          {
+            "name": "terminal",
+            "in": "query",
+            "description": "Terminal to filter results by. If specified, only flights arriving in the given terminal will be returned.",
+            "schema": {
+              "type": "string",
+              "example": "3"
+            }
+          },
+          {
+            "name": "timeFormat",
+            "in": "query",
+            "description": "Format for time-based fields, 12-hour or 24-hour format respectively",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 12,
+              "enum": [
+                12,
+                24
+              ],
+              "example": 24
+            }
+          },
+          {
+            "name": "timeWindowBegin",
+            "in": "query",
+            "description": "The number of minutes before 'now' during which flights should potentially be included. Default window is based on airport classification.",
+            "schema": {
+              "maximum": 1440,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 120
+            }
+          },
+          {
+            "name": "timeWindowEnd",
+            "in": "query",
+            "description": "The number of minutes after 'now' during which flights should potentially be included. Default window is based on airport classification.",
+            "schema": {
+              "maximum": 4320,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 120
+            }
+          },
+          {
+            "name": "maxFlights",
+            "in": "query",
+            "description": "The maximum number of flights to be returned. If more than this number of flights are available within the time window they will be weighted according to relevance and only this many will be returned.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int64",
+              "example": 100
+            }
+          },
+          {
+            "name": "lateMinutes",
+            "in": "query",
+            "description": "The number of minutes after which a flight should be considered late, when generating remarks.",
+            "schema": {
+              "maximum": 240,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int64",
+              "default": 15,
+              "example": 15
+            }
+          },
+          {
+            "name": "boardingMinutes",
+            "in": "query",
+            "description": "The number of minutes before scheduled or estimated departure during which a flight should be considered boarding, when generating remarks. If not specified 'Boarding' messages will not be displayed.",
+            "schema": {
+              "maximum": 120,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            }
+          },
+          {
+            "name": "useRunwayTimes",
+            "in": "query",
+            "description": "Boolean value indicating whether runway times should be considered when determining delay and generating remarks",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "enum": [
+                true,
+                false
+              ],
+              "example": false
+            }
+          },
+          {
+            "name": "excludeCargoOnlyFlights",
+            "in": "query",
+            "description": "Boolean value indicating whether cargo-only flights should be excluded",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "enum": [
+                true,
+                false
+              ],
+              "example": false
+            }
+          },
+          {
+            "name": "extendedOptions",
+            "in": "query",
+            "description": "[Extended options](/apis/flightstats-apis/get-started) for modifying standard API behavior to fit special use cases",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "useHttpErrors",
+                  "useInlinedReferences",
+                  "includeNewFields",
+                  "languageCode:en",
+                  "languageCode:ar",
+                  "languageCode:de",
+                  "languageCode:es",
+                  "languageCode:fr",
+                  "languageCode:ja",
+                  "languageCode:ko",
+                  "languageCode:pt",
+                  "languageCode:zh"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of FIDS flight status data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                },
+                "examples": {
+                  "FIDS single field": {
+                    "description": "FIDS response with a single field, \"flight,\" requested. Default options.",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_single_field.json"
+                  },
+                  "FIDS most fields": {
+                    "description": "FIDS response with most fields included",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_most_fields.json"
+                  },
+                  "FIDS no codeshares": {
+                    "description": "FIDS response with most fields, with includeCodeshares=false",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_include_codeshares_false.json"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                },
+                "examples": {
+                  "FIDS single field": {
+                    "description": "FIDS response with a single field, \"flight,\" requested. Default options.",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_single_field.xml"
+                  },
+                  "FIDS most fields": {
+                    "description": "FIDS response with most fields included",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_most_fields.xml"
+                  },
+                  "FIDS no codeshares": {
+                    "description": "FIDS response with most fields, with includeCodeshares=false",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_include_codeshares_false.xml"
+                  }
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Client request error. Consult error response for specifics.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authorization failure. Invalid 'appId', 'appKey', or rate limit violation.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Requested item could not be found, or the endpoint does not exist.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "API application error. If error is consistent, please contact Cirium Support.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/flex/fids/rest/v1/{format}/{airport}/departures": {
+      "get": {
+        "summary": "By departures",
+        "description": "Retrieve FIDS display data for flights departing from a given\nairport, including fields selected by a comma-separated list\n",
+        "operationId": "byDepartureAirport",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "path",
+            "description": "The data format returned in the response",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "json",
+              "enum": [
+                "json",
+                "jsonp",
+                "xml"
+              ]
+            }
+          },
+          {
+            "name": "airport",
+            "in": "path",
+            "description": "Airport code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "PDX"
+          },
+          {
+            "name": "codeType",
+            "in": "query",
+            "description": "Airport code type. If not specified, the code searches in the order: IATA, ICAO, FS.",
+            "schema": {
+              "type": "string",
+              "example": "FS",
+              "enum": [
+                "IATA",
+                "ICAO",
+                "FS"
+              ]
+            }
+          },
+          {
+            "name": "requestedFields",
+            "in": "query",
+            "description": "List of fields to include in response (comma-separated). See fidsData object in response for a list of available fields.",
+            "schema": {
+              "type": "string",
+              "example": "airlineCode,flightNumber,city,currentTime,gate,remarks"
+            }
+          },
+          {
+            "name": "sortFields",
+            "in": "query",
+            "description": "List of fields to sort by, in order of precedence (comma-separated)",
+            "schema": {
+              "type": "string",
+              "example": "airlineCode,flightNumber"
+            }
+          },
+          {
+            "name": "excludeAirlines",
+            "in": "query",
+            "description": "Comma-separated list of airline codes to exclude (code type specified by the codeType query parameter). Cannot be combined with includeAirlines.",
+            "schema": {
+              "type": "string",
+              "example": "AA,AS"
+            }
+          },
+          {
+            "name": "includeAirlines",
+            "in": "query",
+            "description": "Comma-separated list of airline codes to include (code type specified by the codeType query parameter). Cannot be combined with excludeAirlines.",
+            "schema": {
+              "type": "string",
+              "example": "AA,AS"
+            }
+          },
+          {
+            "name": "includeCodeshares",
+            "in": "query",
+            "description": "Whether to include codeshares (multiple airlines sharing the same flight).",
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "enum": [
+                true,
+                false
+              ],
+              "example": true
+            }
+          },
+          {
+            "name": "terminal",
+            "in": "query",
+            "description": "Terminal to filter results by. If specified, only flights departing from the given terminal will be returned.",
+            "schema": {
+              "type": "string",
+              "example": "3"
+            }
+          },
+          {
+            "name": "timeFormat",
+            "in": "query",
+            "description": "Format for time-based fields, 12-hour or 24-hour format respectively.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "default": 12,
+              "enum": [
+                12,
+                24
+              ],
+              "example": 24
+            }
+          },
+          {
+            "name": "timeWindowBegin",
+            "in": "query",
+            "description": "The number of minutes before 'now' during which flights should potentially be included. Default window is based on airport classification.",
+            "schema": {
+              "maximum": 1440,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 120
+            }
+          },
+          {
+            "name": "timeWindowEnd",
+            "in": "query",
+            "description": "The number of minutes after 'now' during which flights should potentially be included. Default window is based on airport classification.",
+            "schema": {
+              "maximum": 4320,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 120
+            }
+          },
+          {
+            "name": "maxFlights",
+            "in": "query",
+            "description": "The maximum number of flights to be returned. If more than this number of flights are available within the time window they will be weighted according to relevance and only this many will be returned.",
+            "schema": {
+              "minimum": 1,
+              "type": "integer",
+              "format": "int64",
+              "example": 100
+            }
+          },
+          {
+            "name": "lateMinutes",
+            "in": "query",
+            "description": "The number of minutes after which a flight should be considered late, when generating remarks.",
+            "schema": {
+              "maximum": 240,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int64",
+              "default": 15,
+              "example": 15
+            }
+          },
+          {
+            "name": "boardingMinutes",
+            "in": "query",
+            "description": "The number of minutes before scheduled or estimated departure during which a flight should be considered boarding, when generating remarks. If not specified 'Boarding' messages will not be displayed.",
+            "schema": {
+              "maximum": 120,
+              "minimum": 0,
+              "type": "integer",
+              "format": "int64",
+              "example": 10
+            }
+          },
+          {
+            "name": "useRunwayTimes",
+            "in": "query",
+            "description": "Boolean value indicating whether runway times should be considered when determining delay and generating remarks.",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "enum": [
+                true,
+                false
+              ],
+              "example": false
+            }
+          },
+          {
+            "name": "excludeCargoOnlyFlights",
+            "in": "query",
+            "description": "Boolean value indicating whether cargo-only flights should be excluded.",
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "enum": [
+                true,
+                false
+              ],
+              "example": false
+            }
+          },
+          {
+            "name": "extendedOptions",
+            "in": "query",
+            "description": "[Extended options](/apis/flightstats-apis/get-started) for modifying standard API behavior to fit special use cases",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "useHttpErrors",
+                  "useInlinedReferences",
+                  "includeNewFields",
+                  "languageCode:en",
+                  "languageCode:ar",
+                  "languageCode:de",
+                  "languageCode:es",
+                  "languageCode:fr",
+                  "languageCode:ja",
+                  "languageCode:ko",
+                  "languageCode:pt",
+                  "languageCode:zh"
+                ]
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of FIDS flight status data.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                },
+                "examples": {
+                  "FIDS single field": {
+                    "description": "FIDS response with a single field, \"flight,\" requested. Default options.",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_single_field.json"
+                  },
+                  "FIDS most fields": {
+                    "description": "FIDS response with most fields included",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_most_fields.json"
+                  },
+                  "FIDS no codeshares": {
+                    "description": "FIDS response with most fields, with includeCodeshares=false",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_include_codeshares_false.json"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                },
+                "examples": {
+                  "FIDS single field": {
+                    "description": "FIDS response with a single field, \"flight,\" requested. Default options.",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_single_field.xml"
+                  },
+                  "FIDS most fields": {
+                    "description": "FIDS response with most fields included",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_most_fields.xml"
+                  },
+                  "FIDS no codeshares": {
+                    "description": "FIDS response with most fields, with includeCodeshares=false",
+                    "externalValue": "https://developer.cirium.com/link-proxy?https://api.flightstats.com/flex/fids/samples/v1/FIDS_response_include_codeshares_false.xml"
+                  }
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Client request error. Consult error response for specifics.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authorization failure. Invalid 'appId', 'appKey', or rate limit violation.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Requested item could not be found, or the endpoint does not exist.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          },
+          "5XX": {
+            "description": "API application error. If error is consistent, please contact Cirium Support.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "application/javascript; charset=UTF-8": {
+                "schema": {
+                  "$ref": "#/components/schemas/FidsResponse"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiResponseError": {
+        "type": "object",
+        "description": "In the default case, when an error occurs the API returns a 200 status code and this structure contains information about the error. Not returned if specifying _extendedOptions=useHTTPErrors_, in which case the API returns the HTTP error code and _text/plain_ body containing the same information as in the structure.",
+        "properties": {
+          "httpStatusCode": {
+            "type": "integer",
+            "format": "int32",
+            "example": 400,
+            "description": "This is the standard HTTP code (400, 401, 404, etc...)"
+          },
+          "errorId": {
+            "type": "string",
+            "example": "4d1c06b9-f999-4fd6-81fd-9a7d1cd5768f",
+            "description": "This is a unique identifier for the error used internally at Cirium. Include this string in helpdesk requests to help us troubleshoot issues."
+          },
+          "errorMessage": {
+            "type": "string",
+            "description": "This contains detail about the error. If there are multiple errors in the request, the string may have multiple items separated by a '|' character.",
+            "example": "Invalid value for carrier: AAAA|Invalid value for date: 1969-02-02 - The date specified is not within the expected range. Earliest allowed date '2021-08-23'"
+          },
+          "errorCode": {
+            "type": "string",
+            "example": "BAD_REQUEST"
+          }
+        }
+      },
+      "FidsFlight": {
+        "type": "object",
+        "properties": {
+          "flightId": {
+            "type": "string",
+            "example": "298260941",
+            "description": "Numeric flight ID. This can be used to look up more detailed flight information via the Flight Status by Flight API."
+          },
+          "lastUpdatedTime": {
+            "type": "string",
+            "example": "02:16 PM",
+            "description": "Time of day that this flight information was last updated, according to the selected airport's timezone"
+          },
+          "lastUpdatedTimeUtc": {
+            "type": "string",
+            "example": "10:16 PM",
+            "description": "Time of day that this flight information was last updated, in UTC"
+          },
+          "lastUpdatedDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "Date that this flight information was last updated, according to the selected airport's timezone"
+          },
+          "lastUpdatedDateUtc": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "Date that this flight information was last updated, in UTC"
+          },
+          "dayOffset": {
+            "type": "integer",
+            "format": "int32",
+            "example": 0,
+            "description": "Nonnegative integer representing the number of days forward from today (according to the selected airport's time zone). For today's flights, this will be 0."
+          },
+          "statusCode": {
+            "type": "string",
+            "example": "S",
+            "description": "The current status of the flight. One of the following values:\n - A - Active\n - C - Canceled\n - D - Diverted\n - DN - Data Needed\n - L - Landed\n - NO - Not Operational\n - R - Redirected\n - S - Scheduled\n - U - Unknown"
+          },
+          "airlineName": {
+            "type": "string",
+            "example": "SkyWest Airlines",
+            "description": "Name of the airline. For wet leases, this will be the marketing airline rather than the operating airline."
+          },
+          "airlineCode": {
+            "type": "string",
+            "example": "OO",
+            "description": "Airline code of the airline. For wet leases, this will be the code for the marketing airline rather than the operating airline."
+          },
+          "flightNumber": {
+            "type": "string",
+            "example": "6416",
+            "description": "Flight number assigned by the airline"
+          },
+          "airlineLogoUrlPng": {
+            "type": "string",
+            "example": "http://dskx8vepkd3ev.cloudfront.net/airline-logos/v2/logos/png/300x100/oo-logo.png",
+            "description": "URL of the airline logo as a 300x100 PNG image. Logo is for the operating airline, or in the case of a wet lease, the marketing airline. The logos are provided As Is. Some may be out-of-date or missing."
+          },
+          "airlineLogoUrlSvg": {
+            "type": "string",
+            "example": "http://dskx8vepkd3ev.cloudfront.net/airline-logos/v2/logos/svg/oo-logo.svg",
+            "description": "URL of the airline logo as an SVG image. Logo is for the operating airline, or in the case of a wet lease, the marketing airline. The logos are provided As Is. Some may be out-of-date or missing."
+          },
+          "isCodeshare": {
+            "type": "boolean",
+            "example": false,
+            "description": "Boolean value indicating whether the flight is a codeshare (flight marketed by multiple airlines)"
+          },
+          "operatedFlightNumber": {
+            "type": "string",
+            "example": "6416",
+            "description": "Flight number assigned by the operating airline"
+          },
+          "operatingAirlineName": {
+            "type": "string",
+            "example": "SkyWest Airlines",
+            "description": "Name of the flight's origin airport."
+          },
+          "operatingAirlineCode": {
+            "type": "string",
+            "example": "OO",
+            "description": "The FS code of the operating airline"
+          },
+          "primaryMarketingAirlineCode": {
+            "type": "string",
+            "example": "UA",
+            "description": "The FS code of the primary marketing airline"
+          },
+          "primaryMarketingAirlineName": {
+            "type": "string",
+            "example": "United Airlines",
+            "description": "The name of the primary marketing airline"
+          },
+          "originAirportName": {
+            "type": "string",
+            "example": "San Francisco International Airport",
+            "description": "Name of the flight's origin airport"
+          },
+          "originAirportCode": {
+            "type": "string",
+            "example": "SFO",
+            "description": "Code of the flight's origin airport"
+          },
+          "originCity": {
+            "type": "string",
+            "example": "San Francisco",
+            "description": "Name of the flight's origin city"
+          },
+          "originFamiliarName": {
+            "type": "string",
+            "example": "New York - JFK",
+            "description": "A name for the flight origin that the travelers expect, particularly used to distinguish between cities with the same name or multiple airports that serve the same city."
+          },
+          "originStateCode": {
+            "type": "string",
+            "example": "CA",
+            "description": "State (or province, where applicable) code of the origin airport"
+          },
+          "originCountryCode": {
+            "type": "string",
+            "example": "US",
+            "description": "Country code of the flight's origin airport"
+          },
+          "destinationAirportName": {
+            "type": "string",
+            "example": "Albuquerque International Airport",
+            "description": "Name of the flight's destination airport"
+          },
+          "destinationAirportCode": {
+            "type": "string",
+            "example": "ABQ",
+            "description": "Code of the flight's destination airport"
+          },
+          "destinationCity": {
+            "type": "string",
+            "example": "Albuquerque",
+            "description": "Name of the flight's destination city"
+          },
+          "destinationFamiliarName": {
+            "type": "string",
+            "example": "New York - JFK",
+            "description": "A name for the destination that the travelers expect, particularly used to distinguish between cities with the same name or multiple airports that serve the same city"
+          },
+          "destinationStateCode": {
+            "type": "string",
+            "example": "NM",
+            "description": "State (or province, where applicable) code of the destination airport"
+          },
+          "destinationCountryCode": {
+            "type": "string",
+            "example": "US",
+            "description": "Country code of the flight's destination airport"
+          },
+          "flight": {
+            "type": "string",
+            "example": "OO 6416",
+            "description": "The combination of the airline code and the flight number"
+          },
+          "delayed": {
+            "type": "boolean",
+            "example": false,
+            "description": "Boolean value indicating whether the flight is delayed"
+          },
+          "remarks": {
+            "type": "string",
+            "example": "Arrived 30 minutes late",
+            "description": "A phrase with additional information about the status of the flight, including delay information (in minutes) if appropriate"
+          },
+          "remarksWithTime": {
+            "type": "string",
+            "example": "Arrived 04:27",
+            "description": "A phrase with additional information about the status of the flight, including local time if appropriate"
+          },
+          "remarksCode": {
+            "type": "string",
+            "description": "The remarksCode field contains one of the following constant string values, indicating which general case the remarks field falls into. \nThis can be used, for example, to select a differently-colored background for certain categories. \nBecause the specific contents of the remarks within a category can vary (especially when using different language codes), this field provides reliable constants that are simpler to identify.\n\nPossible codes are:\n- ON_TIME - Flight is expected to arrive/depart on time\n- BOARDING - Flight is currently boarding\n- CANCELLED - Flight has been cancelled\n- DIVERTED - Flight has been diverted\n- ARRIVED_ON_TIME - Flight has made an on-time arrival\n- ARRIVAL_DELAYED - Flight is projected to arrive late\n- ARRIVED_LATE - Flight has arrived, but later than scheduled\n- DEPARTED_ON_TIME - Flight has made an on-time departure\n- DEPARTURE_DELAYED - Flight is projected to depart late\n- DEPARTED_LATE - Flight has departed, but later than scheduled\n- UNKNOWN - No remarks information available for this flight\n",
+            "example": "ON_TIME"
+          },
+          "airportCode": {
+            "type": "string",
+            "example": "ABQ",
+            "description": "Code for the destination (for departing flights) or origin (for arrivals) airport"
+          },
+          "airportName": {
+            "type": "string",
+            "example": "Albuquerque  International  Airport",
+            "description": "Name of the destination (for departing flights) or origin (for arrivals) airport"
+          },
+          "city": {
+            "type": "string",
+            "example": "Albuquerque",
+            "description": "Name of the destination (for departing flights) or origin (for arrivals) city"
+          },
+          "familiarName": {
+            "type": "string",
+            "example": "Albuquerque",
+            "description": "A name for the destination (for departing flights) or origin (for arrivals) that the travelers expect, particularly used to distinguish between cities with the same name or multiple airports that serve the same city"
+          },
+          "gate": {
+            "type": "string",
+            "example": "A1",
+            "description": "Name of the gate where the flight will depart/arrive"
+          },
+          "terminal": {
+            "type": "string",
+            "example": "1",
+            "description": "Name of the terminal where the flight will depart/arrive"
+          },
+          "baggage": {
+            "type": "string",
+            "example": "1",
+            "description": "The baggage claim information for the flight arriva"
+          },
+          "scheduledTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The scheduled arrival or departure time, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "scheduledDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The scheduled arrival or departure date, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "estimatedTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The estimated arrival or departure time, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "estimatedDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The estimated arrival or departure date, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "actualTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The actual arrival or departure time, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "actualDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The actual arrival or departure date, depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "currentTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The most accurate arrival or departure time (priority: 1. actual 2. estimated 3 scheduled), depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "currentDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The most accurate arrival or departure date (priority: 1. actual 2. estimated 3 scheduled), depending on whether you asked for arrivals or departures. If you have opted to use runway times this may be a runway time if no gate time is available."
+          },
+          "scheduledGateTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The scheduled gate arrival or departure time, depending on whether you asked for arrivals or departures"
+          },
+          "scheduledGateDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The scheduled gate arrival or departure date, depending on whether you asked for arrivals or departures"
+          },
+          "estimatedGateTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The estimated gate arrival or departure time, depending on whether you asked for arrivals or departures"
+          },
+          "estimatedGateDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The estimated gate arrival or departure date, depending on whether you asked for arrivals or departures"
+          },
+          "actualGateTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The actual gate arrival or departure time, depending on whether you asked for arrivals or departures"
+          },
+          "actualGateDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The actual gate arrival or departure date, depending on whether you asked for arrivals or departures"
+          },
+          "currentGateTime": {
+            "type": "string",
+            "example": "12:50 PM",
+            "description": "The most accurate gate arrival or departure time, depending on whether you asked for arrivals or departures"
+          },
+          "currentGateDate": {
+            "type": "string",
+            "example": "02/10/2013",
+            "description": "The most accurate gate arrival or departure date, depending on whether you asked for arrivals or departures"
+          },
+          "codesharesAsNames": {
+            "type": "array",
+            "description": "If this flight is marketed by multiple carriers, this fields lists those codeshare flights with the airline name and flight number",
+            "example": [
+              "United Airlines 6416",
+              "ANA - All Nippon Airways 7328",
+              "Air Canada 4030"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "codeShareAsName"
+              }
+            }
+          },
+          "codesharesAsCodes": {
+            "type": "array",
+            "description": "If this flight is marketed by multiple carriers, this field lists those codeshare flights with the airline code and flight number",
+            "example": [
+              "UA 6416",
+              "NH 7328",
+              "AC 4030"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "codeShareAsCode"
+              }
+            }
+          },
+          "uplineAirportNames": {
+            "type": "array",
+            "description": "The names of the airports, in order, from the flight segments preceding this segment",
+            "example": [
+              "Dallas/Ft. Worth International Airport",
+              "Hartsfield-Jackson Atlanta International Airport"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "uplineAirportName"
+              }
+            }
+          },
+          "uplineAirportCodes": {
+            "type": "array",
+            "description": "The codes of the airports, in order, from the flight segments preceding this segment",
+            "example": [
+              "DFW",
+              "ATL"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "uplineAirportCode"
+              }
+            }
+          },
+          "downlineAirportNames": {
+            "type": "array",
+            "description": "The names of the airports, in order, from the flight segments after this segment",
+            "example": [
+              "Seattle/Tacoma International Airport",
+              "Vancouver International Airport"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "downlineAirportName"
+              }
+            }
+          },
+          "downlineAirportCodes": {
+            "type": "array",
+            "description": "The codes of the airports, in order, from the flight segments after segment",
+            "example": [
+              "SEA",
+              "YVR"
+            ],
+            "xml": {
+              "wrapped": true
+            },
+            "items": {
+              "type": "string",
+              "xml": {
+                "name": "downlineAirportCode"
+              }
+            }
+          },
+          "weather": {
+            "type": "string",
+            "description": "A short description of the weather conditions at the remote airport",
+            "example": "Cloudy"
+          },
+          "weatherGraphic": {
+            "type": "string"
+          },
+          "temperatureC": {
+            "type": "number",
+            "format": "double",
+            "description": "Air temperature, in degrees Celsius/centigrade, at the remote airport",
+            "example": 0
+          },
+          "temperatureF": {
+            "type": "number",
+            "format": "double",
+            "description": "Air temperature, in degrees Fahrenheit, at the remote airport",
+            "example": 32
+          }
+        }
+      },
+      "FidsResponse": {
+        "type": "object",
+        "description": "The response body includes the following:\n- APIResponseError - If there is an error, the response includes this error object describing the problem\n- fidsData - An array of data containing the fields per requested for each flight found\n",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiResponseError"
+          },
+          "fidsData": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FidsFlight"
+            }
+          }
+        },
+        "xml": {
+          "name": "response"
+        }
+      }
+    },
+    "securitySchemes": {
+      "appIdQueryParam": {
+        "type": "apiKey",
+        "description": "ID of the application making the request",
+        "name": "appId",
+        "in": "query"
+      },
+      "appKeyQueryParam": {
+        "type": "apiKey",
+        "description": "Authentication key of the application making the request",
+        "name": "appKey",
+        "in": "query"
+      },
+      "appIdHeader": {
+        "type": "apiKey",
+        "description": "ID of the application making the request",
+        "name": "appId",
+        "in": "header"
+      },
+      "appKeyHeader": {
+        "type": "apiKey",
+        "description": "Authentication key of the application making the request",
+        "name": "appKey",
+        "in": "header"
+      }
+    }
+  }
+}

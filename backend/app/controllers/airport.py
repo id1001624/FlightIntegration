@@ -18,7 +18,7 @@ def get_airports():
     try:
         # 直接使用query查詢，避免使用Base類的get_all方法
         airports = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
             Airport.country, Airport.timezone, Airport.contact_info, 
             Airport.website_url
@@ -28,8 +28,7 @@ def get_airports():
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'iata_code': airport.iata_code,
+                'id': airport.airport_id,
                 'name_zh': airport.name_zh,
                 'name_en': airport.name_en,
                 'city': airport.city,
@@ -51,17 +50,16 @@ def get_taiwan_airports():
     try:
         # 直接使用query查詢，避免使用類方法
         airports = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
             Airport.timezone, Airport.contact_info, Airport.website_url
-        ).filter(Airport.country == '台灣').all()
+        ).filter(Airport.country == 'Taiwan').all()
         
         # 轉換為JSON格式
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'iata_code': airport.iata_code,
+                'id': airport.airport_id,
                 'name_zh': airport.name_zh,
                 'name_en': airport.name_en,
                 'city': airport.city,
@@ -75,26 +73,25 @@ def get_taiwan_airports():
     except Exception as e:
         return jsonify({'error': f'獲取台灣機場列表失敗: {str(e)}'}), 500
 
-@airport_bp.route('/<string:iata_code>', methods=['GET'])
+@airport_bp.route('/<string:airport_id>', methods=['GET'])
 @cache.cached(timeout=7200)  # 緩存2小時
-def get_airport_by_iata(iata_code):
-    """通過IATA代碼獲取機場"""
+def get_airport_by_id(airport_id):
+    """通過ID獲取機場"""
     try:
         # 直接使用query查詢
         airport = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
             Airport.country, Airport.timezone, Airport.contact_info, 
             Airport.website_url
-        ).filter(Airport.iata_code == iata_code).first()
+        ).filter(Airport.airport_id == airport_id).first()
         
         if not airport:
             return jsonify({'error': '找不到該機場'}), 404
         
         # 轉換為JSON格式
         result = {
-            'id': str(airport.airport_id),
-            'iata_code': airport.iata_code,
+            'id': airport.airport_id,
             'name_zh': airport.name_zh,
             'name_en': airport.name_en,
             'city': airport.city,
@@ -116,7 +113,7 @@ def get_airports_by_country(country):
     try:
         # 直接使用query查詢
         airports = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
             Airport.country, Airport.timezone, Airport.contact_info, 
             Airport.website_url
@@ -126,8 +123,7 @@ def get_airports_by_country(country):
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'iata_code': airport.iata_code,
+                'id': airport.airport_id,
                 'name_zh': airport.name_zh,
                 'name_en': airport.name_en,
                 'city': airport.city,
@@ -148,7 +144,7 @@ def get_airports_by_city(city):
     try:
         # 直接使用query查詢
         airports = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
             Airport.country, Airport.timezone, Airport.contact_info, 
             Airport.website_url
@@ -158,8 +154,7 @@ def get_airports_by_city(city):
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'iata_code': airport.iata_code,
+                'id': airport.airport_id,
                 'name_zh': airport.name_zh,
                 'name_en': airport.name_en,
                 'city': airport.city,
@@ -192,7 +187,7 @@ def get_available_departures():
         # 獲取這些機場的詳細資訊
         current_app.logger.debug("執行資料庫查詢: 獲取機場詳細資訊")
         airports_query = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en
         ).filter(Airport.airport_id.in_(departure_ids))
         current_app.logger.debug(f"執行查詢SQL: {str(airports_query.statement)}")
@@ -202,8 +197,8 @@ def get_available_departures():
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'code': airport.iata_code,
+                'id': airport.airport_id,
+                'code': airport.airport_id,
                 'name': airport.name_zh or airport.name_en,
                 'city': airport.city
             })
@@ -225,18 +220,9 @@ def get_available_destinations(departure_code):
     try:
         current_app.logger.info(f"開始查詢從 {departure_code} 出發的可用目的地")
         
-        # 先獲取出發機場ID
-        current_app.logger.debug(f"執行資料庫查詢: 獲取機場 {departure_code} 的ID")
-        airport_query = db.session.query(Airport.airport_id).filter(Airport.iata_code == departure_code)
-        current_app.logger.debug(f"執行查詢SQL: {str(airport_query.statement)}")
-        departure_airport = airport_query.first()
-        
-        if not departure_airport:
-            current_app.logger.warning(f"找不到IATA代碼為 {departure_code} 的機場")
-            return jsonify({'error': f'找不到IATA代碼為 {departure_code} 的機場'}), 404
-            
-        departure_id = departure_airport.airport_id
-        current_app.logger.info(f"找到出發機場ID: {departure_id}")
+        # 先獲取出發機場ID - 現在 departure_code 就是 airport_id
+        departure_id = departure_code
+        current_app.logger.info(f"使用出發機場ID: {departure_id}")
         
         # 查詢所有從該機場出發的航班的目的地機場ID
         current_app.logger.debug(f"執行資料庫查詢: 獲取從機場ID {departure_id} 出發的目的地機場ID")
@@ -249,10 +235,13 @@ def get_available_destinations(departure_code):
         
         current_app.logger.info(f"找到 {len(destination_ids)} 個目的地機場ID: {destination_ids}")
         
+        if not destination_ids:
+            return jsonify([])
+        
         # 獲取這些機場的詳細資訊
         current_app.logger.debug("執行資料庫查詢: 獲取目的地機場詳細資訊")
         airports_query = db.session.query(
-            Airport.airport_id, Airport.iata_code, Airport.name_zh, 
+            Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en
         ).filter(Airport.airport_id.in_(destination_ids))
         current_app.logger.debug(f"執行查詢SQL: {str(airports_query.statement)}")
@@ -262,19 +251,14 @@ def get_available_destinations(departure_code):
         result = []
         for airport in airports:
             result.append({
-                'id': str(airport.airport_id),
-                'code': airport.iata_code,
+                'id': airport.airport_id,
+                'code': airport.airport_id,
                 'name': airport.name_zh or airport.name_en,
                 'city': airport.city
             })
         
-        current_app.logger.info(f"從機場 {departure_code} 出發，成功返回 {len(result)} 個目的地機場")
+        current_app.logger.info(f"成功返回 {len(result)} 個目的地機場")
         return jsonify(result)
     except Exception as e:
-        current_app.logger.error(f"獲取從 {departure_code} 出發的目的地機場失敗: {str(e)}", exc_info=True)
-        current_app.logger.error(f"錯誤類型: {type(e)}")
-        # 嘗試獲取更多錯誤信息
-        import traceback
-        error_traceback = traceback.format_exc()
-        current_app.logger.error(f"錯誤堆疊: {error_traceback}")
-        return jsonify({'error': f'獲取目的地機場失敗: {str(e)}'}), 500 
+        current_app.logger.error(f"獲取可用目的地失敗: {str(e)}", exc_info=True)
+        return jsonify({'error': f'獲取可用目的地失敗: {str(e)}'}), 500 

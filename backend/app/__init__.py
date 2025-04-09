@@ -1,13 +1,22 @@
 """
 應用初始化模塊
 """
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+import asyncio
+from flask.json import jsonify
+from werkzeug.exceptions import HTTPException
+from asgiref.wsgi import WsgiToAsgi
+
+# 加載環境變量
+from dotenv import load_dotenv
+load_dotenv()
+
 from flask import Flask
 from flask_cors import CORS
 from flask_caching import Cache
 from .models.base import db
-import os
-import logging
-from logging.handlers import RotatingFileHandler
 
 # 初始化緩存
 cache = Cache()
@@ -53,7 +62,20 @@ def create_app(config_name=None):
     # 註冊錯誤處理
     register_error_handlers(app)
     
+    # 支持異步路由函數
+    app.before_request_funcs.setdefault(None, []).append(setup_async_context)
+    
     return app
+
+def setup_async_context():
+    """設置異步上下文"""
+    try:
+        # 嘗試獲取或創建事件循環
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        # 沒有事件循環，創建一個新的
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
 def setup_logging(app):
     """設置日誌配置"""
@@ -63,18 +85,27 @@ def setup_logging(app):
         
     log_level = getattr(logging, app.config.get('LOG_LEVEL', 'INFO'))
     
-    handler = RotatingFileHandler(
+    # 確保所有日誌處理器都使用UTF-8編碼
+    file_handler = RotatingFileHandler(
         os.path.join(log_dir, 'app.log'),
         maxBytes=10000000,  # 10MB
-        backupCount=5
+        backupCount=5,
+        encoding='utf-8',  # 添加UTF-8編碼參數
+        mode='a'           # 確保使用追加模式
     )
+    
     formatter = logging.Formatter(
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    handler.setFormatter(formatter)
-    handler.setLevel(log_level)
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(log_level)
     
-    app.logger.addHandler(handler)
+    # 清除現有處理器
+    for handler in app.logger.handlers[:]:
+        app.logger.removeHandler(handler)
+        
+    # 添加新處理器
+    app.logger.addHandler(file_handler)
     app.logger.setLevel(log_level)
     
     # 同時輸出到控制台
@@ -82,6 +113,31 @@ def setup_logging(app):
     console_handler.setFormatter(formatter)
     console_handler.setLevel(log_level)
     app.logger.addHandler(console_handler)
+    
+    # 設置根記錄器
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    
+    # 清除根記錄器現有處理器
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        
+    # 將相同的處理器添加到根記錄器
+    root_file_handler = RotatingFileHandler(
+        os.path.join(log_dir, 'app.log'),
+        maxBytes=10000000,
+        backupCount=5,
+        encoding='utf-8',
+        mode='a'
+    )
+    root_file_handler.setFormatter(formatter)
+    root_file_handler.setLevel(log_level)
+    root_logger.addHandler(root_file_handler)
+    
+    root_console_handler = logging.StreamHandler()
+    root_console_handler.setFormatter(formatter)
+    root_console_handler.setLevel(log_level)
+    root_logger.addHandler(root_console_handler)
 
 def register_blueprints(app):
     """註冊所有藍圖"""

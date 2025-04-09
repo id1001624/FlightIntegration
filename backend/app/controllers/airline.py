@@ -19,8 +19,7 @@ def get_airlines():
         result = []
         for airline in airlines:
             result.append({
-                'id': str(airline.airline_id),
-                'iata_code': airline.iata_code,
+                'id': airline.airline_id,
                 'name_zh': airline.name_zh,
                 'name_en': airline.name_en,
                 'is_domestic': airline.is_domestic,
@@ -41,8 +40,7 @@ def get_domestic_airlines():
         result = []
         for airline in airlines:
             result.append({
-                'id': str(airline.airline_id),
-                'iata_code': airline.iata_code,
+                'id': airline.airline_id,
                 'name_zh': airline.name_zh,
                 'name_en': airline.name_en,
                 'website': airline.website,
@@ -62,8 +60,7 @@ def get_international_airlines():
         result = []
         for airline in airlines:
             result.append({
-                'id': str(airline.airline_id),
-                'iata_code': airline.iata_code,
+                'id': airline.airline_id,
                 'name_zh': airline.name_zh,
                 'name_en': airline.name_en,
                 'website': airline.website,
@@ -74,18 +71,17 @@ def get_international_airlines():
         current_app.logger.error(f"獲取國際航空公司失敗: {str(e)}")
         return jsonify({'error': '獲取國際航空公司失敗'}), 500
 
-@airline_bp.route('/<string:iata_code>', methods=['GET'])
+@airline_bp.route('/<string:airline_id>', methods=['GET'])
 @cache.cached(timeout=3600)  # 緩存1小時
-def get_airline_by_iata(iata_code):
-    """根據IATA代碼獲取航空公司"""
+def get_airline_by_id(airline_id):
+    """根據ID獲取航空公司"""
     try:
-        airline = Airline.get_by_iata(iata_code)
+        airline = Airline.query.get(airline_id)
         if not airline:
             return jsonify({'error': '找不到該航空公司'}), 404
         
         result = {
-            'id': str(airline.airline_id),
-            'iata_code': airline.iata_code,
+            'id': airline.airline_id,
             'name_zh': airline.name_zh,
             'name_en': airline.name_en,
             'is_domestic': airline.is_domestic,
@@ -119,8 +115,7 @@ def search_airlines():
     result = []
     for airline in airlines:
         result.append({
-            'id': str(airline.airline_id),
-            'iata_code': airline.iata_code,
+            'id': airline.airline_id,
             'name_zh': airline.name_zh,
             'name_en': airline.name_en,
             # 已移除 country 欄位引用

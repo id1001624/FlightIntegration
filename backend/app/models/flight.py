@@ -12,20 +12,32 @@ class Flight(Base):
     
     flight_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     flight_number = db.Column(db.String, nullable=False)
-    airline_id = db.Column(UUID(as_uuid=True), db.ForeignKey('airlines.airline_id'), nullable=False)
-    departure_airport_id = db.Column(UUID(as_uuid=True), db.ForeignKey('airports.airport_id'), nullable=False)
-    arrival_airport_id = db.Column(UUID(as_uuid=True), db.ForeignKey('airports.airport_id'), nullable=False)
+    airline_id = db.Column(db.String, db.ForeignKey('airlines.airline_id'), nullable=False)
+    departure_airport_id = db.Column(db.String, db.ForeignKey('airports.airport_id'), nullable=False)
+    arrival_airport_id = db.Column(db.String, db.ForeignKey('airports.airport_id'), nullable=False)
     scheduled_departure = db.Column(db.DateTime(timezone=True), nullable=False)
     scheduled_arrival = db.Column(db.DateTime(timezone=True), nullable=False)
     status = db.Column(db.String)
+    is_delayed = db.Column(db.Boolean, default=False)  # 是否延誤
     
-    # 只在Flight模型中添加時間戳欄位
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+    # 保留的欄位
+    terminal = db.Column(db.String, nullable=True)  # 航廈資訊
+    gate = db.Column(db.String, nullable=True)      # 登機門資訊
+    
+    # 使用應用程式所在時區的當前時間，而非UTC時間
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=True)
     
     # 關聯
     ticket_prices = db.relationship('TicketPrice', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
     price_history = db.relationship('PriceHistory', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
+    
+    # 狀態常量
+    STATUS_ON_TIME = "準時"
+    STATUS_DELAYED = "延誤"
+    STATUS_CANCELLED = "取消"
+    STATUS_DEPARTED = "已起飛"
+    STATUS_ARRIVED = "已抵達"
     
     def __repr__(self):
         return f"<Flight {self.flight_number} {self.scheduled_departure.strftime('%Y-%m-%d %H:%M')}>"
@@ -44,6 +56,33 @@ class Flight(Base):
         return (self.departure_airport.country == 'Taiwan' or 
                 self.arrival_airport.country == 'Taiwan')
                 
+    def update_status(self):
+        """
+        根據當前時間和航班計劃時間更新航班狀態
+        
+        邏輯：
+        1. 如果 is_delayed 為真，狀態設為「延誤」
+        2. 當前時間超過計劃降落時間，狀態設為「已抵達」
+        3. 當前時間超過計劃起飛時間，狀態設為「已起飛」
+        4. 其他情況，狀態保持「準時」
+        
+        注意：如需更精確的狀態判斷，建議通過API獲取實時資料
+        """
+        now = datetime.now()
+        
+        # 如果手動標記為延誤
+        if self.is_delayed:
+            self.status = self.STATUS_DELAYED
+            return
+            
+        # 根據當前時間判斷狀態
+        if now > self.scheduled_arrival:
+            self.status = self.STATUS_ARRIVED
+        elif now > self.scheduled_departure:
+            self.status = self.STATUS_DEPARTED
+        else:
+            self.status = self.STATUS_ON_TIME
+    
     @classmethod
     def search_flights(cls, departure_airport_id, arrival_airport_id, 
                       departure_date, return_date=None, airline_id=None):
@@ -79,6 +118,10 @@ class Flight(Base):
         
         outbound_flights = query.order_by(cls.scheduled_departure).all()
         
+        # 更新所有航班的狀態
+        for flight in outbound_flights:
+            flight.update_status()
+        
         # 如果指定了返回日期，查詢返回航班
         if return_date:
             return_start = datetime.combine(return_date, datetime.min.time())
@@ -95,6 +138,11 @@ class Flight(Base):
                 return_query = return_query.filter(cls.airline_id == airline_id)
                 
             return_flights = return_query.order_by(cls.scheduled_departure).all()
+            
+            # 更新所有返程航班的狀態
+            for flight in return_flights:
+                flight.update_status()
+                
             return outbound_flights, return_flights
         
         return outbound_flights 
@@ -103,7 +151,10 @@ class Flight(Base):
     def search(cls, departure_airport_id=None, arrival_airport_id=None, 
                 departure_date=None, airline_id=None, is_test_data=False):
         """搜尋航班"""
-        query = cls.query.filter_by(is_test_data=is_test_data)
+        query = cls.query
+        
+        if hasattr(cls, 'is_test_data'):
+            query = query.filter_by(is_test_data=is_test_data)
         
         if departure_airport_id:
             query = query.filter_by(departure_airport_id=departure_airport_id)
@@ -121,5 +172,11 @@ class Flight(Base):
         
         if airline_id:
             query = query.filter_by(airline_id=airline_id)
+        
+        flights = query.all()
+        
+        # 更新所有航班的狀態
+        for flight in flights:
+            flight.update_status()
             
-        return query.all() 
+        return flights 

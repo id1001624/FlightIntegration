@@ -11,7 +11,7 @@ class Weather(Base):
     __tablename__ = 'weather'
     
     weather_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    airport_id = db.Column(UUID(as_uuid=True), db.ForeignKey('airports.airport_id'), nullable=False)
+    airport_id = db.Column(db.String, db.ForeignKey('airports.airport_id'), nullable=False)
     forecast_date = db.Column(db.Date, nullable=False)
     forecast_time = db.Column(db.Time)
     temperature = db.Column(db.Float)
@@ -34,7 +34,7 @@ class Weather(Base):
         """轉換為字典"""
         return {
             'id': self.weather_id,
-            'airport_id': str(self.airport_id),
+            'airport_id': self.airport_id,
             'forecast_date': self.forecast_date.isoformat() if self.forecast_date else None,
             'forecast_time': self.forecast_time.isoformat() if self.forecast_time else None,
             'temperature': self.temperature,

@@ -1,16 +1,13 @@
 """
 機場模型
 """
-from sqlalchemy.dialects.postgresql import UUID
-from uuid import uuid4
 from .base import db, Base
 
 class Airport(Base):
     """機場數據模型"""
     __tablename__ = 'airports'
     
-    airport_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    iata_code = db.Column(db.String)
+    airport_id = db.Column(db.String, primary_key=True)
     name_zh = db.Column(db.String, nullable=False)
     name_en = db.Column(db.String, nullable=False)
     city = db.Column(db.String, nullable=False)
@@ -26,12 +23,12 @@ class Airport(Base):
     weather_data = db.relationship('Weather', backref='airport', lazy='dynamic')
     
     def __repr__(self):
-        return f"<Airport {self.iata_code} - {self.name_zh}>"
+        return f"<Airport {self.airport_id} - {self.name_zh}>"
     
     @classmethod
     def get_by_iata(cls, iata_code):
         """通過IATA代碼獲取機場"""
-        return cls.query.filter_by(iata_code=iata_code).first()
+        return cls.query.filter_by(airport_id=iata_code).first()
     
     @classmethod
     def get_by_city(cls, city):
