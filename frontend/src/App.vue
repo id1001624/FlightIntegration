@@ -9,7 +9,7 @@
       <header class="header">
         <div class="logo-container">
           <router-link to="/" class="logo">
-            <span class="logo-icon">✈</span>
+            <img src="@/assets/images/logo/logo.svg" alt="Logo" class="logo-image">
             <span class="logo-text">Flight Integration</span>
           </router-link>
         </div>
@@ -158,7 +158,9 @@ html, body {
   font-size: 1.5rem;
 }
 
-.logo-icon {
+.logo-image {
+  height: 28px;
+  width: auto;
   margin-right: var(--spacing-sm);
 }
 

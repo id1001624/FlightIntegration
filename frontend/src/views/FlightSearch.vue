@@ -250,7 +250,14 @@ export default {
     };
 
     const handleFilterChange = (newFilters) => {
-      Object.assign(filters, newFilters);
+      // 更新篩選條件
+      if (newFilters.airlines) {
+        filters.airlines = [...newFilters.airlines];
+      }
+      if (newFilters.priceRange) {
+        filters.priceRange.min = newFilters.priceRange.min;
+        filters.priceRange.max = newFilters.priceRange.max;
+      }
       applyFilters();
     };
 
@@ -290,56 +297,168 @@ export default {
 
 <style scoped>
 .flight-search-page {
-  min-height: 100%;
-  position: relative;
+  min-height: 90vh;
+  background-color: var(--color-background);
 }
 
+/* 搜索背景 */
 .search-background {
-  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg');
-  background-size: cover;
-  background-position: center;
+  background-color: var(--color-primary);
+  color: white;
+  padding: 40px 0;
   position: relative;
-  padding: var(--spacing-xl) 0;
+  overflow: hidden;
 }
 
-.search-background::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.75);
-  z-index: 1;
-}
-
-.search-background .page-container {
-  position: relative;
-  z-index: 2;
-}
-
+/* 頁面容器 */
 .page-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 var(--spacing-md);
+  padding: 0 20px;
 }
 
+/* 頁面標題區 */
 .page-header {
-  margin-bottom: var(--spacing-lg);
-  text-align: left;
+  text-align: center;
+  margin-bottom: 30px;
 }
 
 .page-title {
   font-size: 2rem;
+  margin-bottom: 8px;
   font-weight: 700;
-  margin-bottom: var(--spacing-xs);
-  color: var(--color-text-primary);
 }
 
 .page-description {
-  color: var(--color-text-secondary);
   font-size: 1.1rem;
-  max-width: 600px;
+  font-weight: 300;
+  opacity: 0.9;
+}
+
+/* 搜索面板 */
+.search-panel {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* 結果容器 */
+.results-container {
+  margin-top: 20px;
+  min-height: 50vh;
+}
+
+/* 路線摘要 */
+.route-summary {
+  background-color: white;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid var(--color-border);
+}
+
+.route-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.airports-display {
+  display: flex;
+  align-items: center;
+}
+
+.airport-code {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.route-line {
+  position: relative;
+  width: 100px;
+  height: 2px;
+  background-color: var(--color-border);
+  margin: 0 16px;
+}
+
+.route-arrow {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--color-border);
+}
+
+.date-display {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+}
+
+/* 搜索結果佈局 */
+.search-results-layout {
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  gap: 20px;
+}
+
+/* 篩選面板 */
+.filters-panel {
+  background-color: white;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+}
+
+.filters-header {
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.filters-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* 航班結果面板 */
+.flights-panel {
+  min-height: 400px;
+}
+
+/* 空狀態 */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+
+.empty-state-content {
+  text-align: center;
+  padding: 30px;
+  background-color: white;
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid var(--color-border);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  color: var(--color-secondary);
+}
+
+.empty-title {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  color: var(--color-text-primary);
+}
+
+.empty-message {
+  color: var(--color-text-secondary);
 }
 
 /* 載入指示器 */
@@ -347,8 +466,8 @@ export default {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
+  width: 100%;
+  height: 100%;
   background-color: rgba(255, 255, 255, 0.8);
   display: flex;
   justify-content: center;
@@ -359,175 +478,32 @@ export default {
 .loading-spinner {
   width: 50px;
   height: 50px;
-  border: 4px solid rgba(0, 95, 115, 0.1);
-  border-left-color: var(--color-primary);
-  border-radius: 50%;
+  border: 5px solid var(--color-border);
+  border-top-color: var(--color-primary);
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-/* 搜索面板 */
-.search-panel {
-  margin-bottom: var(--spacing-lg);
-}
-
-/* 結果容器 */
-.results-container {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-lg);
-  margin-top: var(--spacing-xl);
-}
-
-/* 路線摘要 */
-.route-summary {
-  background-color: var(--color-white);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.route-info {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.airports-display {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-}
-
-.airport-code {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.route-line {
-  flex-grow: 1;
-  height: 2px;
-  background-color: var(--color-border);
-  position: relative;
-  margin: 0 var(--spacing-sm);
-}
-
-.route-arrow {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 5px solid var(--color-border);
-}
-
-.date-display {
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-}
-
-/* 搜索結果佈局 */
-.search-results-layout {
-  display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: var(--spacing-lg);
-}
-
-/* 篩選面板 */
-.filters-panel {
-  background-color: var(--color-white);
-  padding: var(--spacing-lg);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.filters-header {
-  margin-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--spacing-sm);
-}
-
-.filters-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-/* 航班面板 */
-.flights-panel {
-  background-color: var(--color-white);
-  min-height: 400px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  padding: var(--spacing-lg);
-}
-
-/* 空狀態 */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-  background-color: var(--color-white);
-  padding: var(--spacing-xl);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  margin-top: var(--spacing-xl);
-}
-
-.empty-state-content {
-  text-align: center;
-  max-width: 500px;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  color: var(--color-primary);
-  margin-bottom: var(--spacing-md);
-}
-
-.empty-title {
-  font-size: 1.5rem;
-  margin-bottom: var(--spacing-sm);
-  color: var(--color-text-primary);
-}
-
-.empty-message {
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-/* 媒體查詢 */
-@media (max-width: 992px) {
+/* 響應式 */
+@media (max-width: 768px) {
   .search-results-layout {
     grid-template-columns: 1fr;
   }
-  
-  .filters-panel {
-    margin-bottom: var(--spacing-lg);
-  }
-}
 
-@media (max-width: 576px) {
-  .page-title {
-    font-size: 1.75rem;
+  .route-summary {
+    flex-direction: column;
+    gap: 10px;
   }
-  
-  .page-description {
-    font-size: 1rem;
-  }
-  
-  .airport-code {
-    font-size: 1.25rem;
+
+  .route-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }
 </style> 

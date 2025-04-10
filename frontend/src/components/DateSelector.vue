@@ -9,7 +9,7 @@
       :min="minDate"
       :max="maxDate"
       :disabled="disabled"
-      class="input w-full"
+      class="input w-full border-gray-300 focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
       :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
     />
     <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
@@ -66,4 +66,26 @@ export default {
     };
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-width: 1px;
+  background-color: #fff;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.input:focus {
+  outline: none;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #212529;
+}
+</style> 

@@ -4,8 +4,8 @@
       <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center space-x-3">
-          <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="h-8 w-8 object-contain rounded-full bg-gray-100 border border-gray-200" />
-          <div v-else class="h-8 w-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
+          <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="h-8 w-8 object-contain bg-gray-100 border border-gray-200" />
+          <div v-else class="h-8 w-8 bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
             ? <!-- Placeholder for missing logo -->
           </div>
           <div>
@@ -30,10 +30,10 @@
         <!-- 旅程線條與時長 -->
         <div class="flex-grow text-center px-2">
           <p class="text-xs text-text-secondary mb-1">{{ flightDuration }}</p>
-          <div class="relative h-1 bg-gray-200 rounded-full">
-            <div class="absolute left-0 top-0 h-1 bg-primary rounded-full" style="width: 100%;"></div>
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-3 w-3 rounded-full bg-primary"></div>
-            <div class="absolute right-0 top-1/2 transform -translate-y-1/2 h-3 w-3 rounded-full bg-primary"></div>
+          <div class="relative h-1 bg-gray-200">
+            <div class="absolute left-0 top-0 h-1 bg-primary" style="width: 100%;"></div>
+            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-3 w-3 bg-primary"></div>
+            <div class="absolute right-0 top-1/2 transform -translate-y-1/2 h-3 w-3 bg-primary"></div>
           </div>
         </div>
 
@@ -53,7 +53,7 @@
     </div>
     <!-- 底部操作區 -->
     <div class="bg-gray-50 px-4 py-2 text-right">
-      <button class="btn-primary text-sm py-1 px-3" @click="selectFlight">選擇</button>
+      <button class="bg-primary text-white text-sm py-1 px-3" @click="selectFlight">選擇</button>
     </div>
   </div>
 </template>
@@ -224,4 +224,13 @@ export default {
 }
 </script>
 
-<!-- Removed scoped styles --> 
+<style scoped>
+.card {
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+}
+
+.card-hover:hover {
+  border-color: #005F73;
+}
+</style> 

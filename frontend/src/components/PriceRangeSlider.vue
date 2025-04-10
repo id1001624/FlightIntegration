@@ -6,9 +6,9 @@
       <span>NT$ {{ formatPrice(selectedRange.max) }}</span>
     </div>
     <div class="relative h-5 flex items-center">
-      <div class="absolute bg-gray-200 h-1 w-full rounded"></div>
+      <div class="absolute bg-gray-200 h-1 w-full"></div>
       <div
-        class="absolute bg-primary h-1 rounded"
+        class="absolute bg-primary h-1"
         :style="{
           left: `${minPercent}%`,
           width: `${rangePercent}%`
@@ -116,9 +116,9 @@ export default {
 
 <style>
   input[type=range]::-webkit-slider-thumb {
-    @apply appearance-none h-4 w-4 bg-primary rounded-full cursor-pointer pointer-events-auto;
+    @apply appearance-none h-4 w-4 bg-primary cursor-pointer pointer-events-auto;
   }
   input[type=range]::-moz-range-thumb {
-    @apply appearance-none h-4 w-4 bg-primary rounded-full cursor-pointer pointer-events-auto border-none;
+    @apply appearance-none h-4 w-4 bg-primary cursor-pointer pointer-events-auto border-none;
   }
 </style> 

@@ -2,7 +2,7 @@
   <div class="card p-6">
     <div class="flex justify-between items-center mb-6">
       <h3 class="text-lg font-semibold text-text-primary">篩選結果</h3>
-      <button @click="resetFilters" class="btn-secondary text-sm" v-if="hasActiveFilters">重置篩選</button>
+      <button @click="resetFilters" class="border border-primary text-primary text-sm px-2 py-1" v-if="hasActiveFilters">重置篩選</button>
     </div>
     
     <AirlineFilter 
@@ -140,4 +140,11 @@ export default {
     };
   }
 };
-</script> 
+</script>
+
+<style scoped>
+.card {
+  border: 1px solid #dee2e6;
+  background-color: #fff;
+}
+</style> 

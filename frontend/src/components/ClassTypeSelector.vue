@@ -1,14 +1,14 @@
 <template>
   <div class="mb-6" :class="{ 'opacity-60 pointer-events-none': disabled }">
     <label v-if="label" :for="id" class="label mb-2">{{ label }}</label>
-    <div class="flex flex-wrap gap-2 border border-gray-300 rounded-md p-2">
+    <div class="flex flex-wrap gap-2 border border-gray-300 p-2">
       <div
         v-for="option in classOptions"
         :key="option.value"
         :class="[
-          'flex-1 min-w-[100px] text-center px-4 py-2 rounded cursor-pointer transition-all duration-200 ease-in-out',
+          'flex-1 min-w-[100px] text-center px-4 py-2 cursor-pointer transition-all duration-200 ease-in-out',
           modelValue === option.value
-            ? 'bg-primary text-white font-medium shadow-sm'
+            ? 'bg-primary text-white font-medium'
             : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
         ]"
         @click="selectClass(option.value)"
@@ -68,4 +68,13 @@ export default {
     };
   }
 }
-</script> 
+</script>
+
+<style scoped>
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #212529;
+}
+</style> 

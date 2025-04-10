@@ -14,7 +14,7 @@
             :value="airline.code"
             :checked="isSelected(airline.code)"
             @change="toggleAirline(airline.code)"
-            class="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+            class="mr-2 h-4 w-4 border-gray-300 text-primary focus:ring-primary"
           />
           <span class="text-text-primary">{{ airline.name }} ({{ airline.code }})</span>
         </label>
@@ -85,4 +85,37 @@ export default {
     };
   }
 }
-</script> 
+</script>
+
+<style scoped>
+input[type="checkbox"] {
+  appearance: none;
+  background-color: #fff;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #dee2e6;
+  display: grid;
+  place-content: center;
+}
+
+input[type="checkbox"]:checked {
+  background-color: #005F73;
+  border-color: #005F73;
+}
+
+input[type="checkbox"]::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  transform: scale(0);
+  transition: 120ms transform ease-in-out;
+  box-shadow: inset 1rem 1rem #fff;
+  transform-origin: center;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked::before {
+  transform: scale(1);
+}
+</style> 

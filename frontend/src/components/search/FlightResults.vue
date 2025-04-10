@@ -12,7 +12,7 @@
           id="sort-select" 
           v-model="sortOption" 
           @change="sortFlights"
-          class="input py-1.5 w-full md:w-auto"
+          class="input py-1.5 w-full md:w-auto border-gray-300 focus:border-primary focus:ring focus:ring-primary focus:ring-opacity-50"
         >
           <option value="price-asc">價格：由低至高</option>
           <option value="price-desc">價格：由高至低</option>
@@ -29,7 +29,7 @@
     </div>
 
     <!-- 無搜索結果時顯示 -->
-    <div class="flex justify-center items-center p-12 text-center bg-white rounded-lg shadow-sm" v-else-if="searched && (!flights || flights.length === 0)">
+    <div class="flex justify-center items-center p-12 text-center bg-white shadow-sm" v-else-if="searched && (!flights || flights.length === 0)">
       <div class="max-w-md flex flex-col items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mb-6">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
@@ -67,7 +67,7 @@
     </div>
 
     <!-- 尚未搜索時顯示 -->
-    <div class="flex justify-center items-center p-12 text-center bg-white rounded-lg shadow-sm" v-else-if="!searched">
+    <div class="flex justify-center items-center p-12 text-center bg-white shadow-sm" v-else-if="!searched">
       <div class="max-w-md flex flex-col items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mb-6">
           <path d="M22 2L11 13"></path>
@@ -172,4 +172,19 @@ export default {
     };
   }
 };
-</script> 
+</script>
+
+<style scoped>
+.input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-width: 1px;
+  background-color: #fff;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.input:focus {
+  outline: none;
+}
+</style> 

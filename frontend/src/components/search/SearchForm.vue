@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white p-6 rounded-lg shadow-sm">
+  <div class="bg-white p-6 shadow-sm">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
       <!-- Row 1: Departure & Arrival -->
       <div>
@@ -61,7 +61,7 @@
 
       <div class="flex items-end">
         <button
-          class="btn-primary w-full py-2.5"
+          class="bg-primary text-white w-full py-2.5"
           @click="submitSearch"
           :disabled="isSearching || loadingTaiwanAirports || loadingDestinations"
           :class="{ 'opacity-50 cursor-not-allowed': isSearching || loadingTaiwanAirports || loadingDestinations }"
