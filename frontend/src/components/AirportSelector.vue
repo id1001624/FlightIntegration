@@ -77,7 +77,7 @@ export default {
 
       if (selectedAirport) {
         emit('update:modelValue', selectedAirport);
-        emit('change', selectedAirport); // Emit the full object for parent handling
+        emit('change', selectedAirport);
       } else {
         emit('update:modelValue', null);
         emit('change', null);
@@ -86,7 +86,7 @@ export default {
 
     const currentValue = computed(() => {
       if (!props.modelValue) return '';
-      if (typeof props.modelValue === 'string') return props.modelValue; // Handle initial string value if any
+      if (typeof props.modelValue === 'string') return props.modelValue;
       return props.modelValue.code || '';
     });
 

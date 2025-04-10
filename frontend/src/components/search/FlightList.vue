@@ -1,6 +1,10 @@
 <template>
-  <div class="flight-list">
-    <div v-for="(flight, index) in flights" :key="flight.id || index" class="flight-item">
+  <div class="flex flex-col gap-4">
+    <div 
+      v-for="(flight, index) in flights" 
+      :key="flight.id || index" 
+      class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+    >
       <FlightCard :flight="flight" />
     </div>
   </div>
@@ -21,21 +25,4 @@ export default {
     }
   }
 };
-</script>
-
-<style scoped>
-.flight-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.flight-item {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.flight-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
-</style> 
+</script> 
