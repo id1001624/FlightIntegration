@@ -1,17 +1,22 @@
 <template>
-  <div class="class-type-selector" :class="{ 'disabled': disabled }">
-    <label v-if="label" :for="id" class="selector-label">{{ label }}</label>
-    <div class="selector-options">
-      <div 
-        v-for="option in classOptions" 
+  <div class="mb-6" :class="{ 'opacity-60 pointer-events-none': disabled }">
+    <label v-if="label" :for="id" class="label mb-2">{{ label }}</label>
+    <div class="flex flex-wrap gap-2 border border-gray-300 rounded-md p-2">
+      <div
+        v-for="option in classOptions"
         :key="option.value"
-        :class="['option', { 'selected': modelValue === option.value }]"
+        :class="[
+          'flex-1 min-w-[100px] text-center px-4 py-2 rounded cursor-pointer transition-all duration-200 ease-in-out',
+          modelValue === option.value
+            ? 'bg-primary text-white font-medium shadow-sm'
+            : 'bg-gray-100 text-text-secondary hover:bg-gray-200'
+        ]"
         @click="selectClass(option.value)"
       >
         {{ option.label }}
       </div>
     </div>
-    <p v-if="error" class="error-message">{{ error }}</p>
+    <p v-if="error" class="mt-2 text-red-600 text-sm">{{ error }}</p>
   </div>
 </template>
 
@@ -46,7 +51,6 @@ export default {
   setup(props, { emit }) {
     const classOptions = ref([
       { value: 'economy', label: '經濟艙' },
-      { value: 'premium_economy', label: '豪華經濟艙' },
       { value: 'business', label: '商務艙' },
       { value: 'first', label: '頭等艙' }
     ]);
@@ -64,58 +68,4 @@ export default {
     };
   }
 }
-</script>
-
-<style scoped>
-.class-type-selector {
-  margin-bottom: 1.5rem;
-}
-
-.selector-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  color: #333;
-}
-
-.selector-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem;
-}
-
-.option {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  background-color: #f5f5f5;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: center;
-  flex: 1;
-  min-width: 100px;
-}
-
-.option:hover {
-  background-color: #e9e9e9;
-}
-
-.option.selected {
-  background-color: #4a90e2;
-  color: white;
-  font-weight: 500;
-}
-
-.error-message {
-  margin-top: 0.5rem;
-  color: #e74c3c;
-  font-size: 0.85rem;
-}
-
-.class-type-selector.disabled .option {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-</style> 
+</script> 

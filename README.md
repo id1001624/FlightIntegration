@@ -1,5 +1,6 @@
 # 台灣航班整合系統 (Flight Integration System)
 
+**WOT、CMJ航班資訊考慮用爬蟲**
 這個系統整合了台灣交通資料平台(TDX)和FlightStats的API，提供台灣航班資料的查詢和同步功能。
 
 ## 系統特點

@@ -10,6 +10,7 @@ import logging
 import argparse
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Tuple
+import time
 
 # 配置日誌
 logging.basicConfig(
@@ -37,22 +38,24 @@ except ImportError:
 class ApiSyncManager:
     """API 同步管理器，協調 TDX 和 FlightStats API 的數據同步"""
     
-    # 台灣機場代碼列表（用於判斷是否為國內或國際航線）
-    TAIWAN_AIRPORTS = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'WOT', 'CMJ']
+    # 台灣機場代碼列表（移除小機場 WOT, CMJ）
+    TAIWAN_AIRPORTS = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI']
     
     # 指定航空公司列表
     TARGET_AIRLINES = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
     
-    # 熱門國際航線
+    # 熱門國際航線（優化為最常用路線）
     POPULAR_INTERNATIONAL_ROUTES = [
         # 台北桃園國際機場
         ('TPE', 'NRT'), ('TPE', 'HND'), ('TPE', 'ICN'), ('TPE', 'HKG'), 
         ('TPE', 'BKK'), ('TPE', 'SIN'), ('TPE', 'KUL'), ('TPE', 'PVG'),
         ('TPE', 'PEK'), ('TPE', 'LAX'), ('TPE', 'SFO'), ('TPE', 'JFK'),
         ('TPE', 'CDG'), ('TPE', 'LHR'), ('TPE', 'FRA'), ('TPE', 'SYD'),
+
         
         # 台北松山機場
         ('TSA', 'HND'), ('TSA', 'PVG'), ('TSA', 'HKG'), ('TSA', 'ICN'),
+
         
         # 高雄國際機場
         ('KHH', 'NRT'), ('KHH', 'ICN'), ('KHH', 'HKG'), ('KHH', 'SIN')
@@ -63,6 +66,7 @@ class ApiSyncManager:
         ('TPE', 'KHH'), ('TSA', 'KHH'), ('TSA', 'RMQ'), ('TSA', 'TNN'),
         ('TSA', 'MZG'), ('TSA', 'HUN'), ('TSA', 'TTT'), ('TSA', 'KNH'),
         ('KHH', 'TSA'), ('RMQ', 'TSA'), ('TNN', 'TSA'), ('MZG', 'TSA')
+
     ]
     
     def __init__(self):
@@ -456,16 +460,7 @@ class ApiSyncManager:
         return results
     
     def sync_taiwan_departures(self, date: Union[datetime, str] = None, days: int = 1) -> Dict[str, List[Dict]]:
-        """
-        同步所有從台灣出發的航班
-        
-        Args:
-            date: 起始日期，可以是 datetime 對象或 "YYYY-MM-DD" 格式的字符串，默認為今天
-            days: 查詢天數
-            
-        Returns:
-            以機場代碼為鍵，航班列表為值的字典
-        """
+        """同步所有從台灣出發的航班"""
         if date is None:
             date = datetime.now()
         elif isinstance(date, str):
@@ -473,96 +468,108 @@ class ApiSyncManager:
         
         results = {}
         
-        # 對台灣每個機場獲取當天航班
-        for departure in self.TAIWAN_AIRPORTS:
+        # 優化：按機場重要性排序處理
+        priority_airports = ['TPE', 'TSA', 'KHH']  # 主要機場優先
+        other_airports = [ap for ap in self.TAIWAN_AIRPORTS if ap not in priority_airports]
+        
+        # 處理所有機場
+        for departure in priority_airports + other_airports:
             if self.tdx_api:
                 try:
                     logger.info(f"正在獲取從 {departure} 出發的所有航班")
-                    
-                    # 獲取所有航班信息
                     all_flights = []
                     
                     # 使用TDX API的FIDS功能獲取航班信息
-                    current_date = date
-                    for day in range(days):
-                        date_str = current_date.strftime('%Y-%m-%d')
-                        
-                        # 獲取當天的FIDS數據
+                    try:
+                        date_str = date.strftime('%Y-%m-%d')
                         fids_flights = self.tdx_api.get_fids_flights(departure, date_str)
-                        if fids_flights:
-                            # 處理成標準航班格式
-                            processed_flights = []
-                            for flight in fids_flights:
-                                # 簡單處理，實際處理可能更複雜
-                                try:
-                                    airline_code = flight.get('AirlineID', '')
-                                    if airline_code not in self.TARGET_AIRLINES:
-                                        continue
-                                        
-                                    flight_number = flight.get('FlightNumber', '')
-                                    arrival_airport = flight.get('ArrivalAirportID', '')
-                                    
-                                    # 解析時間
-                                    dep_time = None
-                                    sched_dep_time = flight.get('ScheduleDepartureTime')
-                                    if sched_dep_time:
-                                        try:
-                                            dep_time = datetime.strptime(sched_dep_time, '%Y-%m-%dT%H:%M')
-                                        except ValueError:
-                                            try:
-                                                dep_time = datetime.strptime(sched_dep_time, '%Y-%m-%dT%H:%M:%S')
-                                            except ValueError:
-                                                logger.warning(f"無法解析出發時間: {sched_dep_time}")
-                                                continue
-                                    else:
-                                        continue
-                                    
-                                    # 預估到達時間
-                                    is_domestic = arrival_airport in self.TAIWAN_AIRPORTS
-                                    flight_hours = 1 if is_domestic else 3
-                                    arr_time = dep_time + timedelta(hours=flight_hours)
-                                    
-                                    processed_flight = {
-                                        'flight_id': f"{airline_code}{flight_number}_{dep_time.strftime('%Y%m%d')}",
-                                        'flight_number': f"{airline_code}{flight_number}",
-                                        'airline_code': airline_code,
-                                        'departure_airport': departure,
-                                        'arrival_airport': arrival_airport,
-                                        'departure_time': dep_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                                        'arrival_time': arr_time.strftime('%Y-%m-%dT%H:%M:%S'),
-                                        'status': self.tdx_api._map_flight_status(flight.get('DepartureRemark', '')),
-                                        'data_source': 'TDX'
-                                    }
-                                    processed_flights.append(processed_flight)
-                                except Exception as e:
-                                    logger.error(f"處理航班數據時出錯: {str(e)}")
-                                    continue
-                            
-                            all_flights.extend(processed_flights)
-                            logger.info(f"從 {departure} 獲取了 {len(processed_flights)} 個 {date_str} 的航班")
                         
-                        # 移至下一天
-                        current_date += timedelta(days=1)
+                        if fids_flights:
+                            processed_flights = self._process_tdx_flights(fids_flights, departure)
+                            all_flights.extend(processed_flights)
+                            logger.info(f"從 {departure} 獲取了 {len(processed_flights)} 個航班")
+                    except Exception as e:
+                        logger.error(f"從TDX獲取 {departure} 航班數據失敗: {str(e)}")
                     
-                    # 如果TDX數據不足，可以使用FlightStats補充
+                    # 如果TDX數據不足，使用FlightStats補充
                     if not all_flights and self.flightstats_api:
                         logger.info(f"從TDX獲取 {departure} 航班數據為空，嘗試從FlightStats獲取")
-                        # 由於無法直接從FlightStats獲取所有從某機場出發的航班，這裡使用熱門路線
-                        for _, route in enumerate(self.POPULAR_DOMESTIC_ROUTES + self.POPULAR_INTERNATIONAL_ROUTES):
-                            if route[0] == departure:
-                                fs_flights = self.flightstats_api.get_flights(route[0], route[1], date.strftime('%Y-%m-%d'), days)
+                        
+                        # 根據機場類型選擇路線
+                        routes = []
+                        if departure in priority_airports:
+                            # 主要機場使用完整路線
+                            routes = [r for r in (self.POPULAR_DOMESTIC_ROUTES + self.POPULAR_INTERNATIONAL_ROUTES) if r[0] == departure]
+                        else:
+                            # 次要機場只查詢國內航線
+                            routes = [r for r in self.POPULAR_DOMESTIC_ROUTES if r[0] == departure]
+                        
+                        # 批次處理航線查詢
+                        for route in routes:
+                            try:
+                                fs_flights = self.flightstats_api.get_flights(
+                                    route[0], route[1], 
+                                    date.strftime('%Y-%m-%d'),
+                                    days,
+                                    max_retries=2  # 減少重試次數
+                                )
                                 if fs_flights:
-                                    # 篩選目標航空公司
                                     filtered_flights = [f for f in fs_flights if f.get('airline_code') in self.TARGET_AIRLINES]
                                     all_flights.extend(filtered_flights)
+                                    
+                                # 添加延遲以避免請求過快
+                                time.sleep(0.5)
+                            except Exception as e:
+                                logger.error(f"從FlightStats獲取 {route} 航班失敗: {str(e)}")
+                                continue
                     
                     results[departure] = all_flights
                     
                 except Exception as e:
                     logger.error(f"獲取 {departure} 出發航班時出錯: {str(e)}")
                     results[departure] = []
+                
+                # 主要機場之間添加較長延遲，避免請求過快
+                if departure in priority_airports:
+                    time.sleep(1)
+                else:
+                    time.sleep(0.5)
         
         return results
+
+    def _process_tdx_flights(self, fids_flights: List[Dict], departure: str) -> List[Dict]:
+        """處理TDX航班數據的輔助方法"""
+        processed_flights = []
+        for flight in fids_flights:
+            try:
+                airline_code = flight.get('AirlineID', '')
+                if not airline_code or airline_code not in self.TARGET_AIRLINES:
+                    continue
+                
+                flight_number = flight.get('FlightNumber', '').replace(airline_code, '')
+                arrival_airport = flight.get('ArrivalAirportID', '')
+                
+                # 解析時間
+                dep_time = datetime.strptime(flight.get('ScheduleDepartureTime', ''), '%Y-%m-%d %H:%M:%S')
+                arr_time = datetime.strptime(flight.get('ScheduleArrivalTime', ''), '%Y-%m-%d %H:%M:%S')
+                
+                processed_flight = {
+                    'flight_id': f"{airline_code}{flight_number}_{dep_time.strftime('%Y%m%d')}",
+                    'flight_number': f"{airline_code}{flight_number}",
+                    'airline_code': airline_code,
+                    'departure_airport': departure,
+                    'arrival_airport': arrival_airport,
+                    'departure_time': dep_time.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'arrival_time': arr_time.strftime('%Y-%m-%dT%H:%M:%S'),
+                    'status': self.tdx_api._map_flight_status(flight.get('DepartureRemark', '')),
+                    'data_source': 'TDX'
+                }
+                processed_flights.append(processed_flight)
+            except Exception as e:
+                logger.error(f"處理航班數據時出錯: {str(e)}")
+                continue
+        
+        return processed_flights
 
 
 def main():

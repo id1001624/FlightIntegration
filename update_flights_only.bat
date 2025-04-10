@@ -1,6 +1,9 @@
 @echo off
-powershell -Command "Write-Host '開始更新航班資料（僅航班）...' -ForegroundColor Green"
-cd backend
-python sync_flight_data.py flights-only --date 2025-04-07
-powershell -Command "Write-Host '航班資料更新完成。' -ForegroundColor Green"
+cd /d "%~dp0backend"
+echo Starting flight data update...
+
+for /f "delims=" %%a in ('powershell -Command "Get-Date -Format 'yyyy-MM-dd'"') do set TODAY=%%a
+python sync_flight_data.py flights-only --date %TODAY%
+
+echo Flight data update completed.
 pause

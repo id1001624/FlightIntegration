@@ -1,22 +1,22 @@
 <template>
-  <div class="airline-filter">
-    <h4 class="filter-title">航空公司</h4>
-    <div class="loading" v-if="loading">載入中...</div>
-    <div v-else-if="airlines.length === 0" class="no-data">無可用航空公司</div>
-    <div v-else class="airlines-list">
-      <div 
-        v-for="airline in airlines" 
-        :key="airline.code" 
-        class="airline-option"
+  <div class="mb-6">
+    <h4 class="text-base font-medium text-text-primary mb-3">航空公司</h4>
+    <div class="text-sm text-text-secondary py-2" v-if="loading">載入中...</div>
+    <div class="text-sm text-text-secondary py-2" v-else-if="availableAirlines.length === 0">沒有可用的航空公司</div>
+    <div v-else class="max-h-48 overflow-y-auto space-y-2 pr-2">
+      <div
+        v-for="airline in availableAirlines"
+        :key="airline.code"
       >
-        <label class="airline-checkbox">
-          <input 
-            type="checkbox" 
-            :value="airline.code" 
+        <label class="flex items-center cursor-pointer text-sm">
+          <input
+            type="checkbox"
+            :value="airline.code"
             :checked="isSelected(airline.code)"
-            @change="toggleAirline(airline.code)" 
+            @change="toggleAirline(airline.code)"
+            class="mr-2 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
           />
-          <span class="airline-name">{{ airline.name }} ({{ airline.code }})</span>
+          <span class="text-text-primary">{{ airline.name }} ({{ airline.code }})</span>
         </label>
       </div>
     </div>
@@ -24,10 +24,12 @@
 </template>
 
 <script>
+import { computed } from 'vue';
+
 export default {
   name: 'AirlineFilter',
   props: {
-    airlines: {
+    airlines: { // 原始傳入的航班列表
       type: Array,
       default: () => []
     },
@@ -41,64 +43,46 @@ export default {
     }
   },
   emits: ['update:modelValue'],
-  methods: {
-    isSelected(airlineCode) {
-      return this.modelValue.includes(airlineCode);
-    },
-    toggleAirline(airlineCode) {
-      const selected = [...this.modelValue];
+  setup(props, { emit }) {
+    // 從航班列表中提取不重複的航空公司資訊
+    const availableAirlines = computed(() => {
+      if (!props.airlines) return [];
+      const seenCodes = new Set();
+      const uniqueAirlines = [];
+      props.airlines.forEach(flight => {
+        const airlineCode = flight.airline_code || (flight.airline ? flight.airline.code : null);
+        const airlineName = flight.airline_name || (flight.airline ? flight.airline.name : '未知航空公司');
+        if (airlineCode && !seenCodes.has(airlineCode)) {
+          seenCodes.add(airlineCode);
+          uniqueAirlines.push({ code: airlineCode, name: airlineName });
+        }
+      });
+      // 根據航空公司名稱排序
+      return uniqueAirlines.sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const isSelected = (airlineCode) => {
+      return props.modelValue.includes(airlineCode);
+    };
+
+    const toggleAirline = (airlineCode) => {
+      const selected = [...props.modelValue];
       const index = selected.indexOf(airlineCode);
-      
+
       if (index === -1) {
         selected.push(airlineCode);
       } else {
         selected.splice(index, 1);
       }
-      
-      this.$emit('update:modelValue', selected);
-    }
+
+      emit('update:modelValue', selected);
+    };
+
+    return {
+      availableAirlines,
+      isSelected,
+      toggleAirline
+    };
   }
 }
-</script>
-
-<style scoped>
-.airline-filter {
-  margin-bottom: 2rem;
-}
-
-.filter-title {
-  margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1rem;
-  color: #333;
-}
-
-.airlines-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.airline-option {
-  margin-bottom: 0.5rem;
-}
-
-.airline-checkbox {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.airline-checkbox input {
-  margin-right: 0.5rem;
-}
-
-.airline-name {
-  font-size: 0.9rem;
-}
-
-.loading, .no-data {
-  font-size: 0.9rem;
-  color: #666;
-  padding: 0.5rem 0;
-}
-</style> 
+</script> 

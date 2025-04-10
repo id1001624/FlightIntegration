@@ -1,72 +1,90 @@
 <template>
   <div class="flight-card">
-    <div class="flight-header">
+    <!-- 卡片上部分 -->
+    <div class="card-content">
+      <!-- 航空公司資訊 -->
       <div class="airline-info">
-        <span class="airline-code">{{ airlineCode }}</span>
-        <span class="flight-number">{{ flightNumber }}</span>
-      </div>
-      <div class="flight-price">
-        <span class="price-label">票價</span>
-        <span class="price-amount">{{ displayPrice }}</span>
-        <span class="price-class">{{ flightClassType }}</span>
+        <div class="airline-logo-container">
+          <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
+          <div v-else class="airline-logo-placeholder">
+            {{ getAirlineInitial }}
+          </div>
+        </div>
+        <div class="airline-details">
+          <h3 class="airline-name">{{ airlineName }}</h3>
+          <p class="flight-number">{{ flightNumber }}</p>
       </div>
     </div>
     
-    <div class="flight-details">
-      <div class="flight-time">
-        <div class="time-column departure">
-          <span class="time">{{ formattedDepartureTime }}</span>
-          <span class="airport-code">{{ getDepartureAirportCode }}</span>
-          <span class="airport-name">{{ departureAirportName }}</span>
+      <!-- 行程資訊 -->
+      <div class="journey-info">
+        <!-- 出發資訊 -->
+        <div class="terminal-info departure">
+          <time class="time">{{ formattedDepartureTime }}</time>
+          <div class="airport-code">{{ getDepartureAirportCode }}</div>
         </div>
         
+        <!-- 飛行時間圖示 -->
         <div class="flight-duration">
-          <div class="duration-line"></div>
-          <span class="duration-text">{{ flightDuration }}</span>
-          <div class="duration-line"></div>
+          <div class="duration-text">{{ flightDuration }}</div>
+          <div class="flight-path">
+            <div class="path-line"></div>
+            <div class="plane-icon">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21,16V14L13,9V3.5A1.5,1.5,0 0,0 11.5,2A1.5,1.5,0 0,0 10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5L21,16Z" />
+              </svg>
+            </div>
+          </div>
         </div>
         
-        <div class="time-column arrival">
-          <span class="time">{{ formattedArrivalTime }}</span>
-          <span class="airport-code">{{ getArrivalAirportCode }}</span>
-          <span class="airport-name">{{ arrivalAirportName }}</span>
+        <!-- 到達資訊 -->
+        <div class="terminal-info arrival">
+          <time class="time">{{ formattedArrivalTime }}</time>
+          <div class="airport-code">{{ getArrivalAirportCode }}</div>
         </div>
       </div>
       
-      <div class="flight-info">
-        <div class="info-item">
-          <span class="info-label">航班日期</span>
-          <span class="info-value">{{ formattedDepartureDate }}</span>
+      <!-- 價格與選擇按鈕 -->
+      <div class="price-action">
+        <div class="price-info">
+          <p class="price-amount">NT$ {{ displayPrice }}</p>
+          <p class="seat-class">{{ flightClassType }}</p>
         </div>
-        <div class="info-item">
-          <span class="info-label">航空公司</span>
-          <span class="info-value">{{ airlineName }}</span>
+        <button class="select-button" @click="selectFlight">
+          選擇
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 ml-1">
+            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
         </div>
-        <div class="info-item">
-          <span class="info-label">可用座位</span>
-          <span class="info-value">{{ availableSeats }}</span>
+
+    <!-- 卡片底部資訊 -->
+    <div class="card-footer">
+      <div class="flight-details">
+        <div class="detail-item">
+          <span class="detail-label">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-gray-400"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" /></svg>
+            飛行日期
+          </span>
+          <span class="detail-value">{{ formattedDepartureDate }}</span>
         </div>
-        <div class="info-item">
-          <span class="info-label">航班狀態</span>
-          <span class="info-value" :class="{
-            'status-delayed': isDelayed, 
-            'status-ontime': isOntime, 
-            'status-cancelled': isCancelled,
-            'status-inair': isInAir,
-            'status-arrived': isArrived,
-            'status-diverted': isDiverted
-          }">{{ flightStatus }}</span>
+        <div class="detail-divider"></div>
+        <div class="detail-item">
+          <span class="detail-label">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-gray-400"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" /></svg>
+            艙位狀態
+          </span>
+          <span :class="['detail-value', statusClass]">{{ flightStatusText }}</span>
         </div>
       </div>
-    </div>
-    
-    <div class="flight-actions">
-      <button class="select-button" @click="selectFlight">選擇此航班</button>
     </div>
   </div>
 </template>
 
 <script>
+import { computed } from 'vue';
+
 export default {
   name: 'FlightCard',
   props: {
@@ -75,551 +93,360 @@ export default {
       required: true
     }
   },
-  computed: {
-    formattedDepartureTime() {
-      if (this.flight.departure && this.flight.departure.time) {
-        return this.formatTime(this.flight.departure.time);
+  emits: ['select-flight'],
+  setup(props, { emit }) {
+    // --- Logo Mapping ---
+    const airlineLogos = {
+      'CI': '/src/assets/images/airlines/中華航空.png',
+      'BR': '/src/assets/images/airlines/長榮航空.png',
+      'AE': '/src/assets/images/airlines/華信航空.png',
+      'B7': '/src/assets/images/airlines/立榮航空.png',
+      'JX': '/src/assets/images/airlines/星宇航空.png',
+      'DA': '/src/assets/images/airlines/德安航空.png',
+      'JL': '/src/assets/images/airlines/日本航空.png',
+      'CX': '/src/assets/images/airlines/國泰航空.png',
+      'OZ': '/src/assets/images/airlines/韓亞航空.png',
+      'IT': '/src/assets/images/airlines/台灣虎行.png',
+    };
+
+    const getAirlineCode = computed(() => {
+      if (props.flight.airline && typeof props.flight.airline === 'object') {
+          return props.flight.airline.code || props.flight.airline.iata_code;
       }
-      return this.formatTime(this.flight.scheduled_departure || this.flight.departure_time);
-    },
-    formattedArrivalTime() {
-      if (this.flight.arrival && this.flight.arrival.time) {
-        return this.formatTime(this.flight.arrival.time);
-      }
-      return this.formatTime(this.flight.scheduled_arrival || this.flight.arrival_time);
-    },
-    formattedDepartureDate() {
-      if (this.flight.departure && this.flight.departure.time) {
-        return this.formatDate(this.flight.departure.time);
-      }
-      return this.formatDate(this.flight.scheduled_departure || this.flight.departure_time);
-    },
-    formattedArrivalDate() {
-      if (this.flight.arrival && this.flight.arrival.time) {
-        return this.formatDate(this.flight.arrival.time);
-      }
-      return this.formatDate(this.flight.scheduled_arrival || this.flight.arrival_time);
-    },
-    getDepartureAirportCode() {
-      if (this.flight.departure && this.flight.departure.airport_id) {
-        return this.flight.departure.airport_id;
-      }
-      return this.flight.departure_airport || this.flight.departure_airport_code || 'TPE';
-    },
-    getArrivalAirportCode() {
-      if (this.flight.arrival && this.flight.arrival.airport_id) {
-        return this.flight.arrival.airport_id;
-      }
-      return this.flight.arrival_airport || this.flight.arrival_airport_code || 'DPS';
-    },
-    availableSeats() {
-      if (this.flight.price && this.flight.price.available_seats) {
-        if (this.flight.price.available_seats === 0) {
-          return '客滿';
-        }
-        return this.flight.price.available_seats;
-      }
-      
-      if (this.flight.available_seats === 0) {
-        return '客滿';
-      }
-      
-      if (this.flight.available_seats) {
-        return this.flight.available_seats;
-      }
-      
-      // 生成假數據
-      const min = 2;
-      const max = 45;
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    },
-    flightClassType() {
-      const classType = this.flight.class_type || 
-                       (this.flight.price ? this.flight.price.cabin_class : null);
-      
-      if (!classType) {
-        return '經濟艙'; // 默認值
-      }
-      
-      return this.formatClassType(classType);
-    },
-    departureAirportName() {
-      if (this.flight.departure && this.flight.departure.name) {
-        return this.flight.departure.name;
-      }
-      return this.flight.departure_airport_name || 
-             this.flight.departure?.name || 
-             '桃園國際機場';
-    },
-    arrivalAirportName() {
-      if (this.flight.arrival && this.flight.arrival.name) {
-        return this.flight.arrival.name;
-      }
-      return this.flight.arrival_airport_name || 
-             this.flight.arrival?.name || 
-             '目的地機場';
-    },
-    airlineCode() {
-      if (this.flight.airline && typeof this.flight.airline === 'object') {
-        return this.flight.airline.code || this.flight.airline.iata_code || '';
-      }
-      return this.flight.airline_code || 
-             (typeof this.flight.airline === 'string' ? this.flight.airline : '') || 
-             (this.flight.flight_number ? this.flight.flight_number.substring(0, 2) : '未知');
-    },
-    flightNumber() {
-      return this.flight.flight_number || '未知';
-    },
-    displayPrice() {
-      // 如果是API返回的標準格式
-      if (this.flight.price && typeof this.flight.price === 'object' && this.flight.price.amount) {
-        return this.formatPrice(this.flight.price.amount);
-      }
-      
-      // 如果有直接的票價屬性
-      if (this.flight.price && typeof this.flight.price !== 'object') {
-        return this.formatPrice(this.flight.price);
-      }
-      
-      if (this.flight.ticket_price || this.flight.base_price) {
-        return this.formatPrice(this.flight.ticket_price || this.flight.base_price);
-      }
-      
-      // 使用模擬價格
-      const classType = this.flight.class_type || 
-                       (this.flight.price && this.flight.price.cabin_class ? this.flight.price.cabin_class : null) || 
-                       '經濟';
-      
-      let basePrice;
-      switch(classType.toLowerCase()) {
-        case 'business':
-        case '商務':
-        case '商務艙':
-          basePrice = 25000 + Math.floor(Math.random() * 10000);
-          break;
-        case 'first':
-        case '頭等':
-        case '頭等艙':
-          basePrice = 45000 + Math.floor(Math.random() * 15000);
-          break;
-        case 'economy':
-        case '經濟':
-        case '經濟艙':
-        default:
-          basePrice = 8000 + Math.floor(Math.random() * 7000);
-          break;
-      }
-      
-      return this.formatPrice(basePrice);
-    },
-    flightDuration() {
-      if (this.flight.duration) {
-        if (typeof this.flight.duration === 'string' && this.flight.duration.includes(':')) {
-          const parts = this.flight.duration.split(':');
-          if (parts.length >= 2) {
-            const hours = parseInt(parts[0], 10);
-            const minutes = parseInt(parts[1], 10);
-            return `${hours}小時${minutes}分鐘`;
-          }
-        }
-        
-        return this.formatDuration(this.flight.duration);
-      }
-      
-      let departureTime = null;
-      let arrivalTime = null;
-      
-      if (this.flight.departure && this.flight.departure.time) {
-        departureTime = new Date(this.flight.departure.time);
-      } else if (this.flight.scheduled_departure) {
-        departureTime = new Date(this.flight.scheduled_departure);
-      } else if (this.flight.departure_time) {
-        departureTime = new Date(this.flight.departure_time);
-      }
-      
-      if (this.flight.arrival && this.flight.arrival.time) {
-        arrivalTime = new Date(this.flight.arrival.time);
-      } else if (this.flight.scheduled_arrival) {
-        arrivalTime = new Date(this.flight.scheduled_arrival);
-      } else if (this.flight.arrival_time) {
-        arrivalTime = new Date(this.flight.arrival_time);
-      }
-      
-      if (departureTime && arrivalTime && !isNaN(departureTime) && !isNaN(arrivalTime)) {
-        const durationMs = arrivalTime - departureTime;
-        
-        if (durationMs > 0) {
-          return this.formatDuration(durationMs / 60000);
-        }
-      }
-      
-      return '未知';
-    },
-    airlineName() {
-      if (this.flight.airline && typeof this.flight.airline === 'object') {
-        return this.flight.airline.name || this.flight.airline.name_zh || '';
-      }
-      return this.flight.airline_name || 
-             (typeof this.flight.airline === 'string' ? this.flight.airline : '') || 
-             '未知';
-    },
-    flightStatus() {
-      const status = this.flight.status?.toLowerCase() || 'unknown';
-      switch (status) {
-        case 'delayed':
-          return '延誤';
-        case 'on_time':
-        case 'ontime':
-          return '準時';
-        case 'cancelled':
-          return '取消';
-        case 'in-air':
-        case 'in_air':
-          return '已起飛';
-        case 'arrived':
-        case 'landed':
-          return '已抵達';
-        case 'scheduled':
-          return '準時'; // 預計準時
-        case 'departed':
-          return '已起飛';
-        case 'diverted':
-          return '備降';
-        case 'unknown':
-          return '未知';
-        default:
-          return typeof this.flight.status === 'string' ? this.flight.status : '準時';
-      }
-    },
-    isDelayed() {
-      return this.flight.status?.toLowerCase() === 'delayed';
-    },
-    isOntime() {
-      const status = this.flight.status?.toLowerCase();
-      return status === 'on_time' || status === 'ontime' || status === 'scheduled';
-    },
-    isCancelled() {
-      return this.flight.status?.toLowerCase() === 'cancelled';
-    },
-    isInAir() {
-      const status = this.flight.status?.toLowerCase();
-      return status === 'in-air' || status === 'in_air' || status === 'departed';
-    },
-    isArrived() {
-      const status = this.flight.status?.toLowerCase();
-      return status === 'arrived' || status === 'landed';
-    },
-    isDiverted() {
-      return this.flight.status?.toLowerCase() === 'diverted';
-    }
-  },
-  emits: ['select'],
-  methods: {
-    formatTime(timeString) {
-      if (!timeString) return '00:00';
+      return props.flight.airline_code || (props.flight.flight_number ? props.flight.flight_number.substring(0, 2) : null);
+    });
+
+    const airlineLogoUrl = computed(() => {
+      const code = getAirlineCode.value;
+      return code ? airlineLogos[code] : null;
+    });
+    // --- End Logo Mapping ---
+
+    // --- Formatting Functions ---
+    const formatTime = (dateTimeString) => {
+      if (!dateTimeString) return '--:--';
       try {
-        const date = new Date(timeString);
+        // Assuming dateTimeString includes date, extract time
+        const date = new Date(dateTimeString);
         if (isNaN(date.getTime())) {
-          // 嘗試解析其他格式
-          if (typeof timeString === 'string') {
-            // 如果是類似 "05:10" 這樣的格式
-            if (/^\d{1,2}:\d{1,2}$/.test(timeString)) {
-              return timeString;
-            }
-          }
-          return '00:00';
+          // If only time string like HH:MM is provided
+          if (/^\d{1,2}:\d{1,2}$/.test(dateTimeString)) return dateTimeString;
+          return '--:--';
         }
-        
-        // 設置小時和分鐘的格式
-        let hours = date.getHours();
-        const minutes = date.getMinutes();
-        
-        // 轉換為12小時制
-        const ampm = hours >= 12 ? '下午' : '上午';
-        hours = hours % 12;
-        hours = hours ? hours : 12; // 0應該顯示為12
-        
-        // 格式化輸出
-        const hoursStr = hours < 10 ? `0${hours}` : hours;
-        const minutesStr = minutes < 10 ? `0${minutes}` : minutes;
-        
-        return `${ampm}${hoursStr}:${minutesStr}`;
-      } catch (e) {
-        console.error('時間格式化錯誤:', e);
-        return '00:00';
-      }
-    },
-    formatDate(dateString) {
-      if (!dateString) return '未知';
+        return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
+      } catch (e) { return '--:--'; }
+    };
+
+    const formatDate = (dateTimeString) => {
+      if (!dateTimeString) return '--/--';
       try {
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '未知';
-        return `${date.getMonth() + 1}月${date.getDate()}日 ${this.getWeekDay(date)}`;
-      } catch (e) {
-        return '未知';
-      }
-    },
-    getWeekDay(date) {
-      const weekDays = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
-      return weekDays[date.getDay()];
-    },
-    formatDuration(duration) {
-      if (!duration) return '未知';
-      if (typeof duration === 'string') {
-        const match = duration.match(/(\d+)H(\d+)M/);
-        if (match) {
-          return `${match[1]}小時${match[2]}分鐘`;
-        }
-      }
-      if (typeof duration === 'number') {
-        const hours = Math.floor(duration / 60);
-        const minutes = Math.floor(duration % 60);
-        return `${hours}小時${minutes}分鐘`;
-      }
-      return '未知';
-    },
-    formatPrice(price) {
-      if (!price || isNaN(price)) return 'NT$ ---';
-      return `NT$ ${Number(price).toLocaleString('zh-TW')}`;
-    },
-    formatClassType(classType) {
+        const date = new Date(dateTimeString);
+        if (isNaN(date.getTime())) return '--/--';
+        return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+      } catch (e) { return '--/--'; }
+    };
+
+    const formatPrice = (price) => {
+      if (price == null || isNaN(price)) return '--';
+      return Number(price).toLocaleString('zh-TW');
+    };
+
+    const formatDuration = (durationMinutes) => {
+      if (durationMinutes == null || isNaN(durationMinutes)) return '--時--分';
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      return `${hours}時${minutes > 0 ? minutes+'分' : ''}`; // More concise format
+    };
+
+    const formatClassType = (classType) => {
       if (!classType) return '經濟艙';
-      const classTypeMap = {
-        'economy': '經濟艙',
-        'business': '商務艙',
-        'first': '頭等艙'
-      };
-      return classTypeMap[classType.toLowerCase()] || classType;
-    },
-    selectFlight() {
-      this.$emit('select', this.flight);
-    }
+      const lower = classType.toLowerCase();
+      if (lower.includes('business') || lower.includes('商務')) return '商務艙';
+      if (lower.includes('first') || lower.includes('頭等')) return '頭等艙';
+      return '經濟艙';
+    };
+    // --- End Formatting Functions ---
+
+    // --- Computed Properties ---
+    const formattedDepartureTime = computed(() => formatTime(props.flight.departure_time || props.flight.scheduled_departure));
+    const formattedArrivalTime = computed(() => formatTime(props.flight.arrival_time || props.flight.scheduled_arrival));
+    const formattedDepartureDate = computed(() => formatDate(props.flight.departure_time || props.flight.scheduled_departure));
+
+    const getDepartureAirportCode = computed(() => props.flight.departure_airport_code || props.flight.departure_airport || 'N/A');
+    const getArrivalAirportCode = computed(() => props.flight.arrival_airport_code || props.flight.arrival_airport || 'N/A');
+
+    const airlineName = computed(() => props.flight.airline_name || (props.flight.airline ? props.flight.airline.name : '未知航空'));
+    const flightNumber = computed(() => props.flight.flight_number || 'N/A');
+
+    const displayPrice = computed(() => {
+      const price = props.flight.price ?? props.flight.ticket_price;
+      return price != null ? formatPrice(price) : '洽詢';
+    });
+
+    const flightClassType = computed(() => formatClassType(props.flight.class_type));
+
+    const flightDuration = computed(() => {
+      if (props.flight.duration && typeof props.flight.duration === 'number') {
+        return formatDuration(props.flight.duration);
+      }
+      const departure = props.flight.departure_time || props.flight.scheduled_departure;
+      const arrival = props.flight.arrival_time || props.flight.scheduled_arrival;
+      if (departure && arrival) {
+        try {
+          const diff = new Date(arrival) - new Date(departure);
+          if (!isNaN(diff) && diff > 0) return formatDuration(Math.round(diff / 60000));
+        } catch (e) { /* ignore */ }
+      }
+      return '--時--分';
+    });
+
+    const flightStatusText = computed(() => {
+      const status = props.flight.status?.toLowerCase() || 'scheduled';
+      if (status.includes('delayed')) return '延遲';
+      if (status.includes('cancelled')) return '取消';
+      if (status.includes('landed') || status.includes('arrived')) return '已抵達';
+      if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return '飛行中';
+          return '準時';
+    });
+
+    const statusClass = computed(() => {
+      const status = props.flight.status?.toLowerCase() || 'scheduled';
+      if (status.includes('delayed')) return 'text-orange-500';
+      if (status.includes('cancelled')) return 'text-red-600';
+      if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return 'text-blue-600';
+      if (status.includes('landed') || status.includes('arrived')) return 'text-green-600';
+      return 'text-secondary';
+    });
+
+    const getAirlineInitial = computed(() => {
+      return airlineName.value ? airlineName.value.charAt(0) : '?';
+    });
+    // --- End Computed Properties ---
+
+    const selectFlight = () => {
+      emit('select-flight', props.flight);
+    };
+
+    return {
+      formattedDepartureTime,
+      formattedArrivalTime,
+      formattedDepartureDate,
+      getDepartureAirportCode,
+      getArrivalAirportCode,
+      airlineName,
+      airlineLogoUrl,
+      flightNumber,
+      displayPrice,
+      flightClassType,
+      flightDuration,
+      flightStatusText,
+      statusClass,
+      getAirlineInitial,
+      selectFlight,
+    };
   }
 }
 </script>
 
 <style scoped>
 .flight-card {
-  background: #ffffff;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
+  @apply bg-white rounded-xl overflow-hidden transition-all duration-300 mb-6;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .flight-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.airline-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.airline-logo {
-  width: 40px;
-  height: 40px;
-  object-fit: contain;
-}
-
-.airline-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.airline-name {
-  font-weight: 600;
-  color: #1a1a1a;
-  font-size: 1.1em;
-}
-
-.flight-number {
-  color: #555555;
-  font-size: 0.9em;
-}
-
-.price-tag {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-}
-
-.price {
-  font-size: 1.6em;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-
-.price-unit {
-  font-size: 0.8em;
-  color: #555555;
-  margin-top: -5px;
-}
-
-.flight-time {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.time-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.time {
-  font-size: 1.5em;
-  font-weight: 600;
-  color: #1a1a1a;
-}
-
-.airport-code {
-  font-size: 1.2em;
-  color: #1a1a1a;
-  font-weight: 500;
-}
-
-.airport-name {
-  color: #555555;
-  font-size: 0.9em;
-  text-align: center;
-}
-
-.flight-duration {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.duration-line {
-  width: 150px;
-  height: 2px;
-  background: #e0e0e0;
-  position: relative;
-}
-
-.duration-line::after {
-  content: '✈';
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  color: #1a1a1a;
-}
-
-.duration-text {
-  font-size: 0.9em;
-  color: #555555;
-  white-space: nowrap;
-}
-
-.flight-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 15px;
-  margin-top: 24px;
-  background-color: #f8f8f8;
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.info-label {
-  font-size: 0.9em;
-  color: #555555;
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: 1em;
-  color: #1a1a1a;
-}
-
-.status-delayed {
-  color: #e74c3c;
-  font-weight: bold;
-}
-
-.status-ontime {
-  color: #2ecc71;
-  font-weight: bold;
-}
-
-.status-cancelled {
-  color: #e74c3c;
-  text-decoration: line-through;
-  font-weight: bold;
-}
-
-.status-inair {
-  color: #3498db;
-  font-weight: bold;
-}
-
-.status-arrived {
-  color: #9b59b6;
-  font-weight: bold;
-}
-
-.status-diverted {
-  color: #f39c12;
-  font-weight: bold;
-}
-
-.flight-actions {
-  margin-top: 24px;
-  text-align: right;
-}
-
-.select-button {
-  background: #1a1a1a;
-  color: white;
-  border: none;
-  padding: 12px 28px;
-  border-radius: 6px;
-  font-size: 1em;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  letter-spacing: 0.03em;
-}
-
-.select-button:hover {
-  background: #333333;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
   transform: translateY(-2px);
 }
 
-@media (max-width: 768px) {
-  .flight-time {
-    flex-direction: column;
-    gap: 20px;
+.card-content {
+  @apply p-6 grid grid-cols-12 gap-4 items-center;
+}
+
+.airline-info {
+  @apply col-span-3 flex items-center space-x-3;
+}
+
+.airline-logo-container {
+  @apply flex-shrink-0 w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden border border-gray-200;
+}
+
+.airline-logo {
+  @apply w-10 h-10 object-contain;
+}
+
+.airline-logo-placeholder {
+  @apply flex items-center justify-center w-full h-full text-lg font-semibold text-gray-500;
+}
+
+.airline-details {
+  @apply flex flex-col overflow-hidden;
+  min-width: 0; /* Fix for flex item overflow */
+}
+
+.airline-name {
+  @apply text-sm font-medium text-gray-900 truncate;
+}
+
+.flight-number {
+  @apply text-xs text-gray-500;
+}
+
+.journey-info {
+  @apply col-span-6 grid grid-cols-3 items-center;
+}
+
+.terminal-info {
+  @apply flex flex-col items-center;
+}
+
+.terminal-info.departure {
+  @apply items-center md:items-start;
+}
+
+.terminal-info.arrival {
+  @apply items-center md:items-end;
+}
+
+.time {
+  @apply text-xl font-bold text-gray-900 mb-0.5;
+}
+
+.airport-code {
+  @apply text-sm font-medium text-gray-600;
+}
+
+.flight-duration {
+  @apply flex flex-col items-center justify-center px-2;
+}
+
+.duration-text {
+  @apply text-xs text-gray-500 mb-2 whitespace-nowrap;
+}
+
+.flight-path {
+  @apply relative w-full h-6 flex items-center justify-center;
+}
+
+.path-line {
+  @apply absolute w-full h-px bg-gray-300;
+}
+
+.path-line:before, .path-line:after {
+  content: '';
+  @apply absolute top-1/2 w-1.5 h-1.5 rounded-full bg-gray-300 transform -translate-y-1/2;
+}
+
+.path-line:before {
+  @apply left-0;
+}
+
+.path-line:after {
+  @apply right-0;
+}
+
+.plane-icon {
+  @apply relative z-10 bg-white text-primary p-0.5 rounded-full;
+  /* removed animation for cleaner look, can be added back */
+  /* animation: pulse-gentle 2s infinite; */
+}
+
+.price-action {
+  @apply col-span-3 flex flex-col items-end justify-center space-y-3;
+}
+
+.price-info {
+  @apply text-right;
+}
+
+.price-amount {
+  @apply text-xl font-bold text-primary;
+}
+
+.seat-class {
+  @apply text-xs text-gray-500;
+}
+
+.select-button {
+  @apply flex items-center justify-center px-4 py-2 text-white text-sm font-medium rounded-lg transition-colors duration-200;
+  background: linear-gradient(135deg, theme('colors.primary.DEFAULT') 0%, theme('colors.primary.dark') 100%);
+}
+
+.select-button:hover {
+  background: linear-gradient(135deg, theme('colors.primary.dark') 0%, theme('colors.primary.dark') 100%);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.card-footer {
+  @apply px-6 py-3 bg-gray-50 border-t border-gray-100;
+}
+
+.flight-details {
+  @apply flex items-center justify-between;
+}
+
+.detail-item {
+  @apply flex items-center;
+}
+
+.detail-label {
+  @apply flex items-center text-xs text-gray-500 mr-1.5;
+}
+
+.detail-label svg {
+  @apply mr-1;
+}
+
+.detail-value {
+  @apply text-xs font-medium text-gray-700;
+}
+
+.detail-divider {
+  @apply h-4 w-px bg-gray-300 mx-4;
+}
+
+/* Ensure status colors defined in tailwind.config.js are used */
+.detail-value.text-orange-500 { @apply text-orange-500; }
+.detail-value.text-red-600 { @apply text-red-600; }
+.detail-value.text-blue-600 { @apply text-blue-600; }
+.detail-value.text-green-600 { @apply text-green-600; }
+.detail-value.text-secondary { @apply text-secondary; }
+
+/* Optional: Add responsive adjustments if needed */
+@media (max-width: 1024px) { /* Example breakpoint */
+  .card-content {
+    @apply grid-cols-1 gap-y-6;
   }
-  
-  .flight-duration {
-    transform: rotate(90deg);
-    margin: 20px 0;
+  .airline-info, .journey-info, .price-action {
+    @apply col-span-1;
   }
-  
-  .flight-info {
-    grid-template-columns: 1fr;
+  .journey-info {
+     @apply order-3;
+  }
+  .price-action {
+     @apply order-2 flex-row items-center justify-between w-full;
   }
 }
+
+@media (max-width: 640px) {
+  .terminal-info.departure {
+     @apply items-center;
+  }
+  .terminal-info.arrival {
+     @apply items-center;
+  }
+  .time {
+    @apply text-lg;
+  }
+  .price-amount {
+    @apply text-lg;
+  }
+  .flight-details {
+    @apply flex-col items-start gap-1;
+  }
+  .detail-divider {
+    @apply hidden;
+  }
+}
+
 </style> 

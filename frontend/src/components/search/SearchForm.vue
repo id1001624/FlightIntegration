@@ -1,74 +1,98 @@
 <template>
-  <div class="search-panel">
-    <div class="search-form">
-      <div class="form-row">
-        <div class="form-group">
-          <AirportSelector 
+  <div class="search-form">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-6 items-end">
+      <!-- Departure -->
+      <div class="form-group lg:col-span-1">
+        <label for="departure" class="form-label">出發地</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <AirportSelector
             id="departure"
-            label="出發地"
-            placeholder="選擇出發機場"
+            placeholder="選擇機場"
             :airports="taiwanAirports"
             v-model="formData.departureAirport"
             :loading="loadingTaiwanAirports"
             :error="errors.departureAirport"
             :disabled="isSearching"
             @change="onDepartureChange"
+            class="input"
           />
         </div>
-        
-        <div class="form-group">
-          <AirportSelector 
+      </div>
+
+      <!-- Arrival -->
+      <div class="form-group lg:col-span-1">
+        <label for="arrival" class="form-label">目的地</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <AirportSelector
             id="arrival"
-            label="目的地"
-            placeholder="選擇目的地機場"
+            placeholder="選擇機場"
             :airports="destinationAirports"
             v-model="formData.arrivalAirport"
             :loading="loadingDestinations"
             :error="errors.arrivalAirport"
             :disabled="!formData.departureAirport || isSearching"
+            class="input"
           />
         </div>
       </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <DateSelector 
+
+      <!-- Departure Date -->
+      <div class="form-group lg:col-span-1">
+        <label for="departure-date" class="form-label">出發日期</label>
+        <div class="input-wrapper">
+          <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <DateSelector
             id="departure-date"
-            label="出發日期"
             v-model="formData.departureDate"
             :error="errors.departureDate"
             @change="onDepartureDateChange"
-          />
-        </div>
-        
-        <div class="form-group">
-          <DateSelector 
-            id="return-date"
-            label="回程日期 (選填)"
-            v-model="formData.returnDate"
-            :min-date="formData.departureDate"
-            :error="errors.returnDate"
+            class="input"
           />
         </div>
       </div>
-      
-      <div class="form-row">
-        <div class="form-group">
-          <ClassTypeSelector 
-            v-model="formData.classType"
-            :error="errors.classType"
+
+      <!-- Return Date (Optional) -->
+      <div class="form-group lg:col-span-1">
+        <label for="return-date" class="form-label">回程日期 <span class="text-gray-400">(選填)</span></label>
+        <div class="input-wrapper">
+          <svg class="input-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <DateSelector
+            id="return-date"
+            v-model="formData.returnDate"
+            :min-date="formData.departureDate"
+            :error="errors.returnDate"
+            class="input"
           />
         </div>
-        
-        <div class="form-group search-btn-container">
-          <button 
-            class="search-btn" 
-            @click="submitSearch"
+      </div>
+
+      <!-- Submit Button -->
+      <div class="form-group lg:col-span-1">
+        <button
+          class="search-btn w-full"
+          @click="submitSearch"
+          :disabled="isSearching || loadingTaiwanAirports || loadingDestinations"
+          :class="{ 'opacity-70 cursor-not-allowed': isSearching || loadingTaiwanAirports || loadingDestinations }"
+        >
+          <svg v-if="isSearching" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          <span v-if="isSearching">搜尋中...</span>
+          <span v-else>搜尋航班</span>
+        </button>
+      </div>
+
+      <!-- Class Type (moved below for better flow on smaller screens, optional) -->
+      <div class="form-group md:col-span-2 lg:col-span-5 mt-2">
+        <label class="form-label sr-only">艙等</label> <!-- Hide label visually but keep for accessibility -->
+        <div class="input-wrapper relative">
+          <!-- Optional: Icon for class type -->
+          <ClassTypeSelector
+            v-model="formData.classType"
+            :error="errors.classType"
             :disabled="isSearching"
-          >
-            <span v-if="isSearching">搜尋中...</span>
-            <span v-else>搜尋航班</span>
-          </button>
+            class="w-full bg-gray-50 border border-gray-200 rounded-md text-sm focus:ring-primary focus:border-primary"
+          />
         </div>
       </div>
     </div>
@@ -80,6 +104,7 @@ import AirportSelector from '../AirportSelector.vue';
 import DateSelector from '../DateSelector.vue';
 import ClassTypeSelector from '../ClassTypeSelector.vue';
 import flightService from '@/api/services/flightService';
+import { ref, reactive, onMounted } from 'vue';
 
 export default {
   name: 'SearchForm',
@@ -94,212 +119,186 @@ export default {
       default: false
     }
   },
-  data() {
-    return {
-      taiwanAirports: [],
-      destinationAirports: [],
-      loadingTaiwanAirports: false,
-      loadingDestinations: false,
-      formData: {
-        departureAirport: null,
-        arrivalAirport: null,
-        departureDate: new Date().toISOString().split('T')[0],
-        returnDate: '',
-        classType: 'economy'
-      },
-      errors: {
-        departureAirport: '',
-        arrivalAirport: '',
-        departureDate: '',
-        returnDate: '',
-        classType: ''
-      }
-    };
-  },
-  methods: {
-    async fetchTaiwanAirports() {
-      this.loadingTaiwanAirports = true;
+  emits: ['search'],
+  setup(props, { emit }) {
+    const taiwanAirports = ref([]);
+    const destinationAirports = ref([]);
+    const loadingTaiwanAirports = ref(false);
+    const loadingDestinations = ref(false);
+
+    const formData = reactive({
+      departureAirport: null,
+      arrivalAirport: null,
+      departureDate: new Date().toISOString().split('T')[0],
+      returnDate: '',
+      classType: 'economy'
+    });
+
+    const errors = reactive({
+      departureAirport: '',
+      arrivalAirport: '',
+      departureDate: '',
+      returnDate: '',
+      classType: ''
+    });
+
+    const fetchTaiwanAirports = async () => {
+      loadingTaiwanAirports.value = true;
+      errors.departureAirport = '';
       try {
-        // 使用當前選擇的出發日期過濾機場
-        const airports = await flightService.getTaiwanAirports(this.formData.departureDate);
+        const airports = await flightService.getTaiwanAirports(formData.departureDate);
         if (airports && airports.length > 0) {
-          this.taiwanAirports = airports.map(airport => ({
+          taiwanAirports.value = airports.map(airport => ({
             id: airport.airport_id || airport.id,
             code: airport.iata_code || airport.code,
             name: airport.name || airport.name_zh || airport.name_en,
             city: airport.city,
-          }));
-          console.log('載入了 Taiwan 機場:', this.taiwanAirports);
+          })).sort((a, b) => a.code.localeCompare(b.code));
         } else {
-          this.taiwanAirports = [];
-          console.error('API 未返回有效機場資料');
+          taiwanAirports.value = [];
+          errors.departureAirport = '無法載入出發機場';
         }
       } catch (error) {
-        console.error('獲取機場資料時出錯:', error);
-        this.taiwanAirports = [];
+        console.error('獲取台灣機場資料時出錯:', error);
+        taiwanAirports.value = [];
+        errors.departureAirport = '載入出發機場失敗';
       } finally {
-        this.loadingTaiwanAirports = false;
+        loadingTaiwanAirports.value = false;
       }
-    },
-    async onDepartureChange(departureCode) {
-      if (!departureCode) {
-        this.destinationAirports = [];
-        this.formData.arrivalAirport = null;
-        return;
-      }
-      
-      this.loadingDestinations = true;
-      
+    };
+
+    const onDepartureChange = async (selectedAirport) => {
+      formData.arrivalAirport = null;
+      destinationAirports.value = [];
+      if (!selectedAirport || !selectedAirport.code) return;
+      loadingDestinations.value = true;
+      errors.arrivalAirport = '';
       try {
-        // 使用當前選擇的出發日期過濾目的地
-        const destinations = await flightService.getDestinations(departureCode, this.formData.departureDate);
-        
+        const destinations = await flightService.getDestinations(selectedAirport.code, formData.departureDate);
         if (destinations && destinations.length > 0) {
-          // 確保數據格式正確
-          this.destinationAirports = destinations.map(airport => ({
+          destinationAirports.value = destinations.map(airport => ({
             id: airport.airport_id || airport.id,
             code: airport.iata_code || airport.code,
             name: airport.name || airport.name_zh || airport.name_en,
             city: airport.city,
-          }));
+          })).sort((a, b) => a.code.localeCompare(b.code));
         } else {
-          this.destinationAirports = [];
+          destinationAirports.value = [];
+          errors.arrivalAirport = '此出發地無可用目的地';
         }
       } catch (error) {
         console.error('獲取目的地機場時出錯:', error);
-        this.destinationAirports = [];
+        destinationAirports.value = [];
+        errors.arrivalAirport = '載入目的地失敗';
       } finally {
-        this.loadingDestinations = false;
+        loadingDestinations.value = false;
       }
-    },
-    onDepartureDateChange() {
-      // 日期變更時，重新載入機場數據和清空目的地選擇
-      this.fetchTaiwanAirports();
-      this.destinationAirports = [];
-      this.formData.arrivalAirport = null;
-    },
-    validateForm() {
+    };
+
+    const onDepartureDateChange = () => {
+      fetchTaiwanAirports();
+      onDepartureChange(formData.departureAirport);
+    };
+
+    const validateForm = () => {
       let isValid = true;
-      this.errors = {
-        departureAirport: '',
-        arrivalAirport: '',
-        departureDate: '',
-        returnDate: '',
-        classType: ''
-      };
-      
-      if (!this.formData.departureAirport) {
-        this.errors.departureAirport = '請選擇出發機場';
-        isValid = false;
-      }
-      
-      if (!this.formData.arrivalAirport) {
-        this.errors.arrivalAirport = '請選擇目的地機場';
-        isValid = false;
-      }
-      
-      if (!this.formData.departureDate) {
-        this.errors.departureDate = '請選擇出發日期';
-        isValid = false;
-      }
-      
-      // 如果有填寫回程日期，檢查是否在出發日期之後
-      if (this.formData.returnDate) {
-        const depDate = new Date(this.formData.departureDate);
-        const retDate = new Date(this.formData.returnDate);
-        
+      errors.departureAirport = formData.departureAirport ? '' : '請選擇出發機場';
+      errors.arrivalAirport = formData.arrivalAirport ? '' : '請選擇目的地機場';
+      errors.departureDate = formData.departureDate ? '' : '請選擇出發日期';
+      errors.returnDate = '';
+      if (formData.returnDate) {
+        const depDate = new Date(formData.departureDate);
+        const retDate = new Date(formData.returnDate);
         if (retDate < depDate) {
-          this.errors.returnDate = '回程日期必須在出發日期之後';
+          errors.returnDate = '回程日期必須在出發日期之後';
           isValid = false;
         }
       }
-      
-      return isValid;
-    },
-    submitSearch() {
-      if (!this.validateForm()) {
+      return isValid && !errors.departureAirport && !errors.arrivalAirport && !errors.departureDate;
+    };
+
+    const submitSearch = () => {
+      if (!validateForm() || props.isSearching || loadingTaiwanAirports.value || loadingDestinations.value) {
         return;
       }
-      
-      // 構建搜索參數
-      const searchParams = {
-        departureAirport: this.formData.departureAirport,
-        arrivalAirport: this.formData.arrivalAirport,
-        departureDate: this.formData.departureDate,
-        returnDate: this.formData.returnDate,
-        classType: this.formData.classType
-      };
-      
-      // 觸發搜索事件
-      this.$emit('search', searchParams);
-    }
-  },
-  created() {
-    this.fetchTaiwanAirports();
+      emit('search', { ...formData });
+    };
+
+    onMounted(fetchTaiwanAirports);
+
+    return {
+      taiwanAirports,
+      destinationAirports,
+      loadingTaiwanAirports,
+      loadingDestinations,
+      formData,
+      errors,
+      onDepartureChange,
+      onDepartureDateChange,
+      submitSearch
+    };
   }
 };
 </script>
 
 <style scoped>
-.search-panel {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  transition: box-shadow 0.3s ease;
-}
-
 .search-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-row {
-  display: flex;
-  gap: 1.5rem;
+  width: 100%;
 }
 
 .form-group {
-  flex: 1;
+  @apply relative;
 }
 
-.search-btn-container {
-  display: flex;
-  align-items: flex-end;
+.form-label {
+  @apply block text-sm font-medium text-gray-700 mb-1.5;
+}
+
+.input-wrapper {
+  @apply relative;
+}
+
+.input-icon {
+  @apply absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10 pointer-events-none;
+}
+
+/* Override base input padding for icon */
+:deep(.input) {
+  @apply pl-10 !important;
+}
+
+/* Adjust selector specific padding if needed */
+:deep(.airport-selector .input) {
+   /* padding adjustments specific to airport selector if icon overlaps */
+}
+
+:deep(.date-selector .input) {
+   /* padding adjustments specific to date selector if icon overlaps */
 }
 
 .search-btn {
-  width: 100%;
-  padding: 0.85rem 1rem;
-  background-color: #000;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  letter-spacing: 0.03em;
+  @apply w-full h-[50px] flex justify-center items-center text-white font-medium rounded-lg transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary shadow-lg;
+  background: linear-gradient(135deg, theme('colors.primary.DEFAULT') 0%, theme('colors.primary.dark') 100%);
 }
 
-.search-btn:hover {
-  background-color: #333;
+.search-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, theme('colors.primary.dark') 0%, theme('colors.primary.dark') 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
-.search-btn:disabled {
-  background-color: #999;
-  cursor: not-allowed;
+.search-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
-@media (max-width: 768px) {
-  .form-row {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .search-panel {
-    padding: 1.5rem;
-  }
+/* Style for ClassTypeSelector (if you want it integrated visually) */
+:deep(.class-type-selector select) { /* Assuming ClassTypeSelector uses a select element */
+  @apply pl-3 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-md text-sm w-full shadow-sm transition-all focus:border-primary focus:ring focus:ring-primary-light/40 focus:outline-none appearance-none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
 }
+
 </style> 
