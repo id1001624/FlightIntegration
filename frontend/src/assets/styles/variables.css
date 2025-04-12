@@ -1,0 +1,195 @@
+/* 設計系統變量 - 與結構化旅程極簡主義(Structured Journey Minimalism)風格一致 */
+:root {
+  /* 主要顏色系統 */
+  --color-base: #FFFFFF;
+  --color-background: #F8F9FA;
+  
+  --color-primary: #005F73;
+  --color-primary-light: #0A9396;
+  --color-primary-dark: #033F4D;
+  
+  --color-secondary: #F4A261;
+  --color-secondary-light: #F8BC8A;
+  --color-secondary-dark: #E07A38;
+  
+  /* 中性色 */
+  --color-gray-50: #F8F9FA;
+  --color-gray-100: #F1F3F5;
+  --color-gray-200: #E9ECEF;
+  --color-gray-300: #DEE2E6;
+  --color-gray-400: #CED4DA;
+  --color-gray-500: #ADB5BD;
+  --color-gray-600: #6C757D;
+  --color-gray-700: #495057;
+  --color-gray-800: #343A40;
+  --color-gray-900: #212529;
+  
+  /* 功能色彩 */
+  --color-success: #38B000;
+  --color-success-light: #70E000;
+  --color-success-dark: #008000;
+  
+  --color-warning: #FFB703;
+  --color-warning-light: #FFCA3A;
+  --color-warning-dark: #FB8500;
+  
+  --color-danger: #DC2F02;
+  --color-danger-light: #E85D04;
+  --color-danger-dark: #9D0208;
+  
+  --color-info: #219EBC;
+  --color-info-light: #8ECAE6;
+  --color-info-dark: #126782;
+  
+  /* 文字顏色 */
+  --color-text-primary: var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-muted: var(--color-gray-500);
+  --color-text-light: var(--color-gray-100);
+  
+  /* 邊框顏色 */
+  --color-border: var(--color-gray-300);
+  --color-border-light: var(--color-gray-200);
+  --color-border-dark: var(--color-gray-400);
+  
+  /* 字體 */
+  --font-family: 'Inter', 'Noto Sans TC', 'Microsoft JhengHei', Arial, sans-serif;
+  
+  /* 字體大小 */
+  --font-size-xs: 0.75rem;   /* 12px */
+  --font-size-sm: 0.875rem;  /* 14px */
+  --font-size-md: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.25rem;   /* 20px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+  --font-size-4xl: 2.25rem;  /* 36px */
+  
+  /* 字體粗細 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  /* 行高 */
+  --line-height-tight: 1.25;
+  --line-height-snug: 1.375;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+  --line-height-loose: 2;
+  
+  /* 字母間距 */
+  --letter-spacing-tight: -0.025em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide: 0.025em;
+  --letter-spacing-wider: 0.05em;
+  
+  /* 間距 */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;    /* 4px */
+  --spacing-2: 0.5rem;     /* 8px */
+  --spacing-3: 0.75rem;    /* 12px */
+  --spacing-4: 1rem;       /* 16px */
+  --spacing-5: 1.25rem;    /* 20px */
+  --spacing-6: 1.5rem;     /* 24px */
+  --spacing-8: 2rem;       /* 32px */
+  --spacing-10: 2.5rem;    /* 40px */
+  --spacing-12: 3rem;      /* 48px */
+  --spacing-16: 4rem;      /* 64px */
+  --spacing-20: 5rem;      /* 80px */
+  --spacing-24: 6rem;      /* 96px */
+  --spacing-32: 8rem;      /* 128px */
+  
+  /* 陰影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+  
+  /* 圓角 */
+  --radius-none: 0;
+  --radius-sm: 0.125rem;  /* 2px */
+  --radius-md: 0.375rem;  /* 6px */
+  --radius-lg: 0.5rem;    /* 8px */
+  --radius-xl: 0.75rem;   /* 12px */
+  --radius-2xl: 1rem;     /* 16px */
+  --radius-3xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;
+  
+  /* 過渡時間 */
+  --transition-fast: 150ms;
+  --transition-normal: 300ms;
+  --transition-slow: 500ms;
+  
+  /* 過渡曲線 */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Z-index層級 */
+  --z-0: 0;
+  --z-10: 10;
+  --z-20: 20;
+  --z-30: 30;
+  --z-40: 40;
+  --z-50: 50;
+  --z-auto: auto;
+  
+  /* 特殊旅程主題變量 */
+  --journey-path-color: var(--color-primary-light);
+  --journey-accent-color: var(--color-secondary);
+  --journey-background-opacity: 0.08;
+  --journey-background-blur: 1px;
+}
+
+/* 暗色主題變量 - 將來實現 */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-base: #121212;
+    --color-background: #1E1E1E;
+    
+    --color-primary: #0A9396;
+    --color-primary-light: #2EC4B6;
+    --color-primary-dark: #005F73;
+    
+    --color-secondary: #F4A261;
+    --color-secondary-light: #F8BC8A;
+    --color-secondary-dark: #E07A38;
+    
+    --color-gray-50: #2D2D2D;
+    --color-gray-100: #3D3D3D;
+    --color-gray-200: #4D4D4D;
+    --color-gray-300: #5D5D5D;
+    --color-gray-400: #6D6D6D;
+    --color-gray-500: #7D7D7D;
+    --color-gray-600: #8D8D8D;
+    --color-gray-700: #9D9D9D;
+    --color-gray-800: #ADADAD;
+    --color-gray-900: #E1E1E1;
+    
+    --color-text-primary: var(--color-gray-900);
+    --color-text-secondary: var(--color-gray-700);
+    --color-text-muted: var(--color-gray-500);
+    --color-text-light: var(--color-gray-300);
+    
+    --color-border: var(--color-gray-700);
+    --color-border-light: var(--color-gray-800);
+    --color-border-dark: var(--color-gray-600);
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.14);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+    --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.2);
+    
+    --journey-background-opacity: 0.12;
+    --journey-background-blur: 2px;
+  }
+}
+*/

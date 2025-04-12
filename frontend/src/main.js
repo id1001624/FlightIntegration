@@ -6,6 +6,8 @@ import axios from 'axios'  // 如果使用 axios 進行 API 請求
 
 // 引入主 CSS 文件
 import './assets/styles/main.css'
+// 引入設計系統變量
+import './assets/styles/variables.css'
 
 // 配置 axios
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'

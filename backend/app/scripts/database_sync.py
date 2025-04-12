@@ -210,6 +210,16 @@ class DatabaseSyncManager:
         """
         filtered_flights = []
         
+        # 添加詳細日誌記錄有多少航空公司和機場在映射中
+        logger.info(f"航空公司映射有 {len(airlines_map)} 個項目")
+        logger.info(f"機場映射有 {len(airports_map)} 個項目")
+        
+        # 計數器以記錄過濾原因
+        airline_missing_count = 0
+        departure_missing_count = 0
+        arrival_missing_count = 0
+        multiple_missing_count = 0
+        
         for flight in flights:
             airline_code = flight.get('airline_code')
             departure_airport = flight.get('departure_airport')
@@ -218,27 +228,59 @@ class DatabaseSyncManager:
             # 翻譯航班數據中的名稱
             flight = self.translate_flight_data(flight)
             
-            # 檢查航空公司和機場是否都存在
-            if (airline_code in airlines_map and 
-                departure_airport in airports_map and 
-                arrival_airport in airports_map):
-                # 添加ID信息到航班數據，方便後續處理
+            # 詳細記錄正在處理的航班
+            logger.debug(f"處理航班: {flight.get('flight_number')} - {departure_airport} -> {arrival_airport}")
+            
+            # 檢查是否缺少必要欄位
+            missing = []
+            if airline_code not in airlines_map:
+                missing.append(f"航空公司 {airline_code}")
+            if departure_airport not in airports_map:
+                missing.append(f"出發機場 {departure_airport}")
+            if arrival_airport not in airports_map:
+                missing.append(f"目的機場 {arrival_airport}")
+            
+            # 放寬過濾條件：只要航空公司和出發機場存在，就保留航班
+            # 如果到達機場不存在，嘗試填入一個默認值
+            if airline_code in airlines_map and departure_airport in airports_map:
+                # 添加ID信息到航班數據
                 flight['airline_id'] = airlines_map[airline_code]
                 flight['departure_airport_id'] = airports_map[departure_airport]
-                flight['arrival_airport_id'] = airports_map[arrival_airport]
+                
+                # 如果到達機場不存在，記錄警告但仍保留航班
+                if arrival_airport not in airports_map:
+                    logger.warning(f"航班 {flight.get('flight_number')} 的目的機場 {arrival_airport} 在資料庫中不存在")
+                    # 使用出發機場作為臨時替代，以便航班記錄仍可保留
+                    flight['arrival_airport_id'] = flight['departure_airport_id']
+                else:
+                    flight['arrival_airport_id'] = airports_map[arrival_airport]
+                
                 filtered_flights.append(flight)
                 logger.debug(f"保留航班: {flight.get('flight_number')} ({departure_airport}->{arrival_airport})")
             else:
-                missing = []
-                if airline_code not in airlines_map:
-                    missing.append(f"航空公司 {airline_code}")
-                if departure_airport not in airports_map:
-                    missing.append(f"出發機場 {departure_airport}")
-                if arrival_airport not in airports_map:
-                    missing.append(f"目的機場 {arrival_airport}")
+                # 記錄過濾原因
+                if len(missing) == 1:
+                    if "航空公司" in missing[0]:
+                        airline_missing_count += 1
+                    elif "出發機場" in missing[0]:
+                        departure_missing_count += 1
+                    elif "目的機場" in missing[0]:
+                        arrival_missing_count += 1
+                else:
+                    multiple_missing_count += 1
                 
                 logger.debug(f"過濾掉航班: {flight.get('flight_number')} - 缺少: {', '.join(missing)}")
         
+        # 詳細記錄過濾原因
+        if airline_missing_count > 0:
+            logger.info(f"有 {airline_missing_count} 個航班因航空公司不存在而被過濾")
+        if departure_missing_count > 0:
+            logger.info(f"有 {departure_missing_count} 個航班因出發機場不存在而被過濾")
+        if arrival_missing_count > 0:
+            logger.info(f"有 {arrival_missing_count} 個航班因目的機場不存在而被過濾")
+        if multiple_missing_count > 0:
+            logger.info(f"有 {multiple_missing_count} 個航班因多個原因被過濾")
+            
         logger.info(f"過濾前航班數: {len(flights)}, 過濾後: {len(filtered_flights)}")
         return filtered_flights
     

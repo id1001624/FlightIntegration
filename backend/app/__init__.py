@@ -142,10 +142,10 @@ def setup_logging(app):
 def register_blueprints(app):
     """註冊所有藍圖"""
     # 導入藍圖
-    from .controllers.airline import airline_bp
-    from .controllers.airport import airport_bp
-    from .controllers.flight import flight_bp
-    from .controllers.ticket_price import ticket_price_bp
+    from .controllers.airline_controller import airline_bp
+    from .controllers.airport_controller import airport_bp
+    from .controllers.flight_controller import flight_bp
+    from .controllers.price_controller import ticket_price_bp
     
     # 註冊藍圖
     app.register_blueprint(airline_bp, url_prefix='/api/airlines')

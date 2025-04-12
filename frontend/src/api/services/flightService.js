@@ -148,11 +148,20 @@ const flightService = {
         throw new Error('API未返回有效的機場列表數據');
       }
       
+      // 添加國家和地區信息
+      const enhancedData = data.map(airport => {
+        return {
+          ...airport,
+          country: airport.country || 'Taiwan',
+          region: '台灣'
+        };
+      });
+      
       // 設置緩存
-      cache.airports.data[cacheKey] = data;
+      cache.airports.data[cacheKey] = enhancedData;
       cache.airports.timestamp[cacheKey] = Date.now();
       
-      return data;
+      return enhancedData;
     } catch (error) {
       console.error('獲取台灣機場列表失敗:', error);
       throw error;
@@ -185,14 +194,70 @@ const flightService = {
       const response = await api.get(`/flights/${departureCode}/destinations`, { params });
       const data = this._handleResponse(response);
       
+      // 機場按國家和地區進行分類
+      const regionMap = {
+        'TPE': { country: 'Taiwan', region: '台灣' },
+        'TSA': { country: 'Taiwan', region: '台灣' },
+        'KHH': { country: 'Taiwan', region: '台灣' },
+        'RMQ': { country: 'Taiwan', region: '台灣' },
+        'TNN': { country: 'Taiwan', region: '台灣' },
+        'PEK': { country: 'China', region: '中國' },
+        'PVG': { country: 'China', region: '中國' },
+        'CAN': { country: 'China', region: '中國' },
+        'SHA': { country: 'China', region: '中國' },
+        'SZX': { country: 'China', region: '中國' },
+        'CTU': { country: 'China', region: '中國' },
+        'CSX': { country: 'China', region: '中國' },
+        'HKG': { country: 'Hong Kong', region: '香港/澳門' },
+        'MFM': { country: 'Macau', region: '香港/澳門' },
+        'NRT': { country: 'Japan', region: '東北亞' },
+        'HND': { country: 'Japan', region: '東北亞' },
+        'KIX': { country: 'Japan', region: '東北亞' },
+        'ITM': { country: 'Japan', region: '東北亞' },
+        'NGO': { country: 'Japan', region: '東北亞' },
+        'ICN': { country: 'South Korea', region: '東北亞' },
+        'GMP': { country: 'South Korea', region: '東北亞' },
+        'BKK': { country: 'Thailand', region: '東南亞' },
+        'DMK': { country: 'Thailand', region: '東南亞' },
+        'HKT': { country: 'Thailand', region: '東南亞' },
+        'CNX': { country: 'Thailand', region: '東南亞' },
+        'SIN': { country: 'Singapore', region: '東南亞' },
+        'KUL': { country: 'Malaysia', region: '東南亞' },
+        'MNL': { country: 'Philippines', region: '東南亞' },
+        'CGK': { country: 'Indonesia', region: '東南亞' },
+        'DPS': { country: 'Indonesia', region: '東南亞' },
+        'LAX': { country: 'United States', region: '美洲' },
+        'JFK': { country: 'United States', region: '美洲' },
+        'SFO': { country: 'United States', region: '美洲' },
+        'YVR': { country: 'Canada', region: '美洲' },
+        'LHR': { country: 'United Kingdom', region: '歐洲' },
+        'CDG': { country: 'France', region: '歐洲' },
+        'FRA': { country: 'Germany', region: '歐洲' },
+        'SYD': { country: 'Australia', region: '大洋洲' },
+        'MEL': { country: 'Australia', region: '大洋洲' },
+        'AKL': { country: 'New Zealand', region: '大洋洲' }
+      };
+      
+      // 為每個機場添加區域信息
+      const enhancedData = data.map(airport => {
+        const code = airport.iata_code || airport.code || '';
+        const mapping = regionMap[code] || {};
+        
+        return {
+          ...airport,
+          country: airport.country || mapping.country || '其他',
+          region: mapping.region || '其他'
+        };
+      });
+      
       // 更新緩存
       if (!cache.destinations.data) cache.destinations.data = {};
       if (!cache.destinations.timestamp) cache.destinations.timestamp = {};
       
-      cache.destinations.data[cacheKey] = data;
+      cache.destinations.data[cacheKey] = enhancedData;
       cache.destinations.timestamp[cacheKey] = Date.now();
       
-      return data;
+      return enhancedData;
     } catch (error) {
       console.error('獲取目的地機場時出錯:', error);
       throw error;

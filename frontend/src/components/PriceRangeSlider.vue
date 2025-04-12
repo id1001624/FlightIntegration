@@ -2,8 +2,8 @@
   <div class="mb-6">
     <h4 class="text-base font-medium text-text-primary mb-3">價格範圍</h4>
     <div class="flex justify-between text-sm text-text-secondary mb-2">
-      <span>NT$ {{ formatPrice(selectedRange.min) }}</span>
-      <span>NT$ {{ formatPrice(selectedRange.max) }}</span>
+      <span>NT$ {{ formatPrice(selectedRange.min || min) }}</span>
+      <span>NT$ {{ formatPrice(selectedRange.max || max) }}</span>
     </div>
     <div class="relative h-5 flex items-center">
       <div class="absolute bg-gray-200 h-1 w-full"></div>
@@ -98,7 +98,7 @@ export default {
     };
 
     const formatPrice = (price) => {
-      if (price == null) return '0';
+      if (price == null || isNaN(price)) return '0';
       return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     };
 

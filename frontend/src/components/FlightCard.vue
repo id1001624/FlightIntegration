@@ -1,65 +1,73 @@
 <template>
-  <div class="card card-hover mb-4 overflow-hidden">
-    <div class="p-4">
+  <div class="flight-card" :class="{'flight-card-active': isActive}">
+    <div class="flight-card-inner">
       <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
-      <div class="flex items-center justify-between mb-3">
-        <div class="flex items-center space-x-3">
-          <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="h-8 w-8 object-contain bg-gray-100 border border-gray-200" />
-          <div v-else class="h-8 w-8 bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
-            ? <!-- Placeholder for missing logo -->
+      <div class="flight-card-header">
+        <div class="airline-info">
+          <div class="airline-logo-container">
+            <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
+            <div v-else class="airline-logo-placeholder">
+              <span>{{ airlineName.charAt(0) }}</span>
+            </div>
           </div>
-          <div>
-            <p class="text-sm font-medium text-text-primary">{{ airlineName }}</p>
-            <p class="text-xs text-text-secondary">{{ flightNumber }}</p>
+          <div class="airline-details">
+            <h3 class="airline-name">{{ airlineName }}</h3>
+            <p class="flight-number">{{ flightNumber }}</p>
           </div>
         </div>
-        <div class="text-right">
-          <p class="text-lg font-semibold text-primary">NT$ {{ displayPrice }}</p>
-          <p class="text-xs text-text-secondary">{{ flightClassType }}</p>
+        <div class="flight-price">
+          <p class="price-amount">NT$ {{ displayPrice }}</p>
+          <p class="cabin-type">{{ flightClassType }}</p>
         </div>
       </div>
       
       <!-- 行程視覺化 -->
-      <div class="flex items-center my-4">
+      <div class="journey-visualization">
         <!-- 出發資訊 -->
-        <div class="text-center w-1/3">
-          <p class="text-lg font-semibold text-text-primary">{{ formattedDepartureTime }}</p>
-          <p class="text-sm text-text-secondary">{{ getDepartureAirportCode }}</p>
+        <div class="departure-info">
+          <p class="time">{{ formattedDepartureTime }}</p>
+          <p class="airport-code">{{ getDepartureAirportCode }}</p>
         </div>
 
         <!-- 旅程線條與時長 -->
-        <div class="flex-grow text-center px-2">
-          <p class="text-xs text-text-secondary mb-1">{{ flightDuration }}</p>
-          <div class="relative h-1 bg-gray-200">
-            <div class="absolute left-0 top-0 h-1 bg-primary" style="width: 100%;"></div>
-            <div class="absolute left-0 top-1/2 transform -translate-y-1/2 h-3 w-3 bg-primary"></div>
-            <div class="absolute right-0 top-1/2 transform -translate-y-1/2 h-3 w-3 bg-primary"></div>
+        <div class="journey-line-container">
+          <p class="flight-duration">{{ flightDuration }}</p>
+          <div class="journey-line-wrapper">
+            <div class="journey-line" ref="journeyLine"></div>
+            <div class="airplane-icon" ref="airplaneIcon"></div>
+            <div class="departure-dot"></div>
+            <div class="arrival-dot"></div>
           </div>
         </div>
 
         <!-- 到達資訊 -->
-        <div class="text-center w-1/3">
-          <p class="text-lg font-semibold text-text-primary">{{ formattedArrivalTime }}</p>
-          <p class="text-sm text-text-secondary">{{ getArrivalAirportCode }}</p>
+        <div class="arrival-info">
+          <p class="time">{{ formattedArrivalTime }}</p>
+          <p class="airport-code">{{ getArrivalAirportCode }}</p>
         </div>
       </div>
 
-      <!-- 可選：顯示更多資訊的區域 -->
-      <div class="text-xs text-text-secondary flex justify-between items-center pt-2 border-t border-gray-100">
-        <span>{{ formattedDepartureDate }}</span>
-        <span :class="statusClass">{{ flightStatusText }}</span>
+      <!-- 額外資訊 -->
+      <div class="flight-meta">
+        <span class="flight-date">{{ formattedDepartureDate }}</span>
+        <span class="flight-status" :class="statusClass">{{ flightStatusText }}</span>
       </div>
 
     </div>
     <!-- 底部操作區 -->
-    <div class="bg-gray-50 px-4 py-2 text-right">
-      <button class="bg-primary text-white text-sm py-1 px-3" @click="selectFlight">選擇</button>
+    <div class="flight-card-footer">
+      <button class="select-flight-btn" @click="selectFlight">
+        <span>選擇</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
     </div>
   </div>
 </template>
 
 <script>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 
 export default {
   name: 'FlightCard',
@@ -67,10 +75,19 @@ export default {
     flight: {
       type: Object,
       required: true
+    },
+    active: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['select-flight'],
   setup(props, { emit }) {
+    const isActive = ref(props.active);
+    const journeyLine = ref(null);
+    const airplaneIcon = ref(null);
+    let animationFrame = null;
+    
     // --- Logo Mapping ---
     const airlineLogos = {
       // IATA Code: Logo Path
@@ -193,16 +210,53 @@ export default {
 
     const statusClass = computed(() => {
         const status = props.flight.status ? props.flight.status.toLowerCase() : 'scheduled';
-        if (status.includes('delayed')) return 'text-orange-600 font-medium';
-        if (status.includes('cancelled')) return 'text-red-600 font-medium';
-        if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return 'text-blue-600 font-medium';
-        if (status.includes('landed') || status.includes('arrived')) return 'text-green-600 font-medium';
-        return 'text-text-secondary'; // 準時或預定
+        if (status.includes('delayed')) return 'status-delayed';
+        if (status.includes('cancelled')) return 'status-cancelled';
+        if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return 'status-in-air';
+        if (status.includes('landed') || status.includes('arrived')) return 'status-arrived';
+        return 'status-on-time'; // 準時或預定
     });
 
     const selectFlight = () => {
       emit('select-flight', props.flight);
     };
+    
+    // 旅程線條動畫
+    const animateJourneyLine = () => {
+      if (!journeyLine.value || !airplaneIcon.value) return;
+      
+      // 初始化線條寬度為0%
+      journeyLine.value.style.width = '0%';
+      
+      // 觸發重排以確保動畫效果
+      void journeyLine.value.offsetWidth;
+      
+      // 開始動畫
+      journeyLine.value.style.width = '100%';
+      
+      // 飛機圖標動畫
+      animationFrame = requestAnimationFrame(function animate() {
+        const progress = parseFloat(journeyLine.value.style.width) || 0;
+        if (progress < 100) {
+          airplaneIcon.value.style.left = `${progress}%`;
+          animationFrame = requestAnimationFrame(animate);
+        } else {
+          airplaneIcon.value.style.left = '100%';
+        }
+      });
+    };
+
+    onMounted(() => {
+      // 啟動旅程線條動畫
+      setTimeout(animateJourneyLine, 300); // 稍微延遲以確保DOM已渲染
+    });
+    
+    onUnmounted(() => {
+      // 清理動畫
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    });
 
     return {
       formattedDepartureTime,
@@ -219,18 +273,321 @@ export default {
       flightStatusText,
       statusClass,
       selectFlight,
+      isActive,
+      journeyLine,
+      airplaneIcon
     };
   }
 }
 </script>
 
 <style scoped>
-.card {
-  border: 1px solid #dee2e6;
-  background-color: #fff;
+.flight-card {
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background-color: var(--color-base);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
 }
 
-.card-hover:hover {
-  border-color: #005F73;
+.flight-card:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.flight-card-active {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.flight-card-inner {
+  padding: 1.25rem;
+}
+
+/* 卡片頭部 */
+.flight-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.airline-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.airline-logo-container {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+}
+
+.airline-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.airline-logo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+.airline-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.airline-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.flight-number {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.flight-price {
+  text-align: right;
+}
+
+.price-amount {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.cabin-type {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* 旅程視覺化 */
+.journey-visualization {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+
+.departure-info, .arrival-info {
+  width: 30%;
+  text-align: center;
+}
+
+.time {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.airport-code {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+.journey-line-container {
+  flex-grow: 1;
+  padding: 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.flight-duration {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.journey-line-wrapper {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  background-color: #eaeaea;
+  border-radius: 1px;
+}
+
+.journey-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background-color: var(--color-primary);
+  border-radius: 1px;
+  transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.departure-dot, .arrival-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.departure-dot {
+  left: 0;
+}
+
+.arrival-dot {
+  right: 0;
+}
+
+.airplane-icon {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 0%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23005F73'%3E%3Cpath d='M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  transition: left 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 航班狀態 */
+.flight-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.flight-date {
+  color: var(--color-text-secondary);
+}
+
+.flight-status {
+  font-weight: 500;
+}
+
+.status-delayed {
+  color: var(--color-warning);
+}
+
+.status-cancelled {
+  color: var(--color-danger);
+}
+
+.status-in-air {
+  color: var(--color-info);
+}
+
+.status-arrived {
+  color: var(--color-success);
+}
+
+.status-on-time {
+  color: var(--color-text-secondary);
+}
+
+/* 卡片底部 */
+.flight-card-footer {
+  background-color: #f8f9fa;
+  padding: 0.75rem 1.25rem;
+  text-align: right;
+  border-top: 1px solid var(--color-border);
+}
+
+.select-flight-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.select-flight-btn:hover {
+  background-color: var(--color-primary-dark);
+  transform: translateY(-1px);
+}
+
+.select-flight-btn:active {
+  transform: translateY(0);
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-left: 0.25rem;
+  transition: transform var(--transition-fast);
+}
+
+.select-flight-btn:hover .btn-icon {
+  transform: translateX(2px);
+}
+
+/* 響應式 */
+@media (max-width: 640px) {
+  .journey-visualization {
+    flex-direction: column;
+    margin: 1rem 0;
+  }
+  
+  .departure-info, .arrival-info {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    text-align: left;
+    margin-bottom: 0.5rem;
+  }
+  
+  .journey-line-container {
+    width: 100%;
+    padding: 1rem 0;
+    order: 3;
+  }
+  
+  .flight-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .flight-price {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    text-align: left;
+    margin-top: 0.75rem;
+  }
 }
 </style> 

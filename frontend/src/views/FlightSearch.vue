@@ -303,11 +303,29 @@ export default {
 
 /* 搜索背景 */
 .search-background {
-  background-color: var(--color-primary);
-  color: white;
-  padding: 40px 0;
+  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg');
+  background-size: cover;
+  background-position: center;
   position: relative;
+  color: var(--color-primary);
+  padding: 40px 0;
   overflow: hidden;
+}
+
+.search-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 0;
+}
+
+.search-background .page-container {
+  position: relative;
+  z-index: 1;
 }
 
 /* 頁面容器 */
@@ -327,12 +345,14 @@ export default {
   font-size: 2rem;
   margin-bottom: 8px;
   font-weight: 700;
+  color: var(--color-primary);
 }
 
 .page-description {
   font-size: 1.1rem;
   font-weight: 300;
   opacity: 0.9;
+  color: var(--color-text-secondary);
 }
 
 /* 搜索面板 */
@@ -353,6 +373,7 @@ export default {
   padding: 16px;
   margin-bottom: 20px;
   border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
 }
 
 .route-info {
@@ -409,6 +430,7 @@ export default {
   background-color: white;
   padding: 16px;
   border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
 }
 
 .filters-header {
@@ -443,6 +465,7 @@ export default {
   width: 100%;
   max-width: 500px;
   border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
 }
 
 .empty-icon {
@@ -479,7 +502,8 @@ export default {
   width: 50px;
   height: 50px;
   border: 5px solid var(--color-border);
-  border-top-color: var(--color-primary);
+  border-top-color: #005F73;
+  border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 

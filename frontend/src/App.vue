@@ -16,14 +16,30 @@
         <nav class="main-nav">
           <router-link to="/" class="nav-link" exact>首頁</router-link>
           <router-link to="/flight-search" class="nav-link">航班查詢</router-link>
-          <router-link to="/admin/tdx-manager" class="nav-link">航班資料管理</router-link>
-          <router-link to="/test" class="nav-link">測試頁面</router-link>
+          <router-link to="/member/register" class="nav-link">會員註冊/登入</router-link>
+          <router-link to="/social" class="nav-link">社群</router-link>
         </nav>
+        <!-- 移動版漢堡選單 -->
+        <button class="mobile-menu-btn" @click="toggleMobileMenu">
+          <span class="mobile-menu-icon"></span>
+        </button>
       </header>
+
+      <!-- 移動版選單 -->
+      <div class="mobile-menu" :class="{'mobile-menu-open': mobileMenuOpen}">
+        <router-link to="/" class="mobile-nav-link" exact @click="closeMobileMenu">首頁</router-link>
+        <router-link to="/flight-search" class="mobile-nav-link" @click="closeMobileMenu">航班查詢</router-link>
+        <router-link to="/member/register" class="mobile-nav-link" @click="closeMobileMenu">會員註冊/登入</router-link>
+        <router-link to="/social" class="mobile-nav-link" @click="closeMobileMenu">社群</router-link>
+      </div>
 
       <!-- 主要內容區 -->
       <main class="main-content">
-        <router-view/>
+        <router-view v-slot="{ Component }">
+          <transition name="page-transition" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </main>
 
       <!-- 頁腳 -->
@@ -38,7 +54,29 @@
 
 <script>
 export default {
-  name: 'App'
+  name: 'App',
+  data() {
+    return {
+      mobileMenuOpen: false
+    }
+  },
+  methods: {
+    toggleMobileMenu() {
+      this.mobileMenuOpen = !this.mobileMenuOpen;
+      // 切換時禁止/恢復背景滾動
+      document.body.style.overflow = this.mobileMenuOpen ? 'hidden' : '';
+    },
+    closeMobileMenu() {
+      this.mobileMenuOpen = false;
+      document.body.style.overflow = '';
+    }
+  },
+  watch: {
+    $route() {
+      // 路由變更時關閉移動選單
+      this.closeMobileMenu();
+    }
+  }
 }
 </script>
 
@@ -50,27 +88,36 @@ export default {
   padding: 0;
 }
 
-/* 根變量 */
+/* 根變量 - 與Tailwind配置保持一致 */
 :root {
   /* 主要顏色 */
-  --color-primary: #005F73;      /* 深青色 - 主色調 */
-  --color-secondary: #0A9396;    /* 淺青色 - 次要色調 */
-  --color-accent: #94D2BD;       /* 薄荷綠 - 強調色 */
-  --color-highlight: #E9D8A6;    /* 淺黃 - 高亮色 */
-  --color-warning: #EE9B00;      /* 橙色 - 警告色 */
-  --color-danger: #CA6702;       /* 深橙 - 危險色 */
-  --color-error: #BB3E03;        /* 紅棕 - 錯誤色 */
+  --color-base: #FFFFFF;
+  --color-background: #F8F9FA;
+  
+  --color-primary: #005F73;
+  --color-primary-light: #0A9396;
+  --color-primary-dark: #033F4D;
+  
+  --color-secondary: #F4A261;
+  --color-secondary-light: #F8BC8A;
+  --color-secondary-dark: #E07A38;
+  
+  /* 功能色彩 */
+  --color-success: #38B000;
+  --color-warning: #FFB703;
+  --color-danger: #DC2F02;
+  --color-info: #219EBC;
   
   /* 中性色 */
-  --color-white: #FFFFFF;
-  --color-background: #F8F9FA;
   --color-border: #DEE2E6;
+  
+  /* 文字顏色 */
   --color-text-primary: #212529;
-  --color-text-secondary: #495057;
-  --color-text-muted: #6C757D;
+  --color-text-secondary: #6C757D;
+  --color-text-muted: #ADB5BD;
 
   /* 字體 */
-  --font-family: 'Noto Sans TC', 'Microsoft JhengHei', Arial, sans-serif;
+  --font-family: 'Inter', 'Noto Sans TC', 'Microsoft JhengHei', Arial, sans-serif;
   
   /* 間距 */
   --spacing-xs: 0.25rem;  /* 4px */
@@ -87,6 +134,11 @@ export default {
   /* 過渡 */
   --transition-fast: 150ms ease-in-out;
   --transition-normal: 250ms ease-in-out;
+  
+  /* 圓角 */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
 }
 
 /* 全局樣式 */
@@ -96,7 +148,7 @@ html, body {
   font-size: 16px;
   line-height: 1.5;
   color: var(--color-text-primary);
-  background-color: var(--color-white);
+  background-color: var(--color-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -115,12 +167,13 @@ html, body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('/src/assets/images/vista-wei-xYNC73QAqc8-unsplash.jpg');
+  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.15;
+  opacity: 0.08; /* 降低不透明度使其更淡 */
   z-index: 0;
+  filter: blur(1px); /* 輕微模糊 */
 }
 
 /* 內容容器 */
@@ -156,6 +209,11 @@ html, body {
   color: var(--color-primary);
   font-weight: 700;
   font-size: 1.5rem;
+  transition: transform var(--transition-fast);
+}
+
+.logo:hover {
+  transform: translateY(-1px);
 }
 
 .logo-image {
@@ -175,12 +233,13 @@ html, body {
   text-decoration: none;
   font-weight: 500;
   padding: var(--spacing-sm) var(--spacing-md);
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast), transform var(--transition-fast);
   position: relative;
 }
 
 .nav-link:hover {
   color: var(--color-primary);
+  transform: translateY(-1px);
 }
 
 .nav-link.router-link-active {
@@ -195,6 +254,96 @@ html, body {
   width: 100%;
   height: 2px;
   background-color: var(--color-primary);
+  animation: journeyLine 0.3s ease-out forwards;
+}
+
+/* 移動版選單按鈕 */
+.mobile-menu-btn {
+  display: none; /* 預設隱藏 */
+  background: transparent;
+  border: none;
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.mobile-menu-icon,
+.mobile-menu-icon::before,
+.mobile-menu-icon::after {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 2px;
+  background-color: var(--color-primary);
+  position: absolute;
+  left: 8px;
+  transition: all var(--transition-normal);
+}
+
+.mobile-menu-icon {
+  top: 19px;
+}
+
+.mobile-menu-icon::before {
+  top: -8px;
+}
+
+.mobile-menu-icon::after {
+  bottom: -8px;
+}
+
+/* 移動選單開啟狀態 */
+.mobile-menu-open .mobile-menu-icon {
+  background-color: transparent;
+}
+
+.mobile-menu-open .mobile-menu-icon::before {
+  transform: rotate(45deg);
+  top: 0;
+}
+
+.mobile-menu-open .mobile-menu-icon::after {
+  transform: rotate(-45deg);
+  bottom: 0;
+}
+
+/* 移動版導航選單 */
+.mobile-menu {
+  display: none;
+  flex-direction: column;
+  background-color: var(--color-base);
+  position: fixed;
+  top: 70px;
+  left: 0;
+  width: 100%;
+  height: 0;
+  overflow: hidden;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity var(--transition-normal), height var(--transition-normal);
+  box-shadow: var(--shadow-md);
+}
+
+.mobile-menu-open {
+  height: calc(100vh - 70px);
+  opacity: 1;
+}
+
+.mobile-nav-link {
+  padding: var(--spacing-lg);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color var(--transition-fast);
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.router-link-active {
+  background-color: rgba(0, 95, 115, 0.05);
+  color: var(--color-primary);
 }
 
 /* 主要內容 */
@@ -216,17 +365,54 @@ html, body {
   font-size: 0.875rem;
 }
 
-/* 媒體查詢 */
+/* 頁面切換動畫 */
+.page-transition-enter-active,
+.page-transition-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.page-transition-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-transition-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* 動畫關鍵幀 */
+@keyframes journeyLine {
+  0% {
+    width: 0%;
+    opacity: 0.5;
+  }
+  100% {
+    width: 100%;
+    opacity: 1;
+  }
+}
+
+/* 響應式樣式 */
 @media (max-width: 768px) {
   .header {
-    flex-direction: column;
-    gap: var(--spacing-md);
+    padding: var(--spacing-md) 0;
   }
   
   .main-nav {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--spacing-sm);
+    display: none; /* 在移動版隱藏 */
+  }
+  
+  .mobile-menu-btn {
+    display: block; /* 在移動版顯示 */
+  }
+  
+  .mobile-menu {
+    display: flex; /* 啟用彈出式選單 */
+  }
+  
+  .content-container {
+    padding: 0 var(--spacing-sm);
   }
 }
 </style>
