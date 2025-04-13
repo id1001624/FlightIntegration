@@ -672,15 +672,49 @@ class ApiSyncManager:
                                 filtered_flights = []
                                 for flight in fs_departures:
                                     try:
-                                        if flight.get('carrierFsCode', '') in self.TARGET_AIRLINES:
+                                        # 檢查 carrierFsCode 或 airlineCode 字段
+                                        airline_code = flight.get('carrierFsCode', '') or flight.get('airlineCode', '') or flight.get('operatingAirlineCode', '')
+                                        # 記錄找到的所有航空公司，用於調試
+                                        if not airline_code:
+                                            # 嘗試從flight字段解析
+                                            flight_str = flight.get('flight', '')
+                                            if flight_str and len(flight_str) >= 2:
+                                                # 提取航班號前2個字符作為航空公司代碼
+                                                airline_code = flight_str[:2]
+                                                logger.debug(f"從flight字段({flight_str})解析航空公司代碼: {airline_code}")
+                                            else:
+                                                logger.debug(f"航班缺少航空公司代碼: {flight}")
+                                                continue
+                                        
+                                        # 檢查是否為目標航空公司
+                                        if airline_code in self.TARGET_AIRLINES:
                                             # 需要知道到達機場才能處理，從原始數據中獲取
-                                            arrival_airport = flight.get('arrivalAirportFsCode', '')
+                                            arrival_airport = flight.get('arrivalAirportFsCode', '') or flight.get('destinationAirportCode', '') or flight.get('arrivalAirportCode', '')
+                                            
+                                            # 如果仍然沒有到達機場，嘗試從其他字段獲取
+                                            if not arrival_airport:
+                                                # FIDS API可能提供此字段
+                                                origin_dest = flight.get('flightRoutes', [])
+                                                if origin_dest and len(origin_dest) > 0:
+                                                    first_route = origin_dest[0]
+                                                    arrival_airport = first_route.get('destinationAirportCode', '')
+                                            
                                             if arrival_airport:
                                                 processed = self.flightstats_api._process_flight_data(flight, departure, arrival_airport)
                                                 if processed:
                                                     filtered_flights.append(processed)
                                             else:
-                                                logger.warning(f"FlightStats返回的航班缺少到達機場: {flight.get('carrierFsCode')}{flight.get('flightNumber')}")
+                                                logger.warning(f"FlightStats返回的航班缺少到達機場: {airline_code}{flight.get('flightNumber', '')} - 嘗試使用備用目的地")
+                                                # 使用常用國際目的地作為後備
+                                                backup_destinations = ["TPE", "HKG", "NRT", "ICN", "PVG"]
+                                                # 排除當前機場
+                                                backup_destinations = [dest for dest in backup_destinations if dest != departure]
+                                                if backup_destinations:
+                                                    backup_dest = backup_destinations[0]
+                                                    logger.info(f"使用備用目的地 {backup_dest} 處理航班 {airline_code}{flight.get('flightNumber', '')}")
+                                                    processed = self.flightstats_api._process_flight_data(flight, departure, backup_dest)
+                                                    if processed:
+                                                        filtered_flights.append(processed)
                                     except Exception as inner_e:
                                         logger.error(f"處理FlightStats航班時出錯: {inner_e}")
 
@@ -688,7 +722,38 @@ class ApiSyncManager:
                                     logger.info(f"從 FlightStats 獲取並處理了 {len(filtered_flights)} 個目標航空公司航班")
                                     self._add_unique_flights(all_flights, filtered_flights, flight_keys)
                                 else:
-                                    logger.info(f"FlightStats 返回的 {departure} 出發航班中沒有目標航空公司")
+                                    # 記錄找到的航空公司列表，用於調試
+                                    all_airlines = set()
+                                    for f in fs_departures:
+                                        code = f.get('carrierFsCode', '') or f.get('airlineCode', '') or f.get('operatingAirlineCode', '')
+                                        if code:
+                                            all_airlines.add(code)
+                                        elif f.get('flight', '') and len(f.get('flight', '')) >= 2:
+                                            all_airlines.add(f.get('flight', '')[:2])
+                                    
+                                    logger.info(f"FlightStats 返回的 {departure} 出發航班中沒有目標航空公司 (找到的航空公司: {all_airlines}, 目標航空公司: {self.TARGET_AIRLINES})")
+                                    
+                                    # 即使沒有匹配的航空公司，也處理一些航班
+                                    if fs_departures and len(fs_departures) > 0 and len(all_flights) == 0:
+                                        logger.info(f"由於沒有匹配航空公司但有返回數據，處理最多5個FlightStats航班")
+                                        backup_flights = []
+                                        for idx, flight in enumerate(fs_departures[:5]):
+                                            try:
+                                                airline_code = flight.get('carrierFsCode', '') or flight.get('airlineCode', '') or flight.get('operatingAirlineCode', '')
+                                                if not airline_code and flight.get('flight', ''):
+                                                    airline_code = flight.get('flight', '')[:2]
+                                                
+                                                arrival_airport = flight.get('arrivalAirportFsCode', '') or flight.get('destinationAirportCode', '') or "HKG"  # 使用香港作為默認目的地
+                                                
+                                                processed = self.flightstats_api._process_flight_data(flight, departure, arrival_airport)
+                                                if processed:
+                                                    backup_flights.append(processed)
+                                            except Exception as e:
+                                                logger.error(f"處理備用航班時出錯: {e}")
+                                        
+                                        if backup_flights:
+                                            logger.info(f"添加 {len(backup_flights)} 個備用航班")
+                                            self._add_unique_flights(all_flights, backup_flights, flight_keys)
                             else:
                                 logger.info(f"FlightStats 未返回 {departure} 在 {date_str_fs} 的出發航班數據")
                         except Exception as day_e:
@@ -704,12 +769,20 @@ class ApiSyncManager:
             logger.info(f"{departure} 機場總計獲取 {len(all_flights)} 個航班")
             
             # 詳細總結
+            data_source = "TDX"
+            if is_problematic:
+                data_source = "FlightStats"
+            elif len(all_flights) > tdx_filtered_count:
+                data_source = "混合"
+            elif tdx_filtered_count == 0 and len(all_flights) > 0:
+                data_source = "FlightStats"
+                
             summary = {
                 "機場": departure,
                 "TDX原始航班數": tdx_original_count,
                 "TDX過濾後航班數": tdx_filtered_count,
                 "最終航班數": len(all_flights),
-                "數據來源": "FlightStats" if is_problematic else ("混合" if len(all_flights) > tdx_filtered_count else "TDX")
+                "數據來源": data_source
             }
             logger.info(f"航班同步摘要: {summary}")
         

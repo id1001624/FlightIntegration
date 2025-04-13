@@ -9,6 +9,8 @@ import os
 from datetime import datetime
 import json
 
+print("開始執行TSA航班測試腳本")
+
 # 配置日誌
 logging.basicConfig(
     level=logging.INFO,
@@ -16,25 +18,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger('test_tsa')
 
+print("日誌配置完成")
+
 # 導入API客戶端
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.append(current_dir)
 
+print(f"當前目錄: {current_dir}")
+print(f"系統路徑: {sys.path}")
+
 try:
     # 嘗試導入API客戶端
+    print("嘗試導入API客戶端...")
     from app.scripts.flightstats_sync import FlightStatsApiClient
     from app.scripts.tdx_sync import TdxApiClient
     from app.scripts.sync_manager import ApiSyncManager
+    print("API客戶端導入成功")
 except ImportError as e:
+    print(f"導入API客戶端失敗: {str(e)}")
     logger.error(f"導入API客戶端失敗: {str(e)}")
     logger.info("嘗試使用相對路徑導入...")
     try:
         sys.path.append(os.path.join(current_dir, 'app', 'scripts'))
+        print(f"添加路徑: {os.path.join(current_dir, 'app', 'scripts')}")
         from app.scripts.flightstats_sync import FlightStatsApiClient
         from app.scripts.tdx_sync import TdxApiClient
         from app.scripts.sync_manager import ApiSyncManager
+        print("使用相對路徑導入API客戶端成功")
     except ImportError as e:
+        print(f"第二次導入API客戶端失敗: {str(e)}")
         logger.error(f"導入API客戶端失敗: {str(e)}")
         sys.exit(1)
 
@@ -42,6 +55,7 @@ def test_get_tsa_flights():
     """
     測試獲取TSA機場當天出發的航班
     """
+    print("開始執行test_get_tsa_flights函數")
     logger.info("=== 開始測試獲取TSA機場今天出發的航班 ===")
     
     # 測試1: 使用 FlightStats API
