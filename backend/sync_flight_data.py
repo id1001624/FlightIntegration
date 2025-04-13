@@ -53,12 +53,35 @@ logger.addHandler(console_handler)
 
 # 導入相關模組
 try:
+    # 優先使用相對路徑導入
+    logger.info("嘗試使用相對路徑導入...")
     from app.scripts.sync_manager import ApiSyncManager
-    from app.scripts.database_sync import DatabaseSyncManager
+    from app.scripts.db_manager import DbManager
+    logger.info("成功使用相對路徑導入客戶端")
 except ImportError as e:
-    logger.error(f"無法導入必要模組: {str(e)}")
-    logger.info("請確保您在專案根目錄執行此腳本")
-    sys.exit(1)
+    logger.warning(f"相對路徑導入失敗: {str(e)}")
+    try:
+        # 嘗試使用舊版客戶端
+        logger.info("嘗試導入舊版客戶端...")
+        from app.scripts.sync_manager import ApiSyncManager
+        from app.deprecated.database_sync import DatabaseSyncManager as DbManager
+        logger.info("成功導入舊版客戶端")
+    except ImportError as e2:
+        # 最後嘗試調整路徑然後導入
+        logger.error(f"導入舊版客戶端也失敗: {str(e2)}")
+        logger.info("嘗試調整路徑後導入...")
+        try:
+            # 添加必要的路徑
+            if app_dir not in sys.path:
+                sys.path.append(app_dir)
+            
+            from app.scripts.sync_manager import ApiSyncManager
+            from app.scripts.db_manager import DbManager
+            logger.info("調整路徑後成功導入客戶端")
+        except ImportError as e3:
+            logger.error(f"所有導入嘗試均失敗: {str(e3)}")
+            logger.critical("無法導入必要模組，程序退出")
+            sys.exit(1)
 
 class FlightDataSyncTool:
     """航班數據同步工具，整合API調用和數據庫同步功能"""
@@ -101,7 +124,7 @@ class FlightDataSyncTool:
         
         # 初始化數據庫同步管理器
         try:
-            self.db_manager = DatabaseSyncManager()
+            self.db_manager = DbManager()
             logger.info("數據庫同步管理器初始化成功")
         except Exception as e:
             logger.error(f"數據庫同步管理器初始化失敗: {str(e)}")
@@ -332,6 +355,40 @@ class FlightDataSyncTool:
                 logger.warning(f"過濾後沒有可用的航班數據")
                 result = {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "過濾後沒有可用的航班數據"}
             else:
+                # 添加詳細日誌輸出，檢查數據格式問題
+                logger.info("=================== 準備導入航班數據 ===================")
+                
+                # 輸出前5個航班的詳細信息（如果數量少於5則全部輸出）
+                sample_size = min(5, len(filtered_flights))
+                logger.info(f"輸出前 {sample_size} 個航班的詳細信息：")
+                
+                for idx, flight in enumerate(filtered_flights[:sample_size]):
+                    logger.info(f"航班 {idx + 1}/{sample_size}:")
+                    logger.info(f"  航班號: {flight.get('flight_number')}")
+                    logger.info(f"  航空公司: {flight.get('airline_code')} -> {flight.get('airline_id')}")
+                    logger.info(f"  出發機場: {flight.get('departure_airport')} -> {flight.get('departure_airport_id')}")
+                    logger.info(f"  到達機場: {flight.get('arrival_airport')} -> {flight.get('arrival_airport_id')}")
+                    logger.info(f"  計劃出發: {flight.get('scheduled_departure')}")
+                    logger.info(f"  計劃到達: {flight.get('scheduled_arrival')}")
+                    
+                    # 特別檢查是否已有flight_id
+                    if 'flight_id' in flight:
+                        flight_id = flight['flight_id']
+                        logger.info(f"  已有flight_id: {flight_id} (類型: {type(flight_id).__name__})")
+                    else:
+                        logger.info("  沒有預設的flight_id，將在導入時生成")
+                    
+                    # 檢查缺少的必要字段
+                    missing_fields = []
+                    for field in ['flight_number', 'airline_id', 'departure_airport_id', 'arrival_airport_id', 'scheduled_departure', 'scheduled_arrival']:
+                        if not flight.get(field):
+                            missing_fields.append(field)
+                    
+                    if missing_fields:
+                        logger.warning(f"  缺少必要字段: {', '.join(missing_fields)}")
+                
+                logger.info("=======================================================")
+
                 # 直接導入到數據庫，不再呼叫sync_flights方法（該方法會重複獲取數據）
                 result = self.db_manager.import_flights_to_database(filtered_flights)
                 
@@ -389,6 +446,60 @@ class FlightDataSyncTool:
             logger.warning("過濾後沒有可用的航班數據")
             result = {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "過濾後沒有可用的航班數據"}
         else:
+            # 添加詳細日誌輸出，檢查數據格式問題
+            logger.info("=================== 準備導入航班數據 ===================")
+            
+            # 輸出前5個航班的詳細信息（如果數量少於5則全部輸出）
+            sample_size = min(5, len(filtered_flights))
+            logger.info(f"輸出前 {sample_size} 個航班的詳細信息：")
+            
+            for idx, flight in enumerate(filtered_flights[:sample_size]):
+                logger.info(f"航班 {idx + 1}/{sample_size}:")
+                logger.info(f"  航班號: {flight.get('flight_number')}")
+                logger.info(f"  航空公司: {flight.get('airline_code')} -> {flight.get('airline_id')}")
+                logger.info(f"  出發機場: {flight.get('departure_airport')} -> {flight.get('departure_airport_id')}")
+                logger.info(f"  到達機場: {flight.get('arrival_airport')} -> {flight.get('arrival_airport_id')}")
+                logger.info(f"  計劃出發: {flight.get('scheduled_departure')}")
+                logger.info(f"  計劃到達: {flight.get('scheduled_arrival')}")
+                
+                # 特別檢查是否已有flight_id
+                if 'flight_id' in flight:
+                    flight_id = flight['flight_id']
+                    logger.info(f"  已有flight_id: {flight_id} (類型: {type(flight_id).__name__})")
+                else:
+                    logger.info("  沒有預設的flight_id，將在導入時生成")
+                
+                # 檢查缺少的必要字段
+                missing_fields = []
+                for field in ['flight_number', 'airline_id', 'departure_airport_id', 'arrival_airport_id', 'scheduled_departure', 'scheduled_arrival']:
+                    if not flight.get(field):
+                        missing_fields.append(field)
+                
+                if missing_fields:
+                    logger.warning(f"  缺少必要字段: {', '.join(missing_fields)}")
+            
+            # 統計數據格式問題
+            logger.info("數據格式統計:")
+            field_counts = {
+                'flight_number': 0,
+                'airline_id': 0,
+                'departure_airport_id': 0,
+                'arrival_airport_id': 0,
+                'scheduled_departure': 0,
+                'scheduled_arrival': 0
+            }
+            
+            for flight in filtered_flights:
+                for field in field_counts:
+                    if flight.get(field):
+                        field_counts[field] += 1
+            
+            for field, count in field_counts.items():
+                percentage = (count / len(filtered_flights)) * 100 if filtered_flights else 0
+                logger.info(f"  {field}: {count}/{len(filtered_flights)} ({percentage:.1f}%)")
+            
+            logger.info("=======================================================")
+            
             # 直接導入到數據庫
             result = self.db_manager.import_flights_to_database(filtered_flights)
         
@@ -448,6 +559,74 @@ class FlightDataSyncTool:
             logger.warning("過濾後沒有可用的航班數據")
             result = {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "過濾後沒有可用的航班數據"}
         else:
+            # 添加詳細日誌輸出，檢查數據格式問題
+            logger.info("=================== 準備導入航班數據 ===================")
+            
+            # 輸出前5個航班的詳細信息（如果數量少於5則全部輸出）
+            sample_size = min(5, len(filtered_flights))
+            logger.info(f"輸出前 {sample_size} 個航班的詳細信息：")
+            
+            for idx, flight in enumerate(filtered_flights[:sample_size]):
+                logger.info(f"航班 {idx + 1}/{sample_size}:")
+                logger.info(f"  航班號: {flight.get('flight_number')}")
+                logger.info(f"  航空公司: {flight.get('airline_code')} -> {flight.get('airline_id')}")
+                logger.info(f"  出發機場: {flight.get('departure_airport')} -> {flight.get('departure_airport_id')}")
+                logger.info(f"  到達機場: {flight.get('arrival_airport')} -> {flight.get('arrival_airport_id')}")
+                logger.info(f"  計劃出發: {flight.get('scheduled_departure')}")
+                logger.info(f"  計劃到達: {flight.get('scheduled_arrival')}")
+                
+                # 特別檢查是否已有flight_id
+                if 'flight_id' in flight:
+                    flight_id = flight['flight_id']
+                    logger.info(f"  已有flight_id: {flight_id} (類型: {type(flight_id).__name__})")
+                else:
+                    logger.info("  沒有預設的flight_id，將在導入時生成")
+                
+                # 檢查各種日期格式問題
+                for date_field in ['scheduled_departure', 'scheduled_arrival']:
+                    if flight.get(date_field):
+                        date_value = flight[date_field]
+                        logger.info(f"  {date_field}: {date_value} (類型: {type(date_value).__name__})")
+                        
+                        # 如果是字符串，檢查格式
+                        if isinstance(date_value, str):
+                            logger.info(f"    字符串格式檢查: 長度={len(date_value)}, 內容={date_value}")
+                
+                # 檢查缺少的必要字段
+                missing_fields = []
+                for field in ['flight_number', 'airline_id', 'departure_airport_id', 'arrival_airport_id', 'scheduled_departure', 'scheduled_arrival']:
+                    if not flight.get(field):
+                        missing_fields.append(field)
+                
+                if missing_fields:
+                    logger.warning(f"  缺少必要字段: {', '.join(missing_fields)}")
+            
+            # 統計主要問題
+            scheduled_departure_formats = {}
+            scheduled_arrival_formats = {}
+            flight_id_types = {}
+            
+            for flight in filtered_flights:
+                # 檢查日期格式
+                for date_field, formats_dict in [('scheduled_departure', scheduled_departure_formats), 
+                                               ('scheduled_arrival', scheduled_arrival_formats)]:
+                    if flight.get(date_field):
+                        date_value = flight[date_field]
+                        date_type = type(date_value).__name__
+                        formats_dict[date_type] = formats_dict.get(date_type, 0) + 1
+                
+                # 檢查flight_id類型
+                if 'flight_id' in flight:
+                    id_type = type(flight['flight_id']).__name__
+                    flight_id_types[id_type] = flight_id_types.get(id_type, 0) + 1
+            
+            # 輸出統計結果
+            logger.info("數據格式統計:")
+            logger.info(f"  scheduled_departure 格式: {scheduled_departure_formats}")
+            logger.info(f"  scheduled_arrival 格式: {scheduled_arrival_formats}")
+            logger.info(f"  flight_id 類型: {flight_id_types}")
+            logger.info("=======================================================")
+            
             # 直接導入到數據庫
             result = self.db_manager.import_flights_to_database(filtered_flights)
         

@@ -3,7 +3,7 @@ import sys
 import logging
 import datetime
 from dotenv import load_dotenv
-from app.scripts.flightstats_sync import FlightStatsApiClient
+from backend.app.clients.flightstats_client import FlightStatsApiClient
 
 # 設置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -21,14 +21,14 @@ logger = logging.getLogger('database_sync')
 
 # 嘗試導入 sync_manager (假設它已經在同一目錄)
 try:
-    from sync_manager import ApiSyncManager
+    from app.scripts.sync_manager import ApiSyncManager
 except ImportError:
     # 嘗試相對導入
     current_dir = os.path.dirname(os.path.abspath(__file__))
     if current_dir not in sys.path:
         sys.path.append(current_dir)
     try:
-        from sync_manager import ApiSyncManager
+        from app.scripts.sync_manager import ApiSyncManager
     except ImportError as e:
         logger.error(f"無法導入 ApiSyncManager: {str(e)}")
         sys.exit(1)

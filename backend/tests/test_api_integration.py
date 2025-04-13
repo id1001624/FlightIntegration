@@ -20,8 +20,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.abspath(os.path.join(current_dir, '../../../')))
 
 # 導入測試目標
-from backend.app.scripts.tdx_sync import TdxApiClient
-from backend.app.scripts.flightstats_sync import FlightStatsApiClient
+from backend.app.clients.tdx_client import TdxApiClient
+from backend.app.clients.flightstats_client import FlightStatsApiClient
 from backend.app.scripts.sync_manager import ApiSyncManager
 from backend.app.services.data_sync_service import DataSyncService
 

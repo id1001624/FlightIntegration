@@ -11,207 +11,166 @@ class MockDataGenerator:
     """
     
     @staticmethod
-    def generate_airport_data(airport_code=None):
+    def generate_taiwan_departures_data(date=None, days=1):
         """
-        生成模擬機場數據
-        
+        生成模擬台灣出發航班數據，格式與sync_taiwan_departures方法一致
+
         Args:
-            airport_code (str, optional): 指定機場代碼，若不提供則返回多個機場
-            
-        Returns:
-            list/dict: 機場數據
-        """
-        mock_airports = {
-            "TPE": {
-                "AirportID": "TPE",
-                "AirportName": {"Zh_tw": "臺灣桃園國際機場", "En": "Taiwan Taoyuan International Airport"},
-                "AirportCode": "RCTP",
-                "CityName": {"Zh_tw": "桃園", "En": "Taoyuan"},
-                "CountryCode": "TW",
-                "CountryName": {"Zh_tw": "臺灣", "En": "Taiwan"},
-                "PositionLat": 25.077731,
-                "PositionLon": 121.232822,
-                "is_test_data": True
-            },
-            "TSA": {
-                "AirportID": "TSA",
-                "AirportName": {"Zh_tw": "臺北松山機場", "En": "Taipei Songshan Airport"},
-                "AirportCode": "RCSS",
-                "CityName": {"Zh_tw": "臺北", "En": "Taipei"},
-                "CountryCode": "TW",
-                "CountryName": {"Zh_tw": "臺灣", "En": "Taiwan"},
-                "PositionLat": 25.069444,
-                "PositionLon": 121.552778,
-                "is_test_data": True
-            },
-            "KHH": {
-                "AirportID": "KHH",
-                "AirportName": {"Zh_tw": "高雄國際機場", "En": "Kaohsiung International Airport"},
-                "AirportCode": "RCKH",
-                "CityName": {"Zh_tw": "高雄", "En": "Kaohsiung"},
-                "CountryCode": "TW",
-                "CountryName": {"Zh_tw": "臺灣", "En": "Taiwan"},
-                "PositionLat": 22.577778,
-                "PositionLon": 120.350833,
-                "is_test_data": True
-            },
-            "HKG": {
-                "AirportID": "HKG",
-                "AirportName": {"Zh_tw": "香港國際機場", "En": "Hong Kong International Airport"},
-                "AirportCode": "VHHH",
-                "CityName": {"Zh_tw": "香港", "En": "Hong Kong"},
-                "CountryCode": "HK",
-                "CountryName": {"Zh_tw": "香港", "En": "Hong Kong"},
-                "PositionLat": 22.308889,
-                "PositionLon": 113.914444,
-                "is_test_data": True
-            },
-            "NRT": {
-                "AirportID": "NRT",
-                "AirportName": {"Zh_tw": "東京成田國際機場", "En": "Narita International Airport"},
-                "AirportCode": "RJAA",
-                "CityName": {"Zh_tw": "東京", "En": "Tokyo"},
-                "CountryCode": "JP",
-                "CountryName": {"Zh_tw": "日本", "En": "Japan"},
-                "PositionLat": 35.765556,
-                "PositionLon": 140.386389,
-                "is_test_data": True
-            }
-        }
-        
-        if airport_code:
-            if airport_code in mock_airports:
-                return mock_airports[airport_code]
-            else:
-                return None
-        
-        return list(mock_airports.values())
-    
-    @staticmethod
-    def generate_airline_data(airline_code=None):
-        """
-        生成模擬航空公司數據
-        
-        Args:
-            airline_code (str, optional): 指定航空公司代碼，若不提供則返回多個航空公司
-            
-        Returns:
-            list/dict: 航空公司數據
-        """
-        mock_airlines = {
-            "CI": {
-                "AirlineID": "CI",
-                "AirlineName": {"Zh_tw": "中華航空", "En": "China Airlines"},
-                "is_test_data": True
-            },
-            "BR": {
-                "AirlineID": "BR",
-                "AirlineName": {"Zh_tw": "長榮航空", "En": "EVA Air"},
-                "is_test_data": True
-            },
-            "AE": {
-                "AirlineID": "AE",
-                "AirlineName": {"Zh_tw": "華信航空", "En": "Mandarin Airlines"},
-                "is_test_data": True
-            },
-            "B7": {
-                "AirlineID": "B7",
-                "AirlineName": {"Zh_tw": "立榮航空", "En": "UNI Air"},
-                "is_test_data": True
-            },
-            "JX": {
-                "AirlineID": "JX",
-                "AirlineName": {"Zh_tw": "星宇航空", "En": "STARLUX Airlines"},
-                "is_test_data": True
-            }
-        }
-        
-        if airline_code:
-            if airline_code in mock_airlines:
-                return mock_airlines[airline_code]
-            else:
-                return None
-        
-        return list(mock_airlines.values())
-    
-    @staticmethod
-    def generate_flight_data(airport_code="TPE", direction="Departure", date=None, count=10):
-        """
-        生成模擬航班數據
-        
-        Args:
-            airport_code (str): 機場代碼
-            direction (str): "Departure" 或 "Arrival"
             date (str, optional): 日期，格式為YYYY-MM-DD，若不提供則使用今天
-            count (int, optional): 生成的航班數量
-            
+            days (int, optional): 查詢天數
+
         Returns:
-            list: 航班數據列表
+            dict: 以機場代碼為鍵，航班列表為值的字典，格式與sync_taiwan_departures返回值一致
         """
-        mock_data = []
-        airlines = ["CI", "BR", "AE", "B7", "JX"]
-        destinations = {
-            "TPE": ["HKG", "NRT", "ICN", "SIN", "BKK"],
-            "KHH": ["TPE", "HKG", "MNL"],
-            "TSA": ["KHH", "MZG", "HUN"]
-        }
-        origins = {
-            "TPE": ["HKG", "NRT", "ICN", "SIN", "BKK"],
-            "KHH": ["TPE", "HKG", "MNL"],
-            "TSA": ["KHH", "MZG", "HUN"]
-        }
-                 
-        airport_list = destinations.get(airport_code, ["TPE"]) if direction == "Departure" else origins.get(airport_code, ["TPE"])
-        
+        # 台灣機場列表
+        taiwan_airports = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'CMJ', 'WOT']
+
+        # 目標航空公司
+        target_airlines = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
+
+        # 國內外目的地
+        domestic_destinations = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'CMJ', 'WOT']
+        international_destinations = ['HKG', 'NRT', 'HND', 'ICN', 'BKK', 'SIN', 'KUL', 'PVG', 'PEK', 'LAX', 'SFO', 'JFK', 'CDG', 'LHR', 'FRA', 'SYD']
+
+        results = {}
+
         # 生成日期，如果未提供則使用今天
         if not date:
             date = datetime.now().strftime("%Y-%m-%d")
-        
-        # 產生指定數量的模擬航班
-        for i in range(count):
-            airline = airlines[i % len(airlines)]
-            flight_number = f"{airline}{100 + i}"
-            
-            if direction == "Departure":
-                dest_airport = airport_list[i % len(airport_list)]
-                mock_flight = {
-                    "FlightID": f"TEST-{airline}-{i}",
-                    "AirlineID": airline,
-                    "FlightNumber": flight_number,
-                    "DepartureAirportID": airport_code,
-                    "ArrivalAirportID": dest_airport,
-                    "ScheduleDepartureTime": f"{date}T{(8 + i) % 24:02d}:00:00",
-                    "ScheduleArrivalTime": f"{date}T{(10 + i) % 24:02d}:30:00",
-                    "ActualDepartureTime": None if i % 3 == 0 else f"{date}T{(8 + i) % 24:02d}:{(i * 5) % 60:02d}:00",
-                    "ActualArrivalTime": None,
-                    "FlightStatusCode": "A" if i % 4 != 0 else "D",  # A:正常, D:延誤
-                    "FlightStatus": "正常" if i % 4 != 0 else "延誤",
-                    "Terminal": str(1 + (i % 2)),
-                    "Gate": f"A{i+1}",
+        elif isinstance(date, datetime):
+            date = date.strftime("%Y-%m-%d")
+
+        # 為每個台灣機場生成航班
+        for airport in taiwan_airports:
+            # 決定該機場的航班數量 (根據機場大小調整)
+            flight_count = 0
+            if airport in ['TPE', 'TSA', 'KHH']:  # 主要機場
+                flight_count = random.randint(15, 30)
+            elif airport in ['RMQ', 'TNN']:  # 中型機場
+                flight_count = random.randint(5, 15)
+            else:  # 小型機場
+                flight_count = random.randint(1, 8)
+
+            flights = []
+            flight_keys = set()  # 避免重複航班
+
+            # 生成國內航班 (約60%)
+            domestic_count = int(flight_count * 0.6)
+            for i in range(domestic_count):
+                # 隨機選擇一個不同於出發地的國內目的地
+                destinations = [d for d in domestic_destinations if d != airport]
+                arrival = random.choice(destinations)
+
+                # 國內航班主要由AE, B7, DA運營
+                domestic_airlines = ['AE', 'B7', 'DA']
+                airline = random.choice(domestic_airlines)
+
+                # 生成航班號
+                flight_number = f"{airline}{random.randint(100, 999)}"
+
+                # 生成出發時間在當天的隨機時間
+                hour = random.randint(6, 22)
+                minute = random.choice([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
+                scheduled_departure = f"{date}T{hour:02d}:{minute:02d}:00"
+
+                # 國內航班飛行時間較短，1-2小時
+                flight_duration = random.randint(40, 120)
+                departure_dt = datetime.strptime(scheduled_departure, "%Y-%m-%dT%H:%M:%S")
+                arrival_dt = departure_dt + timedelta(minutes=flight_duration)
+                scheduled_arrival = arrival_dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+                # 生成航班唯一鍵
+                flight_key = f"{flight_number}_{scheduled_departure}"
+                if flight_key in flight_keys:
+                    continue
+                
+                flight_keys.add(flight_key)
+
+                # 隨機決定是否有實際時間（代表航班是否已起飛）
+                has_actual = random.random() > 0.5
+                actual_departure = scheduled_departure if has_actual else None
+                actual_arrival = scheduled_arrival if has_actual and random.random() > 0.6 else None
+
+                # 創建航班字典
+                flight = {
+                    "flight_id": f"MOCK-{airline}-{i}",
+                    "airline_code": airline,
+                    "flight_number": flight_number,
+                    "departure_airport": airport,
+                    "arrival_airport": arrival,
+                    "scheduled_departure": scheduled_departure,
+                    "scheduled_arrival": scheduled_arrival,
+                    "actual_departure": actual_departure,
+                    "actual_arrival": actual_arrival,
+                    "status": "A" if random.random() > 0.2 else "D",  # A:正常, D:延誤
+                    "status_description": "正常" if random.random() > 0.2 else "延誤",
+                    "terminal": str(random.randint(1, 2)),
+                    "gate": f"{random.choice(['A', 'B', 'C'])}{random.randint(1, 20)}",
                     "is_test_data": True
                 }
-            else:  # Arrival
-                orig_airport = airport_list[i % len(airport_list)]
-                mock_flight = {
-                    "FlightID": f"TEST-{airline}-{i}",
-                    "AirlineID": airline,
-                    "FlightNumber": flight_number,
-                    "DepartureAirportID": orig_airport,
-                    "ArrivalAirportID": airport_code,
-                    "ScheduleDepartureTime": f"{date}T{(6 + i) % 24:02d}:00:00",
-                    "ScheduleArrivalTime": f"{date}T{(8 + i) % 24:02d}:30:00",
-                    "ActualDepartureTime": f"{date}T{(6 + i) % 24:02d}:{(i * 3) % 60:02d}:00",
-                    "ActualArrivalTime": None if i % 3 == 0 else f"{date}T{(8 + i) % 24:02d}:{(i * 5) % 60:02d}:00",
-                    "FlightStatusCode": "A" if i % 4 != 0 else "D",
-                    "FlightStatus": "正常" if i % 4 != 0 else "延誤",
-                    "Terminal": str(1 + (i % 2)),
-                    "Gate": f"B{i+1}",
+
+                flights.append(flight)
+
+            # 生成國際航班 (約40%)
+            international_count = flight_count - domestic_count
+            for i in range(international_count):
+                # 隨機選擇一個國際目的地
+                arrival = random.choice(international_destinations)
+
+                # 國際航班由各種目標航空公司運營
+                international_airlines = [a for a in target_airlines if a not in ['AE', 'B7', 'DA']]
+                airline = random.choice(international_airlines)
+
+                # 生成航班號
+                flight_number = f"{airline}{random.randint(100, 999)}"
+
+                # 生成出發時間在當天的隨機時間
+                hour = random.randint(6, 22)
+                minute = random.choice([0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55])
+                scheduled_departure = f"{date}T{hour:02d}:{minute:02d}:00"
+
+                # 國際航班飛行時間較長，2-12小時
+                flight_duration = random.randint(120, 720)
+                departure_dt = datetime.strptime(scheduled_departure, "%Y-%m-%dT%H:%M:%S")
+                arrival_dt = departure_dt + timedelta(minutes=flight_duration)
+                scheduled_arrival = arrival_dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+                # 生成航班唯一鍵
+                flight_key = f"{flight_number}_{scheduled_departure}"
+                if flight_key in flight_keys:
+                    continue
+                
+                flight_keys.add(flight_key)
+
+                # 隨機決定是否有實際時間（代表航班是否已起飛）
+                has_actual = random.random() > 0.5
+                actual_departure = scheduled_departure if has_actual else None
+                actual_arrival = scheduled_arrival if has_actual and random.random() > 0.7 else None
+
+                # 創建航班字典
+                flight = {
+                    "flight_id": f"MOCK-{airline}-{i+domestic_count}",
+                    "airline_code": airline,
+                    "flight_number": flight_number,
+                    "departure_airport": airport,
+                    "arrival_airport": arrival,
+                    "scheduled_departure": scheduled_departure,
+                    "scheduled_arrival": scheduled_arrival,
+                    "actual_departure": actual_departure,
+                    "actual_arrival": actual_arrival,
+                    "status": "A" if random.random() > 0.2 else "D",  # A:正常, D:延誤
+                    "status_description": "正常" if random.random() > 0.2 else "延誤",
+                    "terminal": str(random.randint(1, 2)),
+                    "gate": f"{random.choice(['A', 'B', 'C'])}{random.randint(1, 20)}",
                     "is_test_data": True
                 }
-            
-            mock_data.append(mock_flight)
-            
-        return mock_data
+
+                flights.append(flight)
+
+            # 將該機場的航班列表添加到結果中
+            results[airport] = flights
+
+        return results
     
     @staticmethod
     def generate_weather_data(city_code=None, date=None):

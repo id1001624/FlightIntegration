@@ -13,6 +13,10 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from typing import Dict, List, Optional, Any, Tuple, Union
 
+from app.clients.base_client import BaseAPIClient
+from app.utils.date_utils import parse_datetime, format_datetime, get_date_range
+from app.utils.cache_utils import cached
+
 # 配置日誌
 logging.basicConfig(
     level=logging.INFO,
@@ -20,7 +24,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger('flightstats_api')
 
-class FlightStatsApiClient:
+class FlightStatsApiClient(BaseAPIClient):
     """FlightStats API 客戶端，用於獲取國際航班資料"""
 
     # 台灣機場清單
@@ -37,11 +41,9 @@ class FlightStatsApiClient:
 
     def __init__(self):
         """初始化 FlightStats API 客戶端"""
+        super().__init__()
         # 設置 logger
         self.logger = logging.getLogger('flightstats_api')
-        
-        # 設置 session
-        self.session = requests.Session()
         
         self.app_id = os.environ.get('FLIGHTSTATS_APP_ID')
         self.app_key = os.environ.get('FLIGHTSTATS_APP_KEY')
@@ -58,6 +60,27 @@ class FlightStatsApiClient:
         self.request_interval = 0.5  # 請求間隔時間（秒），避免頻繁請求
         self.last_request_time = 0  # 上次請求時間
 
+    def _build_params(self, extra_params: Optional[Dict] = None) -> Dict:
+        """
+        構建包含認證信息的請求參數
+        
+        Args:
+            extra_params: 額外的請求參數
+            
+        Returns:
+            完整的請求參數字典
+        """
+        params = {
+            'appId': self.app_id,
+            'appKey': self.app_key,
+            'extendedOptions': self.language_param
+        }
+        
+        if extra_params:
+            params.update(extra_params)
+            
+        return params
+    
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Dict:
         """
         向 FlightStats API 發送請求
@@ -72,13 +95,6 @@ class FlightStatsApiClient:
         if params is None:
             params = {}
         
-        # 添加基本的身份驗證參數
-        params.update({
-            'appId': self.app_id,
-            'appKey': self.app_key,
-            'extendedOptions': self.language_param
-        })
-        
         url = f"{self.base_url}/{endpoint}"
         
         # 控制請求頻率
@@ -88,34 +104,16 @@ class FlightStatsApiClient:
             sleep_time = self.request_interval - time_since_last_request
             time.sleep(sleep_time)
         
-        # 重試邏輯
-        for attempt in range(self.max_retries):
-            try:
-                self.logger.info(f"正在請求: {url}")
-                # 使用 self.session 而不是直接使用 requests
-                response = self.session.get(url, params=params, timeout=10)
-                self.last_request_time = time.time()  # 更新最後請求時間
-                
-                if response.status_code == 200:
-                    return response.json()
-                elif response.status_code == 429:  # 速率限制
-                    sleep_time = self.retry_delay * (attempt + 1)
-                    self.logger.warning(f"API 速率限制，等待 {sleep_time} 秒後重試...")
-                    time.sleep(sleep_time)
-                    continue
-                else:
-                    self.logger.error(f"API 請求失敗: {response.status_code}, 回應: {response.text}")
-                    response.raise_for_status()
-            except requests.RequestException as e:
-                self.logger.error(f"請求出錯: {str(e)}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_delay)
-                    continue
-                raise
-                
-        # 如果所有重試都失敗
-        raise Exception(f"在 {self.max_retries} 次嘗試後仍無法連接到 API")
+        # 添加基本的身份驗證參數
+        auth_params = self._build_params(params)
+        
+        # 使用基类的make_request方法
+        data = self.make_request(url=url, params=auth_params)
+        self.last_request_time = time.time()  # 更新最後請求時間
+        
+        return data
 
+    @cached(ttl=86400, key_prefix="flightstats_airports")
     def get_airports(self) -> List[Dict]:
         """
         獲取機場清單
@@ -195,6 +193,7 @@ class FlightStatsApiClient:
                 
         return airports
 
+    @cached(ttl=86400, key_prefix="flightstats_airport")
     def get_airport(self, iata_code: str) -> Optional[Dict]:
         """
         獲取特定機場資料
@@ -205,6 +204,13 @@ class FlightStatsApiClient:
         Returns:
             機場資料字典，未找到時返回 None
         """
+        if not iata_code:
+            self.logger.error("IATA代碼為空")
+            return None
+            
+        iata_code = iata_code.strip().upper()
+        self.logger.info(f"獲取機場信息: {iata_code}")
+        
         # 先檢查緩存
         if iata_code in self.airports_cache:
             return self.airports_cache[iata_code]
@@ -236,10 +242,11 @@ class FlightStatsApiClient:
             # 嘗試從預定義列表中查找
             airport = next((a for a in self._get_predefined_airports() if a.get('iata') == iata_code), None)
             if airport:
-                return airport
+                    return airport
             
             return None
 
+    @cached(ttl=86400, key_prefix="flightstats_airlines")
     def get_airlines(self) -> List[Dict]:
         """
         獲取航空公司列表
@@ -294,6 +301,7 @@ class FlightStatsApiClient:
         self.logger.info(f"使用預定義的航空公司列表，共 {len(airlines)} 個航空公司")
         return airlines
 
+    @cached(ttl=86400, key_prefix="flightstats_airline")
     def get_airline(self, iata_code: str) -> Optional[Dict]:
         """
         獲取特定航空公司資料
@@ -304,6 +312,13 @@ class FlightStatsApiClient:
         Returns:
             航空公司資料字典，未找到時返回預設值
         """
+        if not iata_code:
+            self.logger.error("IATA代碼為空")
+            return None
+            
+        iata_code = iata_code.strip().upper()
+        self.logger.info(f"獲取航空公司信息: {iata_code}")
+        
         # 如果不在目標航空公司列表中，直接返回預設值
         if iata_code not in self.TARGET_AIRLINES:
             self.logger.warning(f"航空公司 {iata_code} 不在目標列表中")
@@ -428,7 +443,7 @@ class FlightStatsApiClient:
                 - timeFormat: 時間格式(12/24小時制)
                 - maxFlights: 最大航班數
                 - timeWindowBegin/timeWindowEnd: 指定時間窗口(分鐘)
-        
+            
         Returns:
             list: 航班資訊列表
         """
@@ -554,10 +569,13 @@ class FlightStatsApiClient:
                     wait_time = retry_delay * (2 ** attempt)
                     self.logger.info(f"將在 {wait_time} 秒後重試...")
                     time.sleep(wait_time)
-                else:
-                    self.logger.error("達到最大重試次數，放棄請求")
-                    return None
+            else:
+                return data
+                
+        self.logger.error("達到最大重試次數，放棄請求")
+        return None
 
+    @cached(ttl=7200, key_prefix="flightstats_flights")
     def get_flights(self, departure: str, arrival: str, date_str: str, days: int = 1) -> List[Dict]:
         """
         獲取指定出發和到達機場之間的航班
@@ -571,37 +589,45 @@ class FlightStatsApiClient:
         Returns:
             航班列表
         """
+        if not departure or not arrival or not date_str:
+            self.logger.error("獲取航班信息的參數不完整")
+            return []
+            
+        departure = departure.strip().upper()
+        arrival = arrival.strip().upper()
+        
+        # 解析日期
         try:
-            # 解析日期
             start_date = datetime.strptime(date_str, "%Y-%m-%d")
             
-            flights = []
+            # 取得日期範圍
+            date_range = get_date_range(start_date, days)
             
-            # 檢查機場是否有效
-            if not self.get_airport(departure) or not self.get_airport(arrival):
-                self.logger.warning(f"無效的機場代碼: {departure} 或 {arrival}")
-                return flights
-            
-            for day in range(days):
-                # 計算當前查詢日期
-                current_date = start_date + timedelta(days=day)
-                year = current_date.year
-                month = current_date.month
-                day = current_date.day
-                
-                # 構建 API 端點
-                endpoint = f"schedules/rest/v1/json/from/{departure}/to/{arrival}/departing/{year}/{month}/{day}"
-                
-                # 添加查詢參數
-                params = {
-                    'codeType': 'IATA',
-                    'maxFlights': 100,  # 限制最大返回結果數量
-                }
-                
-                # 增加延遲，避免過快請求導致 API 限制
-                time.sleep(self.request_interval)
+            all_flights = []
+            for curr_date in date_range:
+                # 檢查出發機場是否有效
+                if departure not in self.TAIWAN_AIRPORTS:
+                    self.logger.warning(f"出發機場 {departure} 不在台灣機場列表中")
+                    continue
                 
                 try:
+                    # 獲取航班數據
+                    year = curr_date.year
+                    month = curr_date.month
+                    day = curr_date.day
+                    
+                    # 構建 API 端點
+                    endpoint = f"schedules/rest/v1/json/from/{departure}/to/{arrival}/departing/{year}/{month}/{day}"
+                    
+                    # 添加查詢參數
+                    params = {
+                        'codeType': 'IATA',
+                        'maxFlights': 100,  # 限制最大返回結果數量
+                    }
+                    
+                    # 增加延遲，避免過快請求導致 API 限制
+                    time.sleep(self.request_interval)
+                    
                     self.logger.info(f"查詢 {departure}->{arrival} 在 {year}-{month}-{day} 的航班")
                     response = self._make_request(endpoint, params)
                     
@@ -617,15 +643,15 @@ class FlightStatsApiClient:
                                 day_flights.append(processed_flight)
                         
                         self.logger.info(f"成功處理 {len(day_flights)} 個 {departure}->{arrival} 航班")
-                        flights.extend(day_flights)
+                        all_flights.extend(day_flights)
                     else:
                         self.logger.warning(f"未找到 {departure}->{arrival} 在 {year}-{month}-{day} 的航班")
                 except Exception as e:
-                    self.logger.error(f"獲取 {departure}->{arrival} 在 {year}-{month}-{day} 的航班時出錯: {str(e)}")
+                    self.logger.error(f"獲取 {departure}->{arrival} 在 {curr_date.strftime('%Y-%m-%d')} 的航班時出錯: {str(e)}")
                     # 出錯時不應該立即放棄，繼續處理下一天
                     continue
             
-            return flights
+            return all_flights
             
         except Exception as e:
             self.logger.error(f"獲取 {departure}->{arrival} 航班時出錯: {str(e)}")
@@ -888,7 +914,7 @@ class FlightStatsApiClient:
                 except Exception as inner_e:
                     self.logger.error(f"靈活解析日期時間也失敗: {str(inner_e)}")
             
-        return None
+            return None
 
     def get_flight_status(self, carrier: str, flight_number: str, date: Union[datetime, str]) -> Optional[Dict]:
         """
@@ -980,6 +1006,51 @@ class FlightStatsApiClient:
             "total_flights": total_flights,
             "flights": processed_flights
         }
+
+    @cached(ttl=7200)  # 緩存2小時
+    def _get_airline_details(self, airline_code: str) -> Dict[str, Any]:
+        """
+        獲取航空公司詳細資訊
+        
+        Args:
+            airline_code: 航空公司IATA代碼
+            
+        Returns:
+            Dict[str, Any]: 航空公司資訊，包含name等欄位
+        """
+        if not airline_code or not isinstance(airline_code, str) or len(airline_code) != 2:
+            logging.warning(f"無效的航空公司代碼: {airline_code}")
+            return {'code': airline_code, 'name': airline_code}
+            
+        # 檢查是否為目標航空公司之一
+        if airline_code not in self.target_airlines:
+            logging.info(f"航空公司 {airline_code} 不在目標列表中，使用默認值")
+            return {'code': airline_code, 'name': airline_code}
+            
+        try:
+            url = f"{self.base_url}/airlines/rest/v1/json/iata/{airline_code}"
+            headers = {
+                'appId': self.app_id,
+                'appKey': self.app_key
+            }
+            
+            data = self._make_request(url, headers=headers)
+            
+            if data and 'airline' in data:
+                airline = data['airline']
+                return {
+                    'code': airline_code,
+                    'name': airline.get('name', airline_code),
+                    'phone': airline.get('phoneNumber', ''),
+                    'active': airline.get('active', True)
+                }
+            else:
+                logging.warning(f"未能從API獲取航空公司 {airline_code} 資訊")
+                return {'code': airline_code, 'name': airline_code}
+                
+        except Exception as e:
+            logging.error(f"獲取航空公司 {airline_code} 詳情時發生錯誤: {e}")
+            return {'code': airline_code, 'name': airline_code}
 
 
 if __name__ == "__main__":
