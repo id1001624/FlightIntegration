@@ -80,7 +80,7 @@ class ApiClient:
         elif self.base_url and not self.base_url.endswith('/') and not endpoint.startswith('/'):
             endpoint = f"/{endpoint}"
             
-        return f"{self.base_url}{endpoint}"
+                return f"{self.base_url}{endpoint}"
     
     def _log_request(self, method: str, url: str, params: Optional[Dict[str, Any]] = None,
                      data: Optional[Any] = None, headers: Optional[Dict[str, str]] = None) -> None:

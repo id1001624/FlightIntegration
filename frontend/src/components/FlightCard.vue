@@ -1,73 +1,71 @@
 <template>
-  <div class="flight-card" :class="{'flight-card-active': isActive}">
-    <div class="flight-card-inner">
-      <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
-      <div class="flight-card-header">
-        <div class="airline-info">
-          <div class="airline-logo-container">
-            <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
-            <div v-else class="airline-logo-placeholder">
-              <span>{{ airlineName.charAt(0) }}</span>
+  <router-link 
+    :to="{ name: 'FlightDetail', params: { id: flight.id } }" 
+    class="flight-card-link" 
+    :class="{'flight-card-active': isActive}"
+  >
+    <div class="flight-card" >
+      <div class="flight-card-inner">
+        <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
+        <div class="flight-card-header">
+          <div class="airline-info">
+            <div class="airline-logo-container">
+              <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
+              <div v-else class="airline-logo-placeholder">
+                <span>{{ airlineName.charAt(0) }}</span>
+              </div>
+            </div>
+            <div class="airline-details">
+              <h3 class="airline-name">{{ airlineName }}</h3>
+              <p class="flight-number">{{ flightNumber }}</p>
             </div>
           </div>
-          <div class="airline-details">
-            <h3 class="airline-name">{{ airlineName }}</h3>
-            <p class="flight-number">{{ flightNumber }}</p>
+          <div class="flight-price">
+            <p class="price-amount">NT$ {{ displayPrice }}</p>
+            <p class="cabin-type">{{ flightClassType }}</p>
           </div>
         </div>
-        <div class="flight-price">
-          <p class="price-amount">NT$ {{ displayPrice }}</p>
-          <p class="cabin-type">{{ flightClassType }}</p>
-        </div>
-      </div>
-      
-      <!-- 行程視覺化 -->
-      <div class="journey-visualization">
-        <!-- 出發資訊 -->
-        <div class="departure-info">
-          <p class="time">{{ formattedDepartureTime }}</p>
-          <p class="airport-code">{{ getDepartureAirportCode }}</p>
-        </div>
+        
+        <!-- 行程視覺化 -->
+        <div class="journey-visualization">
+          <!-- 出發資訊 -->
+          <div class="departure-info">
+            <p class="time">{{ formattedDepartureTime }}</p>
+            <p class="airport-code">{{ getDepartureAirportCode }}</p>
+          </div>
 
-        <!-- 旅程線條與時長 -->
-        <div class="journey-line-container">
-          <p class="flight-duration">{{ flightDuration }}</p>
-          <div class="journey-line-wrapper">
-            <div class="journey-line" ref="journeyLine"></div>
-            <div class="airplane-icon" ref="airplaneIcon"></div>
-            <div class="departure-dot"></div>
-            <div class="arrival-dot"></div>
+          <!-- 旅程線條與時長 -->
+          <div class="journey-line-container">
+            <p class="flight-duration">{{ flightDuration }}</p>
+            <div class="journey-line-wrapper">
+              <div class="journey-line" ref="journeyLine"></div>
+              <div class="airplane-icon" ref="airplaneIcon"></div>
+              <div class="departure-dot"></div>
+              <div class="arrival-dot"></div>
+            </div>
+          </div>
+
+          <!-- 到達資訊 -->
+          <div class="arrival-info">
+            <p class="time">{{ formattedArrivalTime }}</p>
+            <p class="airport-code">{{ getArrivalAirportCode }}</p>
           </div>
         </div>
 
-        <!-- 到達資訊 -->
-        <div class="arrival-info">
-          <p class="time">{{ formattedArrivalTime }}</p>
-          <p class="airport-code">{{ getArrivalAirportCode }}</p>
+        <!-- 額外資訊 -->
+        <div class="flight-meta">
+          <span class="flight-date">{{ formattedDepartureDate }}</span>
+          <span class="flight-status" :class="statusClass">{{ flightStatusText }}</span>
         </div>
-      </div>
 
-      <!-- 額外資訊 -->
-      <div class="flight-meta">
-        <span class="flight-date">{{ formattedDepartureDate }}</span>
-        <span class="flight-status" :class="statusClass">{{ flightStatusText }}</span>
       </div>
-
     </div>
-    <!-- 底部操作區 -->
-    <div class="flight-card-footer">
-      <button class="select-flight-btn" @click="selectFlight">
-        <span>選擇</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
-    </div>
-  </div>
+  </router-link>
 </template>
 
 <script>
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { RouterLink } from 'vue-router';
 
 export default {
   name: 'FlightCard',
@@ -282,6 +280,12 @@ export default {
 </script>
 
 <style scoped>
+.flight-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
 .flight-card {
   margin-bottom: 1rem;
   border-radius: 0.5rem;
@@ -511,49 +515,6 @@ export default {
 
 .status-on-time {
   color: var(--color-text-secondary);
-}
-
-/* 卡片底部 */
-.flight-card-footer {
-  background-color: #f8f9fa;
-  padding: 0.75rem 1.25rem;
-  text-align: right;
-  border-top: 1px solid var(--color-border);
-}
-
-.select-flight-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  background-color: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 0.25rem;
-  font-weight: 500;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.select-flight-btn:hover {
-  background-color: var(--color-primary-dark);
-  transform: translateY(-1px);
-}
-
-.select-flight-btn:active {
-  transform: translateY(0);
-}
-
-.btn-icon {
-  width: 1rem;
-  height: 1rem;
-  margin-left: 0.25rem;
-  transition: transform var(--transition-fast);
-}
-
-.select-flight-btn:hover .btn-icon {
-  transform: translateX(2px);
 }
 
 /* 響應式 */

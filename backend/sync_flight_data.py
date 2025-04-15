@@ -173,12 +173,12 @@ class FlightDataSyncTool:
         tdx_error = None
         if hasattr(self.api_manager, 'tdx_api') and self.api_manager.tdx_api:
             try:
-                # 簡單測試獲取機場資訊
-                airports = self.api_manager.tdx_api.get_airports()
-                if airports:
+                # 修正：測試獲取訪問令牌
+                token = self.api_manager.tdx_api.get_access_token()
+                if token:
                     tdx_status = "成功"
                 else:
-                    tdx_error = "獲取機場資訊失敗"
+                    tdx_error = "無法獲取 TDX 訪問令牌"
             except Exception as e:
                 tdx_error = str(e)
         else:
@@ -189,13 +189,16 @@ class FlightDataSyncTool:
         fs_error = None
         if hasattr(self.api_manager, 'flightstats_api') and self.api_manager.flightstats_api:
             try:
-                # 測試獲取機場信息
-                airport = self.api_manager.flightstats_api.get_airport('TPE')
-                if airport:
-                    fs_status = "成功"
-                else:
-                    fs_error = "獲取機場信息失敗"
+                # 修正：嘗試調用 get_flight_status 進行基本連接測試
+                # 使用一個固定航班和過去日期，減少因航班不存在導致的失敗
+                # 注意：即使航班不存在，API 正常響應也算連接成功
+                test_date = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                # 調用但不檢查 status 的具體內容，只關心是否拋出連接異常
+                self.api_manager.flightstats_api.get_flight_status('BR', '196', test_date)
+                # 如果上面沒拋異常，視為連接成功
+                fs_status = "成功"
             except Exception as e:
+                # 如果有異常，記錄錯誤，狀態保持"失敗"
                 fs_error = str(e)
         else:
             fs_error = "FlightStats API客戶端未初始化"

@@ -61,7 +61,7 @@
             @click="handleRegionClick($event, '熱門目的地')" 
             class="px-3 py-3 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center border-b border-gray-100"
           >
-            <span class="text-text-primary font-medium text-[#006D77]">熱門目的地</span>
+            <span class="font-medium text-[#212529]">熱門目的地</span> <!-- #006D77 -->
             <span class="ml-auto">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />

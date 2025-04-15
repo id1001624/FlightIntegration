@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../views/Home.vue'
 import FlightSearch from '../views/FlightSearch.vue'
+import FlightDetail from '../views/FlightDetail.vue'
 
 const routes = [
   {
@@ -12,6 +13,12 @@ const routes = [
     path: '/flight-search',
     name: 'FlightSearch',
     component: FlightSearch
+  },
+  {
+    path: '/flights/:flight_id',
+    name: 'FlightDetail',
+    component: FlightDetail,
+    props: true
   }
   // 其他路由...
 ]

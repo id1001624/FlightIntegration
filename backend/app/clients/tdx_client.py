@@ -124,9 +124,9 @@ class TdxApiClient(BaseAPIClient):
 
         params = {
             '$format': 'JSON',
-            '$filter': f"FlightDate eq '{current_date_str}'",
-            # '$orderby': 'ScheduleDepartureTime', # 可選排序
-            '$top': 2000 # 可能需要獲取更多數據以確保包含所有航班
+            # '$filter': f"FlightDate eq '{current_date_str}'", # 移除日期過濾以避免 400 錯誤
+            '$orderby': 'ScheduleDepartureTime', # 仍然可以排序
+            '$top': 3000 # 可能需要獲取更多數據，因為不過濾日期了
         }
 
         self.logger.debug(f"請求 TDX FIDS Flight URL: {url} with params: {params}")

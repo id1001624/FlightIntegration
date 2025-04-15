@@ -8,6 +8,8 @@ from werkzeug.exceptions import NotFound, BadRequest # 導入錯誤類型
 from ..models import Flight, Airport, Airline
 from ..services.search_service import SearchService
 from ..services.data_sync_service import DataSyncService
+from ..clients.flightstats_client import FlightStatsApiClient
+from ..database.db import get_db, release_db # 導入異步 DB 工具
 from .. import cache
 # 從常量模組導入
 from ..scripts.constants import (
@@ -321,3 +323,80 @@ def generate_test_data():
     except Exception as e:
         current_app.logger.error(f"生成測試數據失敗: {e}", exc_info=True)
         return _error_response('生成測試數據時發生內部錯誤', 500)
+
+@flight_bp.route('/<string:flight_id>/status', methods=['GET'])
+@cache.cached(timeout=300) # 添加 5 分鐘緩存
+async def refresh_flight_status(flight_id):
+    """獲取並返回特定航班的最新狀態 (來自FlightStats)"""
+    db_conn = None # 初始化 db_conn
+    try:
+        current_app.logger.info(f"請求刷新航班狀態: {flight_id}")
+        
+        # 1. 從數據庫獲取航班信息以調用 FlightStats API
+        db_conn = await get_db() # 獲取異步連接
+        flight_info_query = """
+            SELECT 
+                f.airline_id, 
+                f.flight_number, 
+                f.scheduled_departure 
+            FROM flights f 
+            WHERE f.flight_id = $1
+        """
+        flight_record = await db_conn.fetchrow(flight_info_query, flight_id)
+        
+        if not flight_record:
+            raise NotFound(f"在數據庫中找不到航班 ID: {flight_id}")
+            
+        airline_code = flight_record['airline_id']
+        full_flight_number = flight_record['flight_number']
+        scheduled_departure = flight_record['scheduled_departure']
+
+        # 提取純數字航班號 (假設格式是 AA123 或 AA 123)
+        numerical_flight_number = ''.join(filter(str.isdigit, full_flight_number))
+        if not numerical_flight_number:
+             # 如果無法提取數字航班號，記錄警告並可能返回錯誤
+             current_app.logger.warning(f"無法從 {full_flight_number} 提取數字航班號")
+             raise BadRequest("無法解析航班號")
+
+        if not scheduled_departure:
+             raise BadRequest("數據庫中航班缺少計劃起飛時間")
+             
+        date_str = scheduled_departure.strftime('%Y-%m-%d')
+
+        # 2. 調用 FlightStats API
+        client = FlightStatsApiClient() 
+        # 注意：get_flight_status 是同步方法，如果此控制器在異步環境下運行，
+        # 可能需要將其放入線程池執行或將客戶端方法改為異步。
+        # 這裡暫時假設可以直接調用。
+        status_info = client.get_flight_status(airline_code, numerical_flight_number, date_str)
+
+        # 3. 處理結果
+        if status_info:
+            current_app.logger.info(f"成功從 FlightStats 獲取航班 {flight_id} 的狀態")
+            # 可以只返回需要的狀態信息
+            return _success_response({
+                'status': status_info.get('status'),
+                'status_en': status_info.get('status_en'),
+                'actual_departure_time': status_info.get('actual_departure_time'),
+                'actual_arrival_time': status_info.get('actual_arrival_time'),
+                'gate': status_info.get('gate'),
+                'terminal': status_info.get('terminal'),
+                'source': 'FlightStats',
+                'retrieved_at': datetime.now().isoformat() # 標記刷新時間
+            })
+        else:
+            # FlightStats 未找到或 API 出錯
+            current_app.logger.warning(f"無法從 FlightStats 獲取航班 {flight_id} 的狀態")
+            # 返回 404 或許更合適，表示在外部源找不到
+            return _error_response(f'無法從 FlightStats 獲取航班 {airline_code}{numerical_flight_number} 在 {date_str} 的狀態', 404)
+
+    except NotFound as e:
+        return _error_response(str(e), 404)
+    except BadRequest as e:
+        return _error_response(str(e), 400)
+    except Exception as e:
+        current_app.logger.error(f"刷新航班 {flight_id} 狀態時發生內部錯誤: {e}", exc_info=True)
+        return _error_response('刷新航班狀態時發生內部錯誤', 500)
+    finally:
+        if db_conn:
+            await release_db(db_conn) # 釋放連接

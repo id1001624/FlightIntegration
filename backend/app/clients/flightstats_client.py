@@ -12,6 +12,20 @@ from app.clients.base_client import BaseAPIClient
 from app.utils.date_utils import parse_datetime, format_datetime, get_date_range
 from app.utils.cache_utils import cached
 
+# --- Define module-level logger ---
+logger = logging.getLogger(__name__)
+# --- End logger definition ---
+
+# --- 新增導入 constants --- 
+try:
+    from app.scripts.constants import TARGET_AIRLINES
+except ImportError:
+    # Fallback if constants cannot be imported from the primary location
+    logger.warning("無法從 app.scripts.constants 導入 TARGET_AIRLINES，使用預設列表")
+    # 定義一個預設值，以防導入失敗，但最好確保導入成功
+    TARGET_AIRLINES = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
+# --- 結束導入 ---
+
 class FlightStatsApiClient(BaseAPIClient):
     """FlightStats API客戶端，處理與FlightStats API的交互"""
     
@@ -30,15 +44,9 @@ class FlightStatsApiClient(BaseAPIClient):
         if not self.app_id or not self.app_key:
             self.logger.warning("FlightStats認證信息未設置，部分功能可能不可用")
         
-        # 目標航空公司 - 只處理國際航班的航空公司，不包含AE、B7、DA
-        # BR: 長榮航空 (EVA Air)
-        # CI: 中華航空 (China Airlines)
-        # CX: 國泰航空 (Cathay Pacific)
-        # IT: 台灣虎航 (Tiger Air Taiwan)
-        # JL: 日本航空 (Japan Airlines)
-        # JX: 星宇航空 (STARLUX Airlines)
-        # OZ: 韓亞航空 (Asiana Airlines)
-        self.target_airlines = ['BR', 'CI', 'CX', 'IT', 'JL', 'JX', 'OZ']
+        # 修正：使用從 constants 導入的 TARGET_AIRLINES
+        self.target_airlines = TARGET_AIRLINES
+        self.logger.info(f"FlightStats客戶端將處理的目標航空公司: {self.target_airlines}")
         
         # 請求間隔設置
         self.request_interval = 1.0  # 增加間隔以避免達到速率限制
@@ -394,17 +402,14 @@ class FlightStatsApiClient(BaseAPIClient):
             flight_status = {
                 'flight_number': airline + flight_number,
                 'airline_code': airline,
-                'flight_id': str(item.get('flightId', '')),
                 'departure_airport': item.get('departureAirportFsCode', ''),
                 'arrival_airport': item.get('arrivalAirportFsCode', ''),
                 'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
                 'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                'scheduled_departure_time': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
-                'scheduled_arrival_time': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                'actual_departure_time': format_datetime(actual_dep_time) if actual_dep_time else None,
-                'actual_arrival_time': format_datetime(actual_arr_time) if actual_arr_time else None,
-                'status': status_zh,
-                'status_en': status,
+                'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
+                'actual_arrival': format_datetime(actual_arr_time) if actual_arr_time else None,
+                'status': self._map_flight_status(status), # 使用映射後的標準狀態
+                'status_code': status, # 保留原始狀態代碼
                 'terminal': terminal,
                 'gate': gate,
                 'aircraft': aircraft,
@@ -420,23 +425,23 @@ class FlightStatsApiClient(BaseAPIClient):
     @cached(ttl=7200, key_prefix="flightstats_departures")
     def get_departures(self, dep_airport: str, date: str, hour: int = 0, num_hours: int = 24) -> List[Dict]:
         """
-        獲取特定機場在指定時間範圍內的離港航班信息
-        
+        獲取特定機場在指定時間範圍內的離港航班信息 (針對每個目標航空公司分別查詢)
+
         Args:
             dep_airport: 出發機場IATA代碼
             date: 日期字符串，格式為YYYY-MM-DD
             hour: 開始的小時 (0-23)，預設為 0
             num_hours: 從開始小時起查詢的小時數，預設為 24
-            
+
         Returns:
             航班信息列表
         """
         if not dep_airport or not date:
             self.logger.error("獲取離港航班信息的參數不完整")
             return []
-            
+
         dep_airport = dep_airport.strip().upper()
-        
+
         # 解析日期
         try:
             dt = datetime.strptime(date, '%Y-%m-%d')
@@ -444,97 +449,107 @@ class FlightStatsApiClient(BaseAPIClient):
         except ValueError:
             self.logger.error(f"日期格式無效: {date}")
             return []
-        
+
         # 確保小時有效
         if not 0 <= hour <= 23:
             self.logger.error(f"小時格式無效: {hour}")
             hour = 0 # 使用默認值
-        
-        self.logger.info(f"獲取離港航班: {dep_airport}, 日期: {date}, 開始時間: {hour:02d}:00, 時長: {num_hours}小時")
-        
-        # 使用 /airport/status 端點
-        url = f"{self.base_url}/flightstatus/rest/v2/json/airport/status/{dep_airport}/dep/{year}/{month}/{day}/{hour}"
-        
-        response = self.make_request(
-            url=url,
-            params=self._build_params({
-                'extendedOptions': 'includeNewFields,useInlinedReferences',
-                'numHours': num_hours,
-                'codeType': 'IATA' # 確保使用IATA代碼
-            })
-        )
-        
-        flights = []
-        
-        # 解析回應 (假設結構與 /route/status 類似，都是 flightStatuses)
-        if response and 'flightStatuses' in response:
-            self.logger.info(f"接收到 airport/status 回應，包含 {len(response['flightStatuses'])} 個航班狀態")
-            try:
-                for item in response['flightStatuses']:
-                    # 篩選目標航空公司 ('BR', 'CI', 'CX', 'IT', 'JL', 'JX', 'OZ')
-                    airline_code = item.get('carrierFsCode', '')
-                    if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
-                        continue # 跳過非目標航空公司
-                    
-                    # --- 開始解析航班數據 (與 get_flights 類似) ---
-                    scheduled_dep_time = None
-                    scheduled_arr_time = None
-                    actual_dep_time = None
-                    actual_arr_time = None
-                    arrival_airport = item.get('arrivalAirportFsCode', '') # 從 status item 獲取到達機場
-                    flight_id_str = str(item.get('flightId', '')) # 獲取數字ID並轉為字串
 
-                    try:
-                        # 獲取預計時間 (優先使用 Gate 時間)
-                        if dep_date_local := item.get('departureDate', {}).get('dateLocal'):
-                            scheduled_dep_time = parse_datetime(dep_date_local)
-                        elif pub_dep_time := item.get('operationalTimes', {}).get('publishedDeparture', {}).get('dateLocal'):
-                            scheduled_dep_time = parse_datetime(pub_dep_time)
-                            
-                        if arr_date_local := item.get('arrivalDate', {}).get('dateLocal'):
-                            scheduled_arr_time = parse_datetime(arr_date_local)
-                        elif pub_arr_time := item.get('operationalTimes', {}).get('publishedArrival', {}).get('dateLocal'):
-                            scheduled_arr_time = parse_datetime(pub_arr_time)
+        all_flights = [] # 用於累積所有航空公司的結果
 
-                        # 獲取實際時間 (優先使用 Gate 時間，不存在才嘗試 Runway)
-                        op_times = item.get('operationalTimes', {})
-                        if actual_dep_gate := op_times.get('actualGateDeparture', {}).get('dateLocal'):
-                            actual_dep_time = parse_datetime(actual_dep_gate)
-                        elif actual_dep_runway := op_times.get('actualRunwayDeparture', {}).get('dateLocal'):
-                             actual_dep_time = parse_datetime(actual_dep_runway) # 備用
+        # --- 修改：迭代目標航空公司 ---
+        for target_airline in self.target_airlines:
+            self.logger.info(f"獲取離港航班: {dep_airport}, 航空公司: {target_airline}, 日期: {date}, 開始時間: {hour:02d}:00, 時長: {num_hours}小時")
 
-                        if actual_arr_gate := op_times.get('actualGateArrival', {}).get('dateLocal'):
-                            actual_arr_time = parse_datetime(actual_arr_gate)
-                        elif actual_arr_runway := op_times.get('actualRunwayArrival', {}).get('dateLocal'):
-                             actual_arr_time = parse_datetime(actual_arr_runway) # 備用
+            # 使用 /airport/status 端點，並加入 carrier 參數
+            url = f"{self.base_url}/flightstatus/rest/v2/json/airport/status/{dep_airport}/dep/{year}/{month}/{day}/{hour}"
 
-                    except Exception as e:
-                        self.logger.warning(f"解析航班 {airline_code}{item.get('flightNumber', '')} 的日期時間出錯: {str(e)}")
-                    
-                    # 獲取並映射狀態
-                    status_code = item.get('status', '')
-                    model_status = self._map_flight_status(status_code)
-                    
-                    flight = {
-                        'flight_number': airline_code + item.get('flightNumber', ''),
-                        'airline_id': airline_code, # 使用 carrierFsCode 作為 airline_id
-                        'flight_id': flight_id_str, # 使用 API 返回的數字 ID (字串)
-                        'departure_airport': dep_airport,
-                        'arrival_airport': arrival_airport, # 從狀態信息中獲取
-                        'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
-                        'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                        'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
-                        'actual_arrival': format_datetime(actual_arr_time) if actual_arr_time else None,
-                        'status': model_status,
-                        'source': 'FlightStats'
-                    }
-                    flights.append(flight)
-                # --- 結束解析航班數據 ---
-                
-                self.logger.info(f"成功解析 {len(flights)} 個目標航空公司的離港航班信息")
-            except Exception as e:
-                self.logger.error(f"解析 airport/status 回應數據時出錯: {str(e)}")
-        else:
-            self.logger.warning(f"從 airport/status 端點獲取航班信息失敗或返回空數據: {dep_airport}, 日期: {date}")
-            
-        return flights
+            response = self.make_request(
+                url=url,
+                params=self._build_params({
+                    'extendedOptions': 'includeNewFields,useInlinedReferences',
+                    'numHours': num_hours,
+                    'codeType': 'IATA', # 確保使用IATA代碼
+                    'carrier': target_airline # --- 新增 carrier 參數 ---
+                })
+            )
+
+            # 解析回應 (假設結構與 /route/status 類似，都是 flightStatuses)
+            if response and 'flightStatuses' in response:
+                self.logger.info(f"接收到 airport/status ({target_airline}) 回應，包含 {len(response['flightStatuses'])} 個航班狀態")
+                try:
+                    for item in response['flightStatuses']:
+                        # --- 移除客戶端篩選邏輯 ---
+                        # airline_code = item.get('carrierFsCode', '')
+                        # if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
+                        #     continue # 跳過非目標航空公司
+                        # --- 結束移除 ---
+
+                        # --- 開始解析航班數據 (與 get_flights 類似) ---
+                        airline_code = item.get('carrierFsCode', '') # 仍然需要獲取 airline_code
+                        scheduled_dep_time = None
+                        scheduled_arr_time = None
+                        actual_dep_time = None
+                        actual_arr_time = None
+                        arrival_airport = item.get('arrivalAirportFsCode', '') # 從 status item 獲取到達機場
+                        flight_id_str = str(item.get('flightId', '')) # 獲取數字ID並轉為字串
+
+                        try:
+                            # 獲取預計時間 (優先使用 Gate 時間)
+                            if dep_date_local := item.get('departureDate', {}).get('dateLocal'):
+                                scheduled_dep_time = parse_datetime(dep_date_local)
+                            elif pub_dep_time := item.get('operationalTimes', {}).get('publishedDeparture', {}).get('dateLocal'):
+                                scheduled_dep_time = parse_datetime(pub_dep_time)
+
+                            if arr_date_local := item.get('arrivalDate', {}).get('dateLocal'):
+                                scheduled_arr_time = parse_datetime(arr_date_local)
+                            elif pub_arr_time := item.get('operationalTimes', {}).get('publishedArrival', {}).get('dateLocal'):
+                                scheduled_arr_time = parse_datetime(pub_arr_time)
+
+                            # 獲取實際時間 (優先使用 Gate 時間，不存在才嘗試 Runway)
+                            op_times = item.get('operationalTimes', {})
+                            if actual_dep_gate := op_times.get('actualGateDeparture', {}).get('dateLocal'):
+                                actual_dep_time = parse_datetime(actual_dep_gate)
+                            elif actual_dep_runway := op_times.get('actualRunwayDeparture', {}).get('dateLocal'):
+                                 actual_dep_time = parse_datetime(actual_dep_runway) # 備用
+
+                            if actual_arr_gate := op_times.get('actualGateArrival', {}).get('dateLocal'):
+                                actual_arr_time = parse_datetime(actual_arr_gate)
+                            elif actual_arr_runway := op_times.get('actualRunwayArrival', {}).get('dateLocal'):
+                                 actual_arr_time = parse_datetime(actual_arr_runway) # 備用
+
+                        except Exception as e:
+                            self.logger.warning(f"解析航班 {airline_code}{item.get('flightNumber', '')} 的日期時間出錯: {str(e)}")
+
+                        # 獲取並映射狀態
+                        status_code = item.get('status', '')
+                        model_status = self._map_flight_status(status_code)
+
+                        flight = {
+                            'flight_number': airline_code + item.get('flightNumber', ''),
+                            'airline_id': airline_code, # 使用 carrierFsCode 作為 airline_id
+                            'flight_id': flight_id_str, # 使用 API 返回的數字 ID (字串)
+                            'departure_airport': dep_airport,
+                            'arrival_airport': arrival_airport, # 從狀態信息中獲取
+                            'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
+                            'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
+                            'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
+                            'actual_arrival': format_datetime(actual_arr_time) if actual_arr_time else None,
+                            'status': model_status,
+                            'source': 'FlightStats'
+                        }
+                        all_flights.append(flight) # --- 修改：添加到累積列表 ---
+                    # --- 結束解析航班數據 ---
+
+                    self.logger.info(f"成功解析 {len(response['flightStatuses'])} 個 {target_airline} 的離港航班信息")
+                except Exception as e:
+                    self.logger.error(f"解析 airport/status ({target_airline}) 回應數據時出錯: {str(e)}")
+            else:
+                self.logger.warning(f"從 airport/status 端點 ({target_airline}) 獲取航班信息失敗或返回空數據: {dep_airport}, 日期: {date}")
+
+            # --- 新增：在每次航空公司請求後暫停 ---
+            time.sleep(self.request_interval) # 遵循請求間隔
+
+        # --- 修改：返回累積的結果 ---
+        self.logger.info(f"{dep_airport} 機場總計從 FlightStats 獲取 {len(all_flights)} 個目標航班")
+        return all_flights

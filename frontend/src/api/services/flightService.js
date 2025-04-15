@@ -359,11 +359,58 @@ const flightService = {
 
   /**
    * 獲取航班詳情
-   * @param {string} flightId 航班ID
-   * @returns {Promise} 返回航班詳情
+   * @param {string} flightId 我們系統數據庫中的航班ID
+   * @returns {Promise} 返回航班詳情對象 (處理過的)
    */
-  getFlightDetails(flightId) {
-    return api.get(`/flights/${flightId}`);
+  async getFlightDetails(flightId) {
+    console.log(`獲取航班詳情: ${flightId}`);
+    try {
+      // 注意: 後端端點是 /flights/<flight_id>
+      const response = await api.get(`/flights/${flightId}`);
+      console.log(`獲取航班 ${flightId} 詳情 API 回應:`, response);
+
+      // 後端應該返回標準化的 {success: true/false, data: ..., error: ...} 格式
+      if (response && response.success && response.data) {
+        // 可以直接返回後端處理好的 data
+        return response.data;
+      } else {
+        // 如果後端返回 success: false 或格式不對
+        const errorMsg = (response && response.message) || '無法獲取航班詳情';
+        console.error(`獲取航班 ${flightId} 詳情失敗:`, errorMsg);
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error(`調用獲取航班 ${flightId} 詳情 API 時出錯:`, error);
+      // 重新拋出錯誤，讓調用者處理
+      throw error;
+    }
+  },
+
+  /**
+   * 刷新特定航班的狀態
+   * @param {string} flightId 我們系統數據庫中的航班ID
+   * @returns {Promise} 返回最新的狀態信息 (處理過的)
+   */
+  async refreshFlightStatus(flightId) {
+    console.log(`請求刷新航班狀態: ${flightId}`);
+    try {
+      // 調用後端新添加的端點 /flights/<flight_id>/status
+      const response = await api.get(`/flights/${flightId}/status`);
+      console.log(`刷新航班 ${flightId} 狀態 API 回應:`, response);
+
+      // 檢查後端返回的標準格式
+      if (response && response.success && response.data) {
+        // 返回包含最新狀態信息的 data 對象
+        return response.data;
+      } else {
+        const errorMsg = (response && response.message) || '無法刷新航班狀態';
+        console.error(`刷新航班 ${flightId} 狀態失敗:`, errorMsg);
+        throw new Error(errorMsg);
+      }
+    } catch (error) {
+      console.error(`調用刷新航班 ${flightId} 狀態 API 時出錯:`, error);
+      throw error;
+    }
   },
 
   /**
