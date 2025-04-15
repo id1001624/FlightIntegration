@@ -104,7 +104,7 @@ class TdxApiClientTest(unittest.TestCase):
         if USING_NEW_STRUCTURE:
             cls.client = TdxApiClient()
             print("使用新結構TDX API客戶端")
-        else:
+            else:
             cls.client = None
             print("跳過TDX API客戶端測試")
     
@@ -160,7 +160,7 @@ class FlightStatsApiClientTest(unittest.TestCase):
         if USING_NEW_STRUCTURE:
             cls.client = FlightStatsApiClient()
             print("使用新結構FlightStats API客戶端")
-        else:
+                else:
             cls.client = None
             print("跳過FlightStats API客戶端測試")
     
@@ -171,7 +171,7 @@ class FlightStatsApiClientTest(unittest.TestCase):
         self.assertIsNotNone(airports)
         self.assertIsInstance(airports, list)
         self.assertGreater(len(airports), 0)
-        print(f"✓ 成功獲取 {len(airports)} 個機場")
+                print(f"✓ 成功獲取 {len(airports)} 個機場")
         
         # 顯示範例
         if airports:

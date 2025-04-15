@@ -5,8 +5,11 @@
 from datetime import datetime, timedelta
 from ..models import TicketPrice, Flight, Airline, PriceHistory
 from ..models.base import db
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, exc as sqlalchemy_exc
 from flask import current_app
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PriceService:
     """
@@ -70,30 +73,41 @@ class PriceService:
         arrival_airport = Airport.get_by_iata(arrival_iata)
         
         if not departure_airport or not arrival_airport:
+            logger.warning(f"找不到機場: {departure_iata} 或 {arrival_iata}")
             return {"error": "找不到指定的機場"}
             
         # 構建SQL查詢
-        results = db.session.query(
-            func.date(Flight.scheduled_departure).label('flight_date'),
-            func.min(TicketPrice.base_price).label('min_price')
-        ).join(
-            TicketPrice, Flight.flight_id == TicketPrice.flight_id
-        ).filter(
-            Flight.departure_airport_id == departure_airport.airport_id,
-            Flight.arrival_airport_id == arrival_airport.airport_id,
-            func.date(Flight.scheduled_departure) >= start_date,
-            func.date(Flight.scheduled_departure) <= end_date,
-            TicketPrice.class_type == '經濟艙'  # 預設查詢經濟艙
-        ).group_by(
-            func.date(Flight.scheduled_departure)
-        ).order_by(
-            'flight_date'
-        ).all()
+        try:
+            logger.info(f"開始查詢最低票價: {departure_iata}->{arrival_iata} from {start_date} to {end_date}")
+            results = db.session.query(
+                func.date(Flight.scheduled_departure).label('flight_date'),
+                func.min(TicketPrice.base_price).label('min_price')
+            ).join(
+                TicketPrice, Flight.flight_id == TicketPrice.flight_id
+            ).filter(
+                Flight.departure_airport_id == departure_airport.airport_id,
+                Flight.arrival_airport_id == arrival_airport.airport_id,
+                func.date(Flight.scheduled_departure) >= start_date,
+                func.date(Flight.scheduled_departure) <= end_date,
+                TicketPrice.class_type == '經濟艙'  # 預設查詢經濟艙
+            ).group_by(
+                func.date(Flight.scheduled_departure)
+            ).order_by(
+                'flight_date'
+            ).all()
+            logger.info(f"最低票價查詢完成，找到 {len(results)} 個日期的數據")
+        except sqlalchemy_exc.SQLAlchemyError as db_err:
+            logger.error(f"查詢最低票價時數據庫出錯: {db_err}", exc_info=True)
+            return {"error": "查詢最低票價時發生數據庫錯誤"}
+        except Exception as e:
+            logger.error(f"查詢最低票價時發生未知錯誤: {e}", exc_info=True)
+            return {"error": "查詢最低票價時發生未知錯誤"}
         
         # 格式化結果
         price_map = {}
         for date_obj, price in results:
-            price_map[date_obj.isoformat()] = float(price)
+            if price is not None:
+                price_map[date_obj.isoformat()] = float(price)
             
         return price_map
     
@@ -111,18 +125,28 @@ class PriceService:
             list: 歷史票價列表
         """
         # 計算時間範圍
-        end_date = datetime.utcnow()
+        end_date = datetime.now(datetime.UTC)
         start_date = end_date - timedelta(days=days)
         
         # 查詢歷史票價
-        history = PriceHistory.query.filter(
-            PriceHistory.flight_id == flight_id,
-            PriceHistory.class_type == class_type,
-            PriceHistory.created_at >= start_date,
-            PriceHistory.created_at <= end_date
-        ).order_by(
-            PriceHistory.created_at
-        ).all()
+        try:
+            logger.info(f"查詢航班 {flight_id} ({class_type}) 最近 {days} 天的歷史票價")
+            history = PriceHistory.query.filter(
+                PriceHistory.flight_id == flight_id,
+                PriceHistory.class_type == class_type,
+                PriceHistory.created_at >= start_date,
+                PriceHistory.created_at <= end_date
+            ).order_by(
+                PriceHistory.created_at
+            ).all()
+            logger.info(f"找到 {len(history)} 條歷史票價記錄")
+        except sqlalchemy_exc.SQLAlchemyError as db_err:
+            logger.error(f"查詢歷史票價時數據庫出錯: {db_err}", exc_info=True)
+            # 對於歷史數據查詢，可以選擇返回空列表而不是錯誤字典
+            return []
+        except Exception as e:
+            logger.error(f"查詢歷史票價時發生未知錯誤: {e}", exc_info=True)
+            return []
         
         # 格式化結果
         return [{

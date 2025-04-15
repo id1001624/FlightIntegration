@@ -738,4 +738,263 @@ class SearchService:
             
             return result
         finally:
+            await release_db(db)
+    
+    @staticmethod
+    async def get_flight_details_by_id(flight_id: str) -> Optional[Dict[str, Any]]:
+        """根據 Flight ID 獲取詳細的航班信息"""
+        db = await get_db()
+        try:
+            logger.info(f"正在獲取航班 ID: {flight_id} 的詳細信息")
+
+            # 查詢航班基本信息及關聯機場、航空公司
+            query = """
+            SELECT
+                f.flight_id,
+                f.flight_number,
+                f.scheduled_departure,
+                f.scheduled_arrival,
+                f.actual_departure,
+                f.actual_arrival,
+                f.status,
+                al.is_domestic,
+                f.aircraft_type,
+                f.terminal,
+                f.gate,
+                a_dep.airport_id as departure_id,
+                a_dep.name_zh as departure_name,
+                a_dep.city as departure_city,
+                a_dep.country as departure_country,
+                a_arr.airport_id as arrival_id,
+                a_arr.name_zh as arrival_name,
+                a_arr.city as arrival_city,
+                a_arr.country as arrival_country,
+                al.airline_id,
+                al.name_zh as airline_name
+            FROM
+                flights f
+            JOIN
+                airports a_dep ON f.departure_airport_id = a_dep.airport_id
+            JOIN
+                airports a_arr ON f.arrival_airport_id = a_arr.airport_id
+            JOIN
+                airlines al ON f.airline_id = al.airline_id
+            WHERE
+                f.flight_id = $1
+            """
+
+            flight_record = await db.fetchrow(query, flight_id)
+
+            if not flight_record:
+                logger.warning(f"未找到航班 ID: {flight_id}")
+                return None
+
+            # 查詢票價信息
+            price_query = """
+            SELECT
+                class_type,
+                base_price,
+                available_seats,
+                price_updated_at
+            FROM
+                ticket_prices
+            WHERE
+                flight_id = $1
+            ORDER BY
+                CASE class_type
+                    WHEN '經濟' THEN 1
+                    WHEN '商務' THEN 2
+                    WHEN '頭等' THEN 3
+                    ELSE 4
+                END,
+                base_price -- Added price sorting as secondary criteria
+            """
+            prices_records = await db.fetch(price_query, flight_id)
+
+            prices = []
+            for price in prices_records:
+                prices.append({
+                    'class_type': price['class_type'],
+                    'price': float(price['base_price']) if price['base_price'] is not None else None,
+                    'currency': 'TWD', # 假設貨幣單位
+                    'available_seats': price['available_seats'],
+                    'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
+                })
+
+            # 計算飛行時間
+            duration_minutes = None
+            try:
+                dep_time = flight_record['scheduled_departure']
+                arr_time = flight_record['scheduled_arrival']
+                if dep_time and arr_time:
+                    duration_minutes = int((arr_time - dep_time).total_seconds() / 60)
+            except Exception as dur_e:
+                logger.warning(f"計算航班 {flight_id} 飛行時間時出錯: {dur_e}")
+
+            # 格式化結果
+            result = {
+                'flight_id': flight_record['flight_id'],
+                'flight_number': flight_record['flight_number'],
+                'airline': {
+                    'id': flight_record['airline_id'],
+                    'code': flight_record['airline_id'],
+                    'name': flight_record['airline_name'],
+                    'logo_url': f"https://example.com/airlines/{flight_record['airline_id']}.png"
+                },
+                'departure': {
+                    'airport_id': flight_record['departure_id'],
+                    'code': flight_record['departure_id'],
+                    'name': flight_record['departure_name'],
+                    'city': flight_record['departure_city'],
+                    'country': flight_record['departure_country'],
+                    'scheduled_time': flight_record['scheduled_departure'].isoformat() if flight_record['scheduled_departure'] else None,
+                    'actual_time': flight_record['actual_departure'].isoformat() if flight_record['actual_departure'] else None,
+                    'terminal': flight_record['terminal'],
+                    'gate': flight_record['gate']
+                },
+                'arrival': {
+                    'airport_id': flight_record['arrival_id'],
+                    'code': flight_record['arrival_id'],
+                    'name': flight_record['arrival_name'],
+                    'city': flight_record['arrival_city'],
+                    'country': flight_record['arrival_country'],
+                    'scheduled_time': flight_record['scheduled_arrival'].isoformat() if flight_record['scheduled_arrival'] else None,
+                    'actual_time': flight_record['actual_arrival'].isoformat() if flight_record['actual_arrival'] else None,
+                    'terminal': flight_record['terminal'],
+                    'gate': flight_record['gate']
+                },
+                'status': flight_record['status'],
+                'duration_minutes': duration_minutes,
+                'aircraft': flight_record['aircraft_type'],
+                'is_domestic': flight_record['is_domestic'],
+                'prices': prices
+            }
+
+            logger.info(f"成功獲取並格式化航班 {flight_id} 的詳細信息")
+            return result
+
+        except Exception as e:
+            logger.error(f"獲取航班 {flight_id} 詳細信息時發生錯誤: {e}", exc_info=True)
+            return None # 服務層錯誤，控制器應處理此 None 返回
+        finally:
+            await release_db(db)
+
+    @staticmethod
+    async def search_flights_from_taiwan(
+        arrival_iata: str,
+        date_str: str,
+        airlines: Optional[List[str]] = None,
+        price_min: Optional[float] = None, # Use float for price
+        price_max: Optional[float] = None,
+        class_type: str = "經濟",
+        passengers: int = 1, # Added passengers, though not used in query yet
+        max_results_total: int = 50, # Limit total results
+        sort_by: str = "price"
+    ) -> List[Dict[str, Any]]:
+        """搜索從台灣主要機場飛往指定目的地的航班"""
+        db = await get_db()
+        try:
+            logger.info(f"搜索從台灣主要機場到 {arrival_iata} 在 {date_str} 的航班")
+            # 解析日期
+            try:
+                flight_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                logger.error(f"日期格式錯誤: {date_str}")
+                return []
+
+            # 定義相關的台灣出發機場
+            # 可以考慮從 constants 導入或配置
+            relevant_taiwan_airports = ['TPE', 'TSA', 'KHH', 'RMQ', 'TNN']
+
+            # 構建基礎查詢
+            sql = """
+            SELECT
+                f.flight_id,
+                f.flight_number,
+                f.scheduled_departure,
+                f.scheduled_arrival,
+                f.status,
+                al.is_domestic,
+                a_dep.airport_id as departure_id,
+                a_dep.name_zh as departure_name,
+                a_dep.city as departure_city,
+                a_arr.airport_id as arrival_id,
+                a_arr.name_zh as arrival_name,
+                a_arr.city as arrival_city,
+                al.airline_id,
+                al.name_zh as airline_name
+            FROM
+                flights f
+            JOIN
+                airports a_dep ON f.departure_airport_id = a_dep.airport_id
+            JOIN
+                airports a_arr ON f.arrival_airport_id = a_arr.airport_id
+            JOIN
+                airlines al ON f.airline_id = al.airline_id
+            WHERE
+                a_arr.airport_id = $1
+                AND a_dep.airport_id = ANY($2::text[]) -- Use ANY for array matching
+                AND DATE(f.scheduled_departure) = $3
+            """
+            params = [arrival_iata, relevant_taiwan_airports, flight_date]
+            param_index = 4
+
+            # 添加航空公司過濾
+            if airlines:
+                placeholders = []
+                for code in airlines:
+                    placeholders.append(f"${param_index}")
+                    params.append(code)
+                    param_index += 1
+                sql += f" AND al.airline_id IN ({', '.join(placeholders)})"
+
+            # 注意：價格過濾需要在獲取票價後進行，或者修改查詢連接票價表
+            # 暫時不在此主查詢中過濾價格
+
+            # 排序 (暫時按計劃出發時間排序，價格排序在格式化後處理)
+            sql += " ORDER BY f.scheduled_departure"
+
+            # 執行查詢獲取航班基礎信息
+            flight_records = await db.fetch(sql, *params)
+            logger.info(f"從數據庫找到 {len(flight_records)} 個從台灣主要機場到 {arrival_iata} 的基礎航班記錄")
+
+            if not flight_records:
+                return []
+
+            # 格式化航班並添加模擬價格 (或未來查詢真實價格)
+            formatted_flights = await SearchService._format_flights(flight_records, class_type)
+
+            # 應用價格過濾 (如果需要)
+            if price_min is not None or price_max is not None:
+                filtered_by_price = []
+                for flight in formatted_flights:
+                    price = flight.get('price', {}).get('amount')
+                    if price is not None:
+                        if (price_min is None or price >= price_min) and \
+                           (price_max is None or price <= price_max):
+                            filtered_by_price.append(flight)
+                formatted_flights = filtered_by_price
+                logger.info(f"價格過濾後剩餘 {len(formatted_flights)} 個航班")
+
+            # 排序結果
+            try:
+                if sort_by == 'price':
+                    formatted_flights.sort(key=lambda x: (x.get('price', {}).get('amount', float('inf')), x.get('departure', {}).get('time', '')))
+                else: # 預設按時間排序 (因為 SQL 已排序，這裡可以省略，除非格式化改變了順序)
+                    # formatted_flights.sort(key=lambda x: x.get('departure', {}).get('time', ''))
+                    pass # Already sorted by departure time in SQL
+            except Exception as sort_e:
+                logger.error(f"排序台灣出發航班結果時出錯: {sort_e}")
+                # 排序失敗，返回SQL排序的結果
+
+            # 限制最終結果數量
+            final_flights = formatted_flights[:max_results_total]
+
+            logger.info(f"最終返回 {len(final_flights)} 個從台灣到 {arrival_iata} 的航班")
+            return final_flights
+
+        except Exception as e:
+            logger.error(f"搜索從台灣出發航班時發生錯誤: {e}", exc_info=True)
+            return [] # 返回空列表表示錯誤
+        finally:
             await release_db(db) 

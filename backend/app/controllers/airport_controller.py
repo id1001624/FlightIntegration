@@ -7,6 +7,18 @@ from ..models import Airport, Flight
 from ..models.base import db
 from .. import cache
 from sqlalchemy import distinct
+from werkzeug.exceptions import NotFound
+
+# 輔助函數，用於生成標準回應
+def _success_response(data):
+    return jsonify({'success': True, 'data': data})
+
+def _error_response(message, status_code):
+    if status_code >= 500:
+        current_app.logger.error(f"Server Error ({status_code}): {message}")
+    else:
+        current_app.logger.warning(f"Client Error ({status_code}): {message}")
+    return jsonify({'success': False, 'message': message}), status_code
 
 # 創建藍圖
 airport_bp = Blueprint('airport', __name__)
@@ -16,80 +28,70 @@ airport_bp = Blueprint('airport', __name__)
 def get_airports():
     """獲取所有機場"""
     try:
-        # 直接使用query查詢，避免使用Base類的get_all方法
+        # 直接使用 query 查詢
         airports = db.session.query(
             Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en, 
-            Airport.country, Airport.timezone, Airport.contact_info, 
-            Airport.website_url
-        ).all()
+            Airport.name_en, Airport.city, Airport.city_en,
+            Airport.country, Airport.timezone # 移除 contact_info, website_url
+        ).order_by(Airport.name_zh).all() # 添加排序
         
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'name_zh': airport.name_zh,
-                'name_en': airport.name_en,
-                'city': airport.city,
-                'city_en': airport.city_en,
-                'country': airport.country,
-                'timezone': airport.timezone,
-                'contact_info': airport.contact_info,
-                'website_url': airport.website_url
-            })
+        result = [{
+            'id': airport.airport_id,
+            'name_zh': airport.name_zh,
+            'name_en': airport.name_en,
+            'city': airport.city,
+            'city_en': airport.city_en,
+            'country': airport.country,
+            'timezone': airport.timezone # 移除 contact_info, website_url
+        } for airport in airports]
         
-        return jsonify(result)
+        return _success_response(result)
     except Exception as e:
-        return jsonify({'error': f'獲取機場列表失敗: {str(e)}'}), 500
+        current_app.logger.error(f"獲取機場列表失敗: {e}", exc_info=True)
+        return _error_response('獲取機場列表時發生內部錯誤', 500)
 
 @airport_bp.route('/taiwan', methods=['GET'])
 @cache.cached(timeout=7200)  # 緩存2小時
 def get_taiwan_airports():
     """獲取台灣所有機場"""
     try:
-        # 直接使用query查詢，避免使用類方法
+        # 直接使用 query 查詢
         airports = db.session.query(
             Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en, 
-            Airport.timezone, Airport.contact_info, Airport.website_url
-        ).filter(Airport.country == 'Taiwan').all()
+            Airport.name_en, Airport.city, Airport.city_en,
+            Airport.country, Airport.timezone # 移除 contact_info, website_url
+        ).filter(Airport.country == 'Taiwan').order_by(Airport.name_zh).all()
         
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'name_zh': airport.name_zh,
-                'name_en': airport.name_en,
-                'city': airport.city,
-                'city_en': airport.city_en,
-                'timezone': airport.timezone,
-                'contact_info': airport.contact_info,
-                'website_url': airport.website_url
-            })
+        result = [{
+            'id': airport.airport_id,
+            'name_zh': airport.name_zh,
+            'name_en': airport.name_en,
+            'city': airport.city,
+            'city_en': airport.city_en,
+            'timezone': airport.timezone # 移除 contact_info, website_url
+        } for airport in airports]
         
-        return jsonify(result)
+        return _success_response(result)
     except Exception as e:
-        return jsonify({'error': f'獲取台灣機場列表失敗: {str(e)}'}), 500
+        current_app.logger.error(f"獲取台灣機場列表失敗: {e}", exc_info=True)
+        return _error_response('獲取台灣機場列表失敗', 500)
 
 @airport_bp.route('/<string:airport_id>', methods=['GET'])
 @cache.cached(timeout=7200)  # 緩存2小時
 def get_airport_by_id(airport_id):
     """通過ID獲取機場"""
     try:
-        # 直接使用query查詢
+        airport_id_upper = airport_id.upper()
+        # 直接使用 query 查詢
         airport = db.session.query(
             Airport.airport_id, Airport.name_zh, 
             Airport.name_en, Airport.city, Airport.city_en, 
-            Airport.country, Airport.timezone, Airport.contact_info, 
-            Airport.website_url
-        ).filter(Airport.airport_id == airport_id).first()
+            Airport.country, Airport.timezone, Airport.contact_info, Airport.website_url
+        ).filter(Airport.airport_id == airport_id_upper).first()
         
         if not airport:
-            return jsonify({'error': '找不到該機場'}), 404
+            raise NotFound('找不到該機場')
         
-        # 轉換為JSON格式
         result = {
             'id': airport.airport_id,
             'name_zh': airport.name_zh,
@@ -102,163 +104,89 @@ def get_airport_by_id(airport_id):
             'website_url': airport.website_url
         }
         
-        return jsonify(result)
+        return _success_response(result)
+    except NotFound as e:
+        return _error_response(str(e), 404)
     except Exception as e:
-        return jsonify({'error': f'獲取機場詳情失敗: {str(e)}'}), 500
-
-@airport_bp.route('/country/<string:country>', methods=['GET'])
-@cache.cached(timeout=7200)  # 緩存2小時
-def get_airports_by_country(country):
-    """獲取指定國家的所有機場"""
-    try:
-        # 直接使用query查詢
-        airports = db.session.query(
-            Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en, 
-            Airport.country, Airport.timezone, Airport.contact_info, 
-            Airport.website_url
-        ).filter(Airport.country == country).all()
-        
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'name_zh': airport.name_zh,
-                'name_en': airport.name_en,
-                'city': airport.city,
-                'city_en': airport.city_en,
-                'country': airport.country,
-                'timezone': airport.timezone,
-                'contact_info': airport.contact_info,
-                'website_url': airport.website_url
-            })
-        
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': f'獲取國家機場列表失敗: {str(e)}'}), 500
-
-@airport_bp.route('/city/<string:city>', methods=['GET'])
-def get_airports_by_city(city):
-    """獲取指定城市的所有機場"""
-    try:
-        # 直接使用query查詢
-        airports = db.session.query(
-            Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en, 
-            Airport.country, Airport.timezone, Airport.contact_info, 
-            Airport.website_url
-        ).filter(Airport.city == city).all()
-        
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'name_zh': airport.name_zh,
-                'name_en': airport.name_en,
-                'city': airport.city,
-                'city_en': airport.city_en,
-                'country': airport.country,
-                'timezone': airport.timezone,
-                'contact_info': airport.contact_info,
-                'website_url': airport.website_url
-            })
-        
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': f'獲取城市機場列表失敗: {str(e)}'}), 500
+        current_app.logger.error(f"獲取機場 {airport_id} 詳情失敗: {e}", exc_info=True)
+        return _error_response('獲取機場詳情時發生內部錯誤', 500)
 
 @airport_bp.route('/available-departures', methods=['GET'])
+@cache.cached(timeout=3600) # 縮短快取時間
 def get_available_departures():
-    """獲取所有有航班的出發機場"""
+    """獲取所有有有效出發航班的機場（未來航班）"""
     try:
-        current_app.logger.info("開始查詢有航班的出發機場")
+        current_app.logger.info("開始查詢有有效出發航班的機場")
         
-        # 查詢所有有航班的出發機場ID
-        current_app.logger.debug("執行資料庫查詢: 獲取有航班的出發機場ID")
-        departure_ids_query = db.session.query(distinct(Flight.departure_airport_id))
-        current_app.logger.debug(f"執行查詢SQL: {str(departure_ids_query.statement)}")
-        departure_ids = departure_ids_query.all()
-        departure_ids = [id[0] for id in departure_ids]
-        
-        current_app.logger.info(f"找到 {len(departure_ids)} 個出發機場ID: {departure_ids}")
-        
+        # 查詢未來有航班的出發機場ID
+        departure_ids_query = db.session.query(distinct(Flight.departure_airport_id)).filter(
+            # 只考慮未來一週內的航班作為"有效"出發機場的依據，避免返回過多歷史數據機場
+            Flight.scheduled_departure >= db.func.current_date(),
+            Flight.scheduled_departure < db.func.current_date() + db.text("'7 days'::interval") 
+        )
+        departure_ids = [id[0] for id in departure_ids_query.all()]
+        current_app.logger.info(f"找到 {len(departure_ids)} 個有未來航班的出發機場ID: {departure_ids}")
+
+        if not departure_ids:
+            return _success_response([]) # 如果沒有，返回空列表
+
         # 獲取這些機場的詳細資訊
-        current_app.logger.debug("執行資料庫查詢: 獲取機場詳細資訊")
         airports_query = db.session.query(
             Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en
-        ).filter(Airport.airport_id.in_(departure_ids))
-        current_app.logger.debug(f"執行查詢SQL: {str(airports_query.statement)}")
+            Airport.name_en, Airport.city, Airport.city_en # 移除 country, timezone 等不必要欄位
+        ).filter(Airport.airport_id.in_(departure_ids)).order_by(Airport.name_zh)
+        
         airports = airports_query.all()
         
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'code': airport.airport_id,
-                'name': airport.name_zh or airport.name_en,
-                'city': airport.city
-            })
+        result = [{
+            'id': airport.airport_id,
+            'code': airport.airport_id, # 保留 code 方便前端
+            'name': airport.name_zh or airport.name_en, # 優先顯示中文名
+            'city': airport.city
+        } for airport in airports]
         
-        current_app.logger.info(f"成功返回 {len(result)} 個有航班的出發機場")
-        return jsonify(result)
+        current_app.logger.info(f"成功返回 {len(result)} 個有未來航班的出發機場")
+        return _success_response(result)
     except Exception as e:
-        current_app.logger.error(f"獲取有航班的出發機場失敗: {str(e)}", exc_info=True)
-        current_app.logger.error(f"錯誤類型: {type(e)}")
-        # 嘗試獲取更多錯誤信息
-        import traceback
-        error_traceback = traceback.format_exc()
-        current_app.logger.error(f"錯誤堆疊: {error_traceback}")
-        return jsonify({'error': f'獲取有航班的出發機場失敗: {str(e)}'}), 500
+        current_app.logger.error(f"獲取有航班的出發機場失敗: {e}", exc_info=True)
+        return _error_response('獲取可用出發機場失敗', 500)
 
 @airport_bp.route('/available-destinations/<string:departure_code>', methods=['GET'])
+@cache.cached(timeout=3600, query_string=True) # 添加緩存
 def get_available_destinations(departure_code):
-    """獲取指定出發機場的所有可用目的地"""
+    """獲取指定出發機場的所有可用目的地（未來航班）"""
     try:
-        current_app.logger.info(f"開始查詢從 {departure_code} 出發的可用目的地")
+        departure_id = departure_code.upper()
+        current_app.logger.info(f"開始查詢從 {departure_id} 出發的可用目的地（未來航班）")
         
-        # 先獲取出發機場ID - 現在 departure_code 就是 airport_id
-        departure_id = departure_code
-        current_app.logger.info(f"使用出發機場ID: {departure_id}")
-        
-        # 查詢所有從該機場出發的航班的目的地機場ID
-        current_app.logger.debug(f"執行資料庫查詢: 獲取從機場ID {departure_id} 出發的目的地機場ID")
+        # 查詢從該機場出發的未來航班的目的地機場ID
         destinations_query = db.session.query(distinct(Flight.arrival_airport_id)).filter(
-            Flight.departure_airport_id == departure_id
+            Flight.departure_airport_id == departure_id,
+            Flight.scheduled_departure >= db.func.current_date() # 只考慮未來航班
         )
-        current_app.logger.debug(f"執行查詢SQL: {str(destinations_query.statement)}")
-        destination_ids = destinations_query.all()
-        destination_ids = [id[0] for id in destination_ids]
-        
-        current_app.logger.info(f"找到 {len(destination_ids)} 個目的地機場ID: {destination_ids}")
+        destination_ids = [id[0] for id in destinations_query.all()]
+        current_app.logger.info(f"找到 {len(destination_ids)} 個未來航班目的地機場ID: {destination_ids}")
         
         if not destination_ids:
-            return jsonify([])
-        
+            return _success_response([])
+
         # 獲取這些機場的詳細資訊
-        current_app.logger.debug("執行資料庫查詢: 獲取目的地機場詳細資訊")
         airports_query = db.session.query(
             Airport.airport_id, Airport.name_zh, 
-            Airport.name_en, Airport.city, Airport.city_en
-        ).filter(Airport.airport_id.in_(destination_ids))
-        current_app.logger.debug(f"執行查詢SQL: {str(airports_query.statement)}")
+            Airport.name_en, Airport.city, Airport.city_en # 移除不必要欄位
+        ).filter(Airport.airport_id.in_(destination_ids)).order_by(Airport.name_zh)
+
         airports = airports_query.all()
         
-        # 轉換為JSON格式
-        result = []
-        for airport in airports:
-            result.append({
-                'id': airport.airport_id,
-                'code': airport.airport_id,
-                'name': airport.name_zh or airport.name_en,
-                'city': airport.city
-            })
+        result = [{
+            'id': airport.airport_id,
+            'code': airport.airport_id,
+            'name': airport.name_zh or airport.name_en,
+            'city': airport.city
+        } for airport in airports]
         
         current_app.logger.info(f"成功返回 {len(result)} 個目的地機場")
-        return jsonify(result)
+        return _success_response(result)
     except Exception as e:
-        current_app.logger.error(f"獲取可用目的地失敗: {str(e)}", exc_info=True)
-        return jsonify({'error': f'獲取可用目的地失敗: {str(e)}'}), 500 
+        current_app.logger.error(f"獲取從 {departure_id} 出發的可用目的地失敗: {e}", exc_info=True)
+        return _error_response('獲取可用目的地失敗', 500) 

@@ -33,7 +33,6 @@ class TdxApiClient(BaseAPIClient):
         # 其他設置
         self.access_token = None
         self.token_expires_at = 0
-        self.taiwanese_airports = self._get_taiwanese_airports()
         
     def get_access_token(self) -> Optional[str]:
         """
@@ -105,288 +104,103 @@ class TdxApiClient(BaseAPIClient):
             'Content-Type': 'application/json'
         }
     
-    def _get_taiwanese_airports(self) -> List[str]:
+    @cached(ttl=1800, key_prefix="tdx_fids_flight") # 使用 FIDS Flight 的快取
+    def get_domestic_flight_schedules(self, airport_iata: str) -> List[Dict]:
         """
-        獲取台灣機場IATA代碼列表
-        
-        Returns:
-            IATA代碼列表
-        """
-        # 台灣主要機場IATA代碼，包含CMJ(七美)和WOT(望安)
-        return ['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'HUN', 'TTT', 'KNH', 'MZG', 'PIF', 'GNI', 'KYD', 'TXG', 'CYI', 'MFK', 'LZN', 'CMJ', 'WOT']
-    
-    @cached(ttl=86400, key_prefix="tdx_airports")
-    def get_airports(self) -> List[Dict]:
-        """
-        獲取機場列表
-        
-        Returns:
-            機場信息列表
-        """
-        self.logger.info("獲取TDX機場列表")
-        
-        url = f"{self.base_url}/v2/Air/Airport"
-        params = {
-            '$format': 'JSON'
-        }
-        
-        response = self.make_request(
-            url=url,
-            method='GET',
-            headers=self._build_headers(),
-            params=params
-        )
-        
-        if not response:
-            self.logger.warning("獲取機場列表失敗，返回空列表")
-            return []
-            
-        try:
-            airports = []
-            for item in response:
-                # 提取機場信息
-                airport = {
-                    'iata_code': item.get('AirportIATA', ''),
-                    'name': item.get('AirportName', {}).get('Zh_tw', ''),
-                    'name_en': item.get('AirportName', {}).get('En', ''),
-                    'city': item.get('CityName', {}).get('Zh_tw', ''),
-                    'city_en': item.get('CityName', {}).get('En', ''),
-                    'country': item.get('CountryName', {}).get('Zh_tw', ''),
-                    'country_en': item.get('CountryName', {}).get('En', ''),
-                    'position': {
-                        'lat': item.get('AirportPosition', {}).get('PositionLat', 0),
-                        'lon': item.get('AirportPosition', {}).get('PositionLon', 0)
-                    }
-                }
-                airports.append(airport)
-                
-            self.logger.info(f"成功獲取{len(airports)}個機場信息")
-            return airports
-        except Exception as e:
-            self.logger.error(f"解析機場數據時出錯: {str(e)}")
-            return []
-    
-    @cached(ttl=86400, key_prefix="tdx_airport")
-    def get_airport(self, iata_code: str) -> Optional[Dict]:
-        """
-        獲取特定機場信息
-        
-        Args:
-            iata_code: 機場IATA代碼
-            
-        Returns:
-            機場信息字典，未找到時返回None
-        """
-        if not iata_code:
-            self.logger.error("IATA代碼為空")
-            return None
-            
-        iata_code = iata_code.strip().upper()
-        self.logger.info(f"獲取機場信息: {iata_code}")
-        
-        # 先嘗試從臺灣機場列表API獲取
-        url = f"{self.base_url}/v2/Air/Airport/IATA/{iata_code}"
-        params = {
-            '$format': 'JSON'
-        }
-        
-        response = self.make_request(
-            url=url,
-            headers=self._build_headers(),
-            params=params
-        )
-        
-        if response:
-            try:
-                # TDX API返回的是單個機場信息
-                item = response
-                airport = {
-                    'iata_code': item.get('AirportIATA', ''),
-                    'name': item.get('AirportName', {}).get('Zh_tw', ''),
-                    'name_en': item.get('AirportName', {}).get('En', ''),
-                    'city': item.get('CityName', {}).get('Zh_tw', ''),
-                    'city_en': item.get('CityName', {}).get('En', ''),
-                    'country': item.get('CountryName', {}).get('Zh_tw', ''),
-                    'country_en': item.get('CountryName', {}).get('En', ''),
-                    'position': {
-                        'lat': item.get('AirportPosition', {}).get('PositionLat', 0),
-                        'lon': item.get('AirportPosition', {}).get('PositionLon', 0)
-                    }
-                }
-                return airport
-            except Exception as e:
-                self.logger.error(f"解析機場數據時出錯: {str(e)}")
-        
-        # 如果從單一機場API找不到，嘗試從所有機場列表查找
-        airports = self.get_airports()
-        for airport in airports:
-            if airport.get('iata_code') == iata_code:
-                return airport
-                
-        self.logger.warning(f"未找到機場: {iata_code}")
-        return None
-    
-    @cached(ttl=3600, key_prefix="tdx_flight_schedules")
-    def get_flight_schedules(self, date: Optional[str] = None) -> List[Dict]:
-        """
-        獲取指定日期的航班時刻表
-        
-        Args:
-            date: 日期字符串，格式為YYYY-MM-DD，默認為今天
-            
-        Returns:
-            航班時刻表列表
-        """
-        if not date:
-            date = datetime.now().strftime('%Y-%m-%d')
-            
-        self.logger.info(f"獲取航班時刻表，日期: {date}")
-        
-        url = f"{self.base_url}/v2/Air/FIDS/Airport/Daily"
-        params = {
-            '$format': 'JSON',
-            'date': date
-        }
-        
-        response = self.make_request(
-            url=url,
-            headers=self._build_headers(),
-            params=params
-        )
-        
-        if not response:
-            self.logger.warning(f"獲取航班時刻表失敗，日期: {date}")
-            return []
-            
-        try:
-            schedules = []
-            for item in response:
-                # 只處理台灣出發或到達的航班
-                dep_airport = item.get('DepartureAirportID', '')
-                arr_airport = item.get('ArrivalAirportID', '')
-                
-                if not (dep_airport in self.taiwanese_airports or arr_airport in self.taiwanese_airports):
-                    continue
-                    
-                # 解析日期時間
-                scheduled_dep_time = None
-                actual_dep_time = None
-                scheduled_arr_time = None
-                actual_arr_time = None
-                
-                try:
-                    scheduled_dep_time_str = item.get('ScheduleDepartureTime', '')
-                    if scheduled_dep_time_str:
-                        scheduled_dep_time = parse_datetime(scheduled_dep_time_str)
-                        
-                    actual_dep_time_str = item.get('ActualDepartureTime', '')
-                    if actual_dep_time_str:
-                        actual_dep_time = parse_datetime(actual_dep_time_str)
-                        
-                    scheduled_arr_time_str = item.get('ScheduleArrivalTime', '')
-                    if scheduled_arr_time_str:
-                        scheduled_arr_time = parse_datetime(scheduled_arr_time_str)
-                        
-                    actual_arr_time_str = item.get('ActualArrivalTime', '')
-                    if actual_arr_time_str:
-                        actual_arr_time = parse_datetime(actual_arr_time_str)
-                except Exception as e:
-                    self.logger.warning(f"解析日期時間出錯: {str(e)}")
-                
-                # 創建航班信息字典
-                flight = {
-                    'flight_number': item.get('AirlineID', '') + item.get('FlightNumber', ''),
-                    'airline_code': item.get('AirlineID', ''),
-                    'flight_id': item.get('FlightID', ''),
-                    'departure_airport': dep_airport,
-                    'arrival_airport': arr_airport,
-                    'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
-                    'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                    'scheduled_departure_time': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
-                    'actual_departure_time': format_datetime(actual_dep_time) if actual_dep_time else None,
-                    'scheduled_arrival_time': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                    'actual_arrival_time': format_datetime(actual_arr_time) if actual_arr_time else None,
-                    'status': item.get('FlightStatus', {}).get('Zh_tw', ''),
-                    'status_en': item.get('FlightStatus', {}).get('En', ''),
-                    'terminal': item.get('Terminal', ''),
-                    'gate': item.get('Gate', ''),
-                    'remark': item.get('Remark', {}).get('Zh_tw', ''),
-                    'is_cargo': 'CARGO' in item.get('AirlineID', '') + item.get('FlightNumber', '').upper(),
-                    'source': 'TDX'
-                }
-                
-                schedules.append(flight)
-                
-            self.logger.info(f"成功獲取{len(schedules)}個航班時刻")
-            return schedules
-        except Exception as e:
-            self.logger.error(f"解析航班時刻表數據時出錯: {str(e)}")
-            return []
-    
-    @cached(ttl=3600, key_prefix="tdx_domestic_flights")
-    def get_domestic_flight_schedules(self, airport_iata: str, date: str = None) -> List[Dict]:
-        """
-        獲取特定機場的國內航班時刻表，主要針對 AE、B7、DA 航空公司
-        
+        獲取特定機場當天出發的國內航班時刻表與狀態 (AE、B7、DA 航空公司)
+        從 /v2/Air/FIDS/Flight 獲取所有當天數據，然後在程式碼中篩選
+
         Args:
             airport_iata: 機場 IATA 代碼 (例如: 'TSA', 'KHH', 'RMQ')
-            date: 日期 (格式: YYYY-MM-DD)，默認為今天
-            
+
         Returns:
-            航班信息列表
+            航班信息列表 (包含狀態)
         """
-        if date is None:
-            date = datetime.now().strftime('%Y-%m-%d')
-        
-        # 支持的航空公司列表 (華信航空、立榮航空、德安航空)
-        supported_airlines = ['AE', 'B7', 'DA']
-        
-        self.logger.info(f"正在從 TDX 獲取 {airport_iata} 機場 {date} 的國內航班時刻表 (AE、B7、DA 航空公司)")
-        
-        try:
-            # 獲取指定日期航班時刻表
-            flight_schedules = self.get_flight_schedules(date)
-            if not flight_schedules:
-                self.logger.warning(f"無法從 TDX 獲取 {date} 的航班時刻表")
-                return []
-            
-            # 篩選出指定機場和航空公司的航班
-            domestic_flights = []
-            for flight in flight_schedules:
-                airline_code = flight.get('airline_code')
-                departure_airport = flight.get('departure_airport')
-                
-                # 只篩選出特定機場出發且為支持的航空公司的航班
-                if departure_airport == airport_iata and airline_code in supported_airlines:
-                    domestic_flights.append(flight)
-            
-            # 如果找到航班，記錄並返回
-            if domestic_flights:
-                self.logger.info(f"從 TDX 獲取到 {len(domestic_flights)} 個 {airport_iata} 機場的國內航班")
-                
-                # 按航空公司統計航班數量
-                airline_counts = {}
-                for flight in domestic_flights:
-                    airline = flight.get('airline_code', 'Unknown')
-                    airline_counts[airline] = airline_counts.get(airline, 0) + 1
-                
-                # 更詳細的航空公司航班統計
-                for airline, count in airline_counts.items():
-                    airline_name = ""
-                    if airline == "AE":
-                        airline_name = "華信航空"
-                    elif airline == "B7":
-                        airline_name = "立榮航空"
-                    elif airline == "DA":
-                        airline_name = "德安航空"
-                    
-                    self.logger.info(f"航空公司 {airline} ({airline_name}): {count} 個航班")
-                
-                return domestic_flights
-            else:
-                self.logger.warning(f"未找到 {airport_iata} 機場的國內航班 (AE、B7、DA)")
-                return []
-            
-        except Exception as e:
-            self.logger.error(f"獲取 {airport_iata} 機場國內航班時出錯: {str(e)}")
+        supported_airlines = {'AE', 'B7', 'DA'} # 使用集合以便快速查找
+        current_date_str = datetime.now().strftime('%Y-%m-%d')
+        self.logger.info(f"正在從 TDX FIDS Flight 獲取所有航空公司的航班狀態 ({current_date_str})")
+
+        url = f"{self.base_url}/v2/Air/FIDS/Flight"
+
+        params = {
+            '$format': 'JSON',
+            '$filter': f"FlightDate eq '{current_date_str}'",
+            # '$orderby': 'ScheduleDepartureTime', # 可選排序
+            '$top': 2000 # 可能需要獲取更多數據以確保包含所有航班
+        }
+
+        self.logger.debug(f"請求 TDX FIDS Flight URL: {url} with params: {params}")
+
+        response = self.make_request(
+            url=url,
+            headers=self._build_headers(),
+            params=params
+        )
+
+        if not response or not isinstance(response, list):
+            self.logger.warning(f"從 TDX FIDS Flight 獲取航班數據失敗或返回空/非列表數據")
             return []
+
+        self.logger.info(f"成功從 TDX FIDS Flight 獲取 {len(response)} 筆原始航班記錄，準備篩選")
+
+        parsed_and_filtered_flights = []
+        for item in response:
+            try:
+                airline_id = item.get('AirlineID', '')
+                departure_airport = item.get('DepartureAirportID', '')
+
+                # 在這裡進行篩選
+                if airline_id not in supported_airlines or departure_airport != airport_iata:
+                    continue # 跳過不符合條件的航班
+
+                flight_number_only = item.get('FlightNumber', '')
+
+                # 解析時間，處理可能的錯誤和 None 值
+                scheduled_departure = parse_datetime(item.get('ScheduleDepartureTime'))
+                scheduled_arrival = parse_datetime(item.get('ScheduleArrivalTime'))
+                actual_departure = parse_datetime(item.get('ActualDepartureTime')) # 可能為 None
+                actual_arrival = parse_datetime(item.get('ActualArrivalTime'))     # 可能為 None
+
+                # 決定狀態
+                departure_remark = item.get('DepartureRemark', '')
+                arrival_remark = item.get('ArrivalRemark', '')
+                status = departure_remark if departure_remark else arrival_remark
+                if not status:
+                    if actual_arrival:
+                        status = "已抵達"
+                    elif actual_departure:
+                        status = "已起飛"
+                    else:
+                        status = "準時"
+
+                flight = {
+                    'flight_number': airline_id + flight_number_only,
+                    'airline_id': airline_id,
+                    'departure_airport': departure_airport,
+                    'arrival_airport': item.get('ArrivalAirportID', ''),
+                    'scheduled_departure': scheduled_departure,
+                    'scheduled_arrival': scheduled_arrival,
+                    'actual_departure': actual_departure,
+                    'actual_arrival': actual_arrival,
+                    'status': status,
+                    'source': 'TDX'
+                }
+                parsed_and_filtered_flights.append(flight)
+            except Exception as e:
+                self.logger.error(f"解析或篩選單筆 FIDS 航班數據時出錯: {item} - {str(e)}")
+                continue
+
+        if parsed_and_filtered_flights:
+             # 按航空公司統計數量
+            airline_counts = {}
+            for flight in parsed_and_filtered_flights:
+                airline = flight.get('airline_id', 'Unknown')
+                airline_counts[airline] = airline_counts.get(airline, 0) + 1
+            self.logger.info(f"篩選並解析後，找到 {len(parsed_and_filtered_flights)} 筆從 {airport_iata} 出發的航班:")
+            for airline, count in airline_counts.items():
+                 airline_name = {"AE": "華信航空", "B7": "立榮航空", "DA": "德安航空"}.get(airline, "未知航空")
+                 self.logger.info(f"  航空公司 {airline} ({airline_name}): {count} 個航班")
+        else:
+            self.logger.warning(f"從 TDX FIDS ({airport_iata}) 的數據中，未能篩選出符合條件 (機場: {airport_iata}, 航空公司: {supported_airlines}) 的航班")
+
+        return parsed_and_filtered_flights

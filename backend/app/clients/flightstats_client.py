@@ -30,9 +30,6 @@ class FlightStatsApiClient(BaseAPIClient):
         if not self.app_id or not self.app_key:
             self.logger.warning("FlightStats認證信息未設置，部分功能可能不可用")
         
-        # 台灣機場列表
-        self.taiwan_airports = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'LZN', 'MFK', 'KYD', 'GNI']
-        
         # 目標航空公司 - 只處理國際航班的航空公司，不包含AE、B7、DA
         # BR: 長榮航空 (EVA Air)
         # CI: 中華航空 (China Airlines)
@@ -65,439 +62,6 @@ class FlightStatsApiClient(BaseAPIClient):
             params.update(extra_params)
             
         return params
-    
-    @cached(ttl=86400, key_prefix="flightstats_airports")
-    def get_airports(self) -> List[Dict]:
-        """
-        獲取機場列表
-        
-        Returns:
-            機場信息列表
-        """
-        self.logger.info("獲取FlightStats機場列表")
-        
-        # 嘗試從API獲取機場列表
-        url = f"{self.base_url}/airports/rest/v1/json/active"
-        
-        response = self.make_request(
-            url=url,
-            params=self._build_params({
-                'extendedOptions': 'includeNewFields'
-            })
-        )
-        
-        if response and 'airports' in response:
-            try:
-                airports = []
-                for item in response['airports']:
-                    airport = {
-                        'iata_code': item.get('iata', ''),
-                        'name': item.get('name', ''),
-                        'name_en': item.get('name', ''),
-                        'city': item.get('city', ''),
-                        'city_en': item.get('city', ''),
-                        'country': item.get('countryName', ''),
-                        'country_en': item.get('countryName', ''),
-                        'position': {
-                            'lat': item.get('latitude', 0),
-                            'lon': item.get('longitude', 0)
-                        },
-                        'timezone': item.get('timeZoneRegionName', ''),
-                        'fs_code': item.get('fs', '')
-                    }
-                    
-                    # 只包含有IATA代碼的機場
-                    if airport['iata_code']:
-                        airports.append(airport)
-                        
-                self.logger.info(f"成功獲取{len(airports)}個機場信息")
-                return airports
-            except Exception as e:
-                self.logger.error(f"解析機場數據時出錯: {str(e)}")
-        
-        # 如果API獲取失敗，使用預定義的機場列表
-        self.logger.warning("從API獲取機場列表失敗，使用預定義列表")
-        return self._get_predefined_airports()
-    
-    def _get_predefined_airports(self) -> List[Dict]:
-        """
-        獲取預定義的主要機場列表
-        
-        Returns:
-            機場信息列表
-        """
-        # 主要國際機場的基本信息
-        predefined_airports = [
-            {
-                'iata_code': 'TPE',
-                'name': '臺灣桃園國際機場',
-                'name_en': 'Taiwan Taoyuan International Airport',
-                'city': '臺北',
-                'city_en': 'Taipei',
-                'country': '臺灣',
-                'country_en': 'Taiwan',
-                'position': {'lat': 25.0777, 'lon': 121.2322},
-                'timezone': 'Asia/Taipei',
-                'fs_code': 'TPE'
-            },
-            {
-                'iata_code': 'TSA',
-                'name': '臺北松山機場',
-                'name_en': 'Taipei Songshan Airport',
-                'city': '臺北',
-                'city_en': 'Taipei',
-                'country': '臺灣',
-                'country_en': 'Taiwan',
-                'position': {'lat': 25.0694, 'lon': 121.5522},
-                'timezone': 'Asia/Taipei',
-                'fs_code': 'TSA'
-            },
-            {
-                'iata_code': 'NRT',
-                'name': '成田國際機場',
-                'name_en': 'Narita International Airport',
-                'city': '東京',
-                'city_en': 'Tokyo',
-                'country': '日本',
-                'country_en': 'Japan',
-                'position': {'lat': 35.7647, 'lon': 140.3864},
-                'timezone': 'Asia/Tokyo',
-                'fs_code': 'NRT'
-            },
-            {
-                'iata_code': 'HND',
-                'name': '東京羽田國際機場',
-                'name_en': 'Tokyo Haneda International Airport',
-                'city': '東京',
-                'city_en': 'Tokyo',
-                'country': '日本',
-                'country_en': 'Japan',
-                'position': {'lat': 35.5494, 'lon': 139.7798},
-                'timezone': 'Asia/Tokyo',
-                'fs_code': 'HND'
-            },
-            {
-                'iata_code': 'KIX',
-                'name': '關西國際機場',
-                'name_en': 'Kansai International Airport',
-                'city': '大阪',
-                'city_en': 'Osaka',
-                'country': '日本',
-                'country_en': 'Japan',
-                'position': {'lat': 34.4272, 'lon': 135.2441},
-                'timezone': 'Asia/Tokyo',
-                'fs_code': 'KIX'
-            }
-        ]
-        
-        # 確保所有台灣機場都包含在列表中
-        taiwan_codes = [airport['iata_code'] for airport in predefined_airports if airport['country'] == '臺灣']
-        for code in self.taiwan_airports:
-            if code not in taiwan_codes:
-                predefined_airports.append({
-                    'iata_code': code,
-                    'name': f'臺灣機場 ({code})',
-                    'name_en': f'Taiwan Airport ({code})',
-                    'city': '臺灣',
-                    'city_en': 'Taiwan',
-                    'country': '臺灣',
-                    'country_en': 'Taiwan',
-                    'position': {'lat': 0, 'lon': 0},
-                    'timezone': 'Asia/Taipei',
-                    'fs_code': code
-                })
-                
-        return predefined_airports
-    
-    @cached(ttl=86400, key_prefix="flightstats_airport")
-    def get_airport(self, iata_code: str) -> Optional[Dict]:
-        """
-        獲取特定機場信息
-        
-        Args:
-            iata_code: 機場IATA代碼
-            
-        Returns:
-            機場信息字典，未找到時返回None
-        """
-        if not iata_code:
-            self.logger.error("IATA代碼為空")
-            return None
-            
-        iata_code = iata_code.strip().upper()
-        self.logger.info(f"獲取機場信息: {iata_code}")
-        
-        # 從API獲取機場信息
-        url = f"{self.base_url}/airports/rest/v1/json/{iata_code}/today"
-        
-        response = self.make_request(
-            url=url,
-            params=self._build_params({
-                'extendedOptions': 'includeNewFields'
-            })
-        )
-        
-        if response and 'airport' in response:
-            try:
-                item = response['airport']
-                airport = {
-                    'iata_code': item.get('iata', ''),
-                    'name': item.get('name', ''),
-                    'name_en': item.get('name', ''),
-                    'city': item.get('city', ''),
-                    'city_en': item.get('city', ''),
-                    'country': item.get('countryName', ''),
-                    'country_en': item.get('countryName', ''),
-                    'position': {
-                        'lat': item.get('latitude', 0),
-                        'lon': item.get('longitude', 0)
-                    },
-                    'timezone': item.get('timeZoneRegionName', ''),
-                    'fs_code': item.get('fs', '')
-                }
-                return airport
-            except Exception as e:
-                self.logger.error(f"解析機場數據時出錯: {str(e)}")
-        
-        # 如果API獲取失敗，從預定義列表查找
-        self.logger.warning(f"從API獲取機場信息失敗: {iata_code}，從預定義列表查找")
-        predefined_airports = self._get_predefined_airports()
-        
-        for airport in predefined_airports:
-            if airport['iata_code'] == iata_code:
-                return airport
-                
-        # 尚未找到，嘗試從所有機場列表查找
-        all_airports = self.get_airports()
-        for airport in all_airports:
-            if airport['iata_code'] == iata_code:
-                return airport
-                
-        self.logger.warning(f"未找到機場: {iata_code}")
-        return None
-    
-    @cached(ttl=86400, key_prefix="flightstats_airlines")
-    def get_airlines(self) -> List[Dict]:
-        """
-        獲取航空公司列表
-        
-        Returns:
-            航空公司信息列表
-        """
-        self.logger.info("獲取FlightStats航空公司列表")
-        
-        # 從API獲取航空公司列表
-        url = f"{self.base_url}/airlines/rest/v1/json/active"
-        
-        response = self.make_request(
-            url=url,
-            params=self._build_params()
-        )
-        
-        if response and 'airlines' in response:
-            try:
-                airlines = []
-                for item in response['airlines']:
-                    airline = {
-                        'iata_code': item.get('iata', ''),
-                        'name': item.get('name', ''),
-                        'name_en': item.get('name', ''),
-                        'fs_code': item.get('fs', ''),
-                        'icao_code': item.get('icao', ''),
-                        'is_active': item.get('active', False),
-                        'country': item.get('countryName', ''),
-                        'country_en': item.get('countryName', '')
-                    }
-                    
-                    # 只包含有IATA代碼的航空公司，並優先處理目標航空公司
-                    if airline['iata_code']:
-                        airlines.append(airline)
-                        
-                self.logger.info(f"成功獲取{len(airlines)}個航空公司信息")
-                
-                # 對航空公司列表進行排序，將目標航空公司放在前面
-                airlines.sort(key=lambda x: (x['iata_code'] not in self.target_airlines, x['iata_code']))
-                
-                return airlines
-            except Exception as e:
-                self.logger.error(f"解析航空公司數據時出錯: {str(e)}")
-        
-        # 如果API獲取失敗，返回預定義的航空公司列表
-        self.logger.warning("從API獲取航空公司列表失敗，使用預定義列表")
-        return self._get_predefined_airlines()
-    
-    def _get_predefined_airlines(self) -> List[Dict]:
-        """
-        獲取預定義的主要航空公司列表
-        
-        Returns:
-            航空公司信息列表
-        """
-        # 主要航空公司的基本信息
-        predefined_airlines = [
-            {
-                'iata_code': 'CI',
-                'name': '中華航空',
-                'name_en': 'China Airlines',
-                'fs_code': 'CAL',
-                'icao_code': 'CAL',
-                'is_active': True,
-                'country': '臺灣',
-                'country_en': 'Taiwan'
-            },
-            {
-                'iata_code': 'BR',
-                'name': '長榮航空',
-                'name_en': 'EVA Air',
-                'fs_code': 'EVA',
-                'icao_code': 'EVA',
-                'is_active': True,
-                'country': '臺灣',
-                'country_en': 'Taiwan'
-            },
-            {
-                'iata_code': 'CX',
-                'name': '中國國際航空',
-                'name_en': 'Air China',
-                'fs_code': 'CA',
-                'icao_code': 'CCA',
-                'is_active': True,
-                'country': '中國',
-                'country_en': 'China'
-            },
-            {
-                'iata_code': 'IT',
-                'name': '中國國際航空',
-                'name_en': 'Air China',
-                'fs_code': 'CA',
-                'icao_code': 'CCA',
-                'is_active': True,
-                'country': '中國',
-                'country_en': 'China'
-            },
-            {
-                'iata_code': 'JL',
-                'name': '日本航空',
-                'name_en': 'Japan Airlines',
-                'fs_code': 'JL',
-                'icao_code': 'JAL',
-                'is_active': True,
-                'country': '日本',
-                'country_en': 'Japan'
-            },
-            {
-                'iata_code': 'JX',
-                'name': '日本航空',
-                'name_en': 'Japan Airlines',
-                'fs_code': 'JL',
-                'icao_code': 'JAL',
-                'is_active': True,
-                'country': '日本',
-                'country_en': 'Japan'
-            },
-            {
-                'iata_code': 'OZ',
-                'name': '大韓航空',
-                'name_en': 'Korean Air',
-                'fs_code': 'KE',
-                'icao_code': 'KAL',
-                'is_active': True,
-                'country': '韓國',
-                'country_en': 'Korea'
-            }
-        ]
-        
-        # 確保所有目標航空公司都包含在列表中
-        existing_codes = [airline['iata_code'] for airline in predefined_airlines]
-        for code in self.target_airlines:
-            if code not in existing_codes:
-                predefined_airlines.append({
-                    'iata_code': code,
-                    'name': f'航空公司 ({code})',
-                    'name_en': f'Airline ({code})',
-                    'fs_code': code,
-                    'icao_code': code,
-                    'is_active': True,
-                    'country': '未知',
-                    'country_en': 'Unknown'
-                })
-                
-        return predefined_airlines
-    
-    @cached(ttl=86400, key_prefix="flightstats_airline")
-    def get_airline(self, iata_code: str) -> Optional[Dict]:
-        """
-        獲取特定航空公司信息
-        
-        Args:
-            iata_code: 航空公司IATA代碼
-            
-        Returns:
-            航空公司信息字典，未找到時返回None
-        """
-        if not iata_code:
-            self.logger.error("IATA代碼為空")
-            return None
-            
-        iata_code = iata_code.strip().upper()
-        self.logger.info(f"獲取航空公司信息: {iata_code}")
-        
-        # 檢查代碼是否在目標航空公司中
-        if iata_code not in self.target_airlines:
-            self.logger.warning(f"航空公司 {iata_code} 不在目標列表中")
-            # 返回一個基本信息，避免API請求
-            return {
-                'iata_code': iata_code,
-                'name': f'航空公司 ({iata_code})',
-                'name_en': f'Airline ({iata_code})',
-                'fs_code': iata_code,
-                'icao_code': iata_code,
-                'is_active': True,
-                'country': '未知',
-                'country_en': 'Unknown'
-            }
-            
-        # 從API獲取航空公司信息
-        url = f"{self.base_url}/airlines/rest/v1/json/{iata_code}"
-        
-        response = self.make_request(
-            url=url,
-            params=self._build_params()
-        )
-        
-        if response and 'airline' in response:
-            try:
-                item = response['airline']
-                airline = {
-                    'iata_code': item.get('iata', ''),
-                    'name': item.get('name', ''),
-                    'name_en': item.get('name', ''),
-                    'fs_code': item.get('fs', ''),
-                    'icao_code': item.get('icao', ''),
-                    'is_active': item.get('active', False),
-                    'country': item.get('countryName', ''),
-                    'country_en': item.get('countryName', '')
-                }
-                return airline
-            except Exception as e:
-                self.logger.error(f"解析航空公司數據時出錯: {str(e)}")
-        
-        # 如果API獲取失敗，從預定義列表查找
-        self.logger.warning(f"從API獲取航空公司信息失敗: {iata_code}，從預定義列表查找")
-        predefined_airlines = self._get_predefined_airlines()
-        
-        for airline in predefined_airlines:
-            if airline['iata_code'] == iata_code:
-                return airline
-                
-        # 尚未找到，嘗試從所有航空公司列表查找
-        all_airlines = self.get_airlines()
-        for airline in all_airlines:
-            if airline['iata_code'] == iata_code:
-                return airline
-                
-        self.logger.warning(f"未找到航空公司: {iata_code}")
-        return None
     
     @cached(ttl=7200, key_prefix="flightstats_flights")
     def get_flights(self, dep_airport: str, arr_airport: str, date: str) -> List[Dict]:
@@ -851,3 +415,126 @@ class FlightStatsApiClient(BaseAPIClient):
         except Exception as e:
             self.logger.error(f"解析航班狀態數據時出錯: {str(e)}")
             return None
+
+    # 新增方法：使用 /airport/status 端點獲取離港航班
+    @cached(ttl=7200, key_prefix="flightstats_departures")
+    def get_departures(self, dep_airport: str, date: str, hour: int = 0, num_hours: int = 24) -> List[Dict]:
+        """
+        獲取特定機場在指定時間範圍內的離港航班信息
+        
+        Args:
+            dep_airport: 出發機場IATA代碼
+            date: 日期字符串，格式為YYYY-MM-DD
+            hour: 開始的小時 (0-23)，預設為 0
+            num_hours: 從開始小時起查詢的小時數，預設為 24
+            
+        Returns:
+            航班信息列表
+        """
+        if not dep_airport or not date:
+            self.logger.error("獲取離港航班信息的參數不完整")
+            return []
+            
+        dep_airport = dep_airport.strip().upper()
+        
+        # 解析日期
+        try:
+            dt = datetime.strptime(date, '%Y-%m-%d')
+            year, month, day = dt.year, dt.month, dt.day
+        except ValueError:
+            self.logger.error(f"日期格式無效: {date}")
+            return []
+        
+        # 確保小時有效
+        if not 0 <= hour <= 23:
+            self.logger.error(f"小時格式無效: {hour}")
+            hour = 0 # 使用默認值
+        
+        self.logger.info(f"獲取離港航班: {dep_airport}, 日期: {date}, 開始時間: {hour:02d}:00, 時長: {num_hours}小時")
+        
+        # 使用 /airport/status 端點
+        url = f"{self.base_url}/flightstatus/rest/v2/json/airport/status/{dep_airport}/dep/{year}/{month}/{day}/{hour}"
+        
+        response = self.make_request(
+            url=url,
+            params=self._build_params({
+                'extendedOptions': 'includeNewFields,useInlinedReferences',
+                'numHours': num_hours,
+                'codeType': 'IATA' # 確保使用IATA代碼
+            })
+        )
+        
+        flights = []
+        
+        # 解析回應 (假設結構與 /route/status 類似，都是 flightStatuses)
+        if response and 'flightStatuses' in response:
+            self.logger.info(f"接收到 airport/status 回應，包含 {len(response['flightStatuses'])} 個航班狀態")
+            try:
+                for item in response['flightStatuses']:
+                    # 篩選目標航空公司 ('BR', 'CI', 'CX', 'IT', 'JL', 'JX', 'OZ')
+                    airline_code = item.get('carrierFsCode', '')
+                    if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
+                        continue # 跳過非目標航空公司
+                    
+                    # --- 開始解析航班數據 (與 get_flights 類似) ---
+                    scheduled_dep_time = None
+                    scheduled_arr_time = None
+                    actual_dep_time = None
+                    actual_arr_time = None
+                    arrival_airport = item.get('arrivalAirportFsCode', '') # 從 status item 獲取到達機場
+                    flight_id_str = str(item.get('flightId', '')) # 獲取數字ID並轉為字串
+
+                    try:
+                        # 獲取預計時間 (優先使用 Gate 時間)
+                        if dep_date_local := item.get('departureDate', {}).get('dateLocal'):
+                            scheduled_dep_time = parse_datetime(dep_date_local)
+                        elif pub_dep_time := item.get('operationalTimes', {}).get('publishedDeparture', {}).get('dateLocal'):
+                            scheduled_dep_time = parse_datetime(pub_dep_time)
+                            
+                        if arr_date_local := item.get('arrivalDate', {}).get('dateLocal'):
+                            scheduled_arr_time = parse_datetime(arr_date_local)
+                        elif pub_arr_time := item.get('operationalTimes', {}).get('publishedArrival', {}).get('dateLocal'):
+                            scheduled_arr_time = parse_datetime(pub_arr_time)
+
+                        # 獲取實際時間 (優先使用 Gate 時間，不存在才嘗試 Runway)
+                        op_times = item.get('operationalTimes', {})
+                        if actual_dep_gate := op_times.get('actualGateDeparture', {}).get('dateLocal'):
+                            actual_dep_time = parse_datetime(actual_dep_gate)
+                        elif actual_dep_runway := op_times.get('actualRunwayDeparture', {}).get('dateLocal'):
+                             actual_dep_time = parse_datetime(actual_dep_runway) # 備用
+
+                        if actual_arr_gate := op_times.get('actualGateArrival', {}).get('dateLocal'):
+                            actual_arr_time = parse_datetime(actual_arr_gate)
+                        elif actual_arr_runway := op_times.get('actualRunwayArrival', {}).get('dateLocal'):
+                             actual_arr_time = parse_datetime(actual_arr_runway) # 備用
+
+                    except Exception as e:
+                        self.logger.warning(f"解析航班 {airline_code}{item.get('flightNumber', '')} 的日期時間出錯: {str(e)}")
+                    
+                    # 獲取並映射狀態
+                    status_code = item.get('status', '')
+                    model_status = self._map_flight_status(status_code)
+                    
+                    flight = {
+                        'flight_number': airline_code + item.get('flightNumber', ''),
+                        'airline_id': airline_code, # 使用 carrierFsCode 作為 airline_id
+                        'flight_id': flight_id_str, # 使用 API 返回的數字 ID (字串)
+                        'departure_airport': dep_airport,
+                        'arrival_airport': arrival_airport, # 從狀態信息中獲取
+                        'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
+                        'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
+                        'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
+                        'actual_arrival': format_datetime(actual_arr_time) if actual_arr_time else None,
+                        'status': model_status,
+                        'source': 'FlightStats'
+                    }
+                    flights.append(flight)
+                # --- 結束解析航班數據 ---
+                
+                self.logger.info(f"成功解析 {len(flights)} 個目標航空公司的離港航班信息")
+            except Exception as e:
+                self.logger.error(f"解析 airport/status 回應數據時出錯: {str(e)}")
+        else:
+            self.logger.warning(f"從 airport/status 端點獲取航班信息失敗或返回空數據: {dep_airport}, 日期: {date}")
+            
+        return flights

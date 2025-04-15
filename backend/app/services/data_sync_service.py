@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 import asyncio
 import httpx
 from fastapi import Depends
+# 導入 SQLAlchemy 錯誤類型
+from sqlalchemy.exc import SQLAlchemyError
 
 # 使用新的數據庫模組
 from app.database.db import get_db, db
@@ -33,6 +35,7 @@ logger = logging.getLogger('data_sync_service')
 # 導入API同步管理器
 try:
     from app.scripts.sync_manager import ApiSyncManager
+    from app.scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES # 從 constants 導入
 except ImportError:
     logger.warning("無法直接導入ApiSyncManager，可能需要手動導入腳本路徑")
     import sys
@@ -43,17 +46,14 @@ except ImportError:
         sys.path.append(script_dir)
     try:
         from app.scripts.sync_manager import ApiSyncManager
+        # 如果常量導入失敗，則在 data_sync_service 中保留本地定義作為後備
+        TAIWAN_AIRPORTS = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'WOT', 'CMJ']
+        TARGET_AIRLINES = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
     except ImportError as e:
         logger.error(f"無法導入ApiSyncManager: {str(e)}")
 
 class DataSyncService:
     """數據同步服務 - 負責從外部API同步數據到本地數據庫"""
-    
-    # 台灣機場列表
-    TAIWAN_AIRPORTS = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'WOT', 'CMJ']
-    
-    # 目標航空公司列表
-    TARGET_AIRLINES = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
     
     def __init__(self, pool=None):
         """
@@ -175,75 +175,83 @@ class DataSyncService:
         # 獲取數據庫連接池
         pool = await self.get_pool()
         
-        # 同步到數據庫
+        # 使用事務同步到數據庫
         new_count = 0
         update_count = 0
         
         async with pool.acquire() as conn:
-            # 獲取現有的航空公司
-            existing_airlines = {}
-            rows = await conn.fetch("SELECT airline_id, iata_code FROM airlines")
-            for row in rows:
-                # 映射 iata_code 到 airline_id
-                existing_airlines[row['iata_code']] = row['airline_id']
-            
-            # 處理每個航空公司
-            for airline in airlines_data:
-                iata_code = airline.get('iata_code')
-                
-                # 如果沒有 IATA 代碼，跳過
-                if not iata_code:
-                    continue
-                
-                # 準備插入或更新的資料
-                airline_data = {
-                    'name': airline.get('name', ''),
-                    'name_zh': airline.get('name_zh', airline.get('name', '')),  # 如果有中文名稱就使用，否則使用英文名稱
-                    'alias': airline.get('alias', ''),
-                    'iata_code': iata_code,
-                    'icao_code': airline.get('icao_code', ''),
-                    'callsign': airline.get('callsign', ''),
-                    'country': airline.get('country', ''),
-                    'is_active': airline.get('is_active', True),
-                    'logo_url': airline.get('logo_url', ''),
-                    'website': airline.get('website', '')
-                }
-                
-                # 檢查是否已存在
-                if iata_code in existing_airlines:
-                    # 更新現有航空公司
-                    await conn.execute("""
-                        UPDATE airlines SET
-                            name = $1, name_zh = $2, alias = $3, icao_code = $4, callsign = $5,
-                            country = $6, is_active = $7, logo_url = $8, website = $9,
-                            updated_at = NOW()
-                        WHERE airline_id = $10
-                    """, 
-                    airline_data['name'], airline_data['name_zh'], airline_data['alias'], airline_data['icao_code'],
-                    airline_data['callsign'], airline_data['country'], airline_data['is_active'],
-                    airline_data['logo_url'], airline_data['website'], iata_code)
-                    update_count += 1
-                else:
-                    # 新增航空公司，使用 IATA 代碼作為主鍵
-                    await conn.execute("""
-                        INSERT INTO airlines (
-                            airline_id, name, name_zh, alias, iata_code, icao_code, callsign,
-                            country, is_active, logo_url, website, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
-                    """, 
-                    iata_code, airline_data['name'], airline_data['name_zh'], airline_data['alias'], 
-                    airline_data['iata_code'], airline_data['icao_code'], airline_data['callsign'],
-                    airline_data['country'], airline_data['is_active'], airline_data['logo_url'], 
-                    airline_data['website'])
-                    new_count += 1
+            async with conn.transaction(): # 開始事務
+                try:
+                    # 獲取現有的航空公司
+                    existing_airlines = {}
+                    rows = await conn.fetch("SELECT airline_id, iata_code FROM airlines")
+                    for row in rows:
+                        existing_airlines[row['iata_code']] = row['airline_id']
+                    
+                    # 處理每個航空公司
+                    for airline in airlines_data:
+                        iata_code = airline.get('iata_code')
+                        if not iata_code:
+                            continue
+                        
+                        airline_data = {
+                            'name': airline.get('name', ''),
+                            'name_zh': airline.get('name_zh', airline.get('name', '')),
+                            'alias': airline.get('alias', ''),
+                            'iata_code': iata_code,
+                            'icao_code': airline.get('icao_code', ''),
+                            'callsign': airline.get('callsign', ''),
+                            'country': airline.get('country', ''),
+                            'is_active': airline.get('is_active', True),
+                            'logo_url': airline.get('logo_url', ''),
+                            'website': airline.get('website', '')
+                        }
+                        
+                        if iata_code in existing_airlines:
+                            # 更新現有航空公司
+                            await conn.execute("""
+                                UPDATE airlines SET
+                                    name = $1, name_zh = $2, alias = $3, icao_code = $4, callsign = $5,
+                                    country = $6, is_active = $7, logo_url = $8, website = $9,
+                                    updated_at = NOW()
+                                WHERE airline_id = $10
+                            """, 
+                            airline_data['name'], airline_data['name_zh'], airline_data['alias'], airline_data['icao_code'],
+                            airline_data['callsign'], airline_data['country'], airline_data['is_active'],
+                            airline_data['logo_url'], airline_data['website'], iata_code)
+                            update_count += 1
+                        else:
+                            # 新增航空公司，使用 IATA 代碼作為主鍵
+                            await conn.execute("""
+                                INSERT INTO airlines (
+                                    airline_id, name, name_zh, alias, iata_code, icao_code, callsign,
+                                    country, is_active, logo_url, website, created_at, updated_at
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+                            """, 
+                            iata_code, airline_data['name'], airline_data['name_zh'], airline_data['alias'], 
+                            airline_data['iata_code'], airline_data['icao_code'], airline_data['callsign'],
+                            airline_data['country'], airline_data['is_active'], airline_data['logo_url'], 
+                            airline_data['website'])
+                            new_count += 1
+                    
+                    logger.info(f"航空公司數據庫操作完成: 新增 {new_count}, 更新 {update_count}")
+                except SQLAlchemyError as db_err: # 捕獲數據庫錯誤
+                    logger.error(f"同步航空公司到數據庫時出錯: {db_err}", exc_info=True)
+                    # 可以在這裡選擇回滾事務或拋出異常
+                    # 為了簡單起見，記錄錯誤並返回錯誤狀態
+                    return {"status": "error", "message": f"數據庫操作錯誤: {db_err}", "new_count": 0, "update_count": 0}
+                except Exception as e:
+                    logger.error(f"同步航空公司時發生未知錯誤: {e}", exc_info=True)
+                    return {"status": "error", "message": f"未知錯誤: {e}", "new_count": 0, "update_count": 0}
         
-            return {
-                "status": "success",
-                "message": f"成功同步航空公司數據: 新增 {new_count} 個，更新 {update_count} 個",
-                "new_count": new_count,
-                "update_count": update_count,
-                "total_count": new_count + update_count
-            }
+        # 事務成功提交後返回結果
+        return {
+            "status": "success",
+            "message": f"成功同步航空公司數據: 新增 {new_count} 個，更新 {update_count} 個",
+            "new_count": new_count,
+            "update_count": update_count,
+            "total_count": new_count + update_count
+        }
     
     async def sync_airports(self, source="api"):
         """
@@ -273,84 +281,101 @@ class DataSyncService:
         # 獲取數據庫連接池
         pool = await self.get_pool()
         
-        # 同步到數據庫
+        # 使用事務同步
         new_count = 0
         update_count = 0
         
         async with pool.acquire() as conn:
-            # 獲取現有的機場
-            existing_airports = {}
-            rows = await conn.fetch("SELECT airport_id, iata_code FROM airports")
-            for row in rows:
-                existing_airports[row['iata_code']] = row['airport_id']
-            
-            # 處理每個機場
-            for airport in airports_data:
-                iata_code = airport.get('iata_code')
-                
-                # 如果沒有 IATA 代碼，跳過
-                if not iata_code:
-                    continue
-                
-                # 準備插入或更新的資料
-                airport_data = {
-                    'name': airport.get('name', ''),
-                    'name_zh': airport.get('name_zh', airport.get('name', '')),  # 如果有中文名稱就使用，否則使用英文名稱
-                    'city': airport.get('city', ''),
-                    'city_zh': airport.get('city_zh', airport.get('city', '')),
-                    'country': airport.get('country', ''),
-                    'country_zh': airport.get('country_zh', airport.get('country', '')),
-                    'iata_code': iata_code,
-                    'icao_code': airport.get('icao_code', ''),
-                    'latitude': airport.get('latitude'),
-                    'longitude': airport.get('longitude'),
-                    'timezone': airport.get('timezone', ''),
-                    'is_active': airport.get('is_active', True),
-                    'website': airport.get('website', '')
-                }
-                
-                # 檢查是否已存在
-                if iata_code in existing_airports:
-                    # 更新現有機場
-                    await conn.execute("""
-                        UPDATE airports SET
-                            name = $1, name_zh = $2, city = $3, city_zh = $4, country = $5, country_zh = $6,
-                            icao_code = $7, latitude = $8, longitude = $9, timezone = $10,
-                            is_active = $11, website = $12, updated_at = NOW()
-                        WHERE airport_id = $13
-                    """, 
-                    airport_data['name'], airport_data['name_zh'], airport_data['city'], airport_data['city_zh'],
-                    airport_data['country'], airport_data['country_zh'], airport_data['icao_code'],
-                    airport_data['latitude'], airport_data['longitude'], airport_data['timezone'],
-                    airport_data['is_active'], airport_data['website'], iata_code)
-                    update_count += 1
-                else:
-                    # 新增機場，使用 IATA 代碼作為主鍵
-                    await conn.execute("""
-                        INSERT INTO airports (
-                            airport_id, name, name_zh, city, city_zh, country, country_zh,
-                            iata_code, icao_code, latitude, longitude, timezone,
-                            is_active, website, created_at, updated_at
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-                    """, 
-                    iata_code, airport_data['name'], airport_data['name_zh'], airport_data['city'],
-                    airport_data['city_zh'], airport_data['country'], airport_data['country_zh'],
-                    iata_code, airport_data['icao_code'], airport_data['latitude'],
-                    airport_data['longitude'], airport_data['timezone'], airport_data['is_active'],
-                    airport_data['website'])
-                    new_count += 1
+            async with conn.transaction(): # 開始事務
+                try:
+                    # 獲取現有的機場
+                    existing_airports = {}
+                    rows = await conn.fetch("SELECT airport_id, iata_code FROM airports")
+                    for row in rows:
+                        existing_airports[row['iata_code']] = row['airport_id']
                     
-            # 更新中文名稱映射
-            await self.load_translation_maps()
+                    # 處理每個機場
+                    for airport in airports_data:
+                        iata_code = airport.get('iata_code')
+                        if not iata_code:
+                            continue
+                        
+                        airport_data = {
+                            'name': airport.get('name', ''),
+                            'name_zh': airport.get('name_zh', airport.get('name', '')),
+                            'city': airport.get('city', ''),
+                            'city_zh': airport.get('city_zh', airport.get('city', '')),
+                            'country': airport.get('country', ''),
+                            'country_zh': airport.get('country_zh', airport.get('country', '')),
+                            'iata_code': iata_code,
+                            'icao_code': airport.get('icao_code', ''),
+                            'latitude': airport.get('latitude'),
+                            'longitude': airport.get('longitude'),
+                            'timezone': airport.get('timezone', ''),
+                            'is_active': airport.get('is_active', True),
+                            'website': airport.get('website', '')
+                        }
+                        
+                        if iata_code in existing_airports:
+                            # 更新現有機場
+                            await conn.execute("""
+                                UPDATE airports SET
+                                    name = $1, name_zh = $2, city = $3, city_zh = $4, country = $5, country_zh = $6,
+                                    icao_code = $7, latitude = $8, longitude = $9, timezone = $10,
+                                    is_active = $11, website = $12, updated_at = NOW()
+                                WHERE airport_id = $13
+                            """, 
+                            airport_data['name'], airport_data['name_zh'], airport_data['city'], airport_data['city_zh'],
+                            airport_data['country'], airport_data['country_zh'], airport_data['icao_code'],
+                            airport_data['latitude'], airport_data['longitude'], airport_data['timezone'],
+                            airport_data['is_active'], airport_data['website'], iata_code)
+                            update_count += 1
+                        else:
+                            # 新增機場，使用 IATA 代碼作為主鍵
+                            await conn.execute("""
+                                INSERT INTO airports (
+                                    airport_id, name, name_zh, city, city_zh, country, country_zh,
+                                    iata_code, icao_code, latitude, longitude, timezone,
+                                    is_active, website, created_at, updated_at
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+                            """, 
+                            iata_code, airport_data['name'], airport_data['name_zh'], airport_data['city'],
+                            airport_data['city_zh'], airport_data['country'], airport_data['country_zh'],
+                            iata_code, airport_data['icao_code'], airport_data['latitude'],
+                            airport_data['longitude'], airport_data['timezone'], airport_data['is_active'],
+                            airport_data['website'])
+                            new_count += 1
+                    
+                    # 更新中文名稱映射 (事務內)
+                    await self._load_translation_maps_within_conn(conn) 
+                    logger.info(f"機場數據庫操作完成: 新增 {new_count}, 更新 {update_count}")
+                except SQLAlchemyError as db_err: # 捕獲數據庫錯誤
+                    logger.error(f"同步機場到數據庫時出錯: {db_err}", exc_info=True)
+                    return {"status": "error", "message": f"數據庫操作錯誤: {db_err}", "new_count": 0, "update_count": 0}
+                except Exception as e:
+                    logger.error(f"同步機場時發生未知錯誤: {e}", exc_info=True)
+                    return {"status": "error", "message": f"未知錯誤: {e}", "new_count": 0, "update_count": 0}
         
-        logger.info(f"機場同步完成: {new_count} 個新增, {update_count} 個更新")
+        # 事務成功
         return {
-                "status": "success",
+            "status": "success",
             "message": f"機場同步完成: {new_count} 個新增, {update_count} 個更新",
             "new_count": new_count,
             "update_count": update_count,
             "total_count": new_count + update_count
         }
+    
+    async def _load_translation_maps_within_conn(self, conn):
+        """在現有連接內加載翻譯映射 (用於事務內)"""
+        # 加載航空公司映射
+        rows = await conn.fetch("SELECT iata_code, name_zh FROM airlines WHERE name_zh IS NOT NULL AND name_zh != ''")
+        self.airline_name_map = {row['iata_code']: row['name_zh'] for row in rows}
+        logger.debug(f"事務內更新航空公司中文名稱映射: {len(self.airline_name_map)} 個")
+        
+        # 加載機場映射
+        rows = await conn.fetch("SELECT iata_code, name_zh FROM airports WHERE name_zh IS NOT NULL AND name_zh != ''")
+        self.airport_name_map = {row['iata_code']: row['name_zh'] for row in rows}
+        logger.debug(f"事務內更新機場中文名稱映射: {len(self.airport_name_map)} 個")
     
     async def sync_flights(self, departures: List[str], arrivals: List[str], dates: List[str] = None):
         """

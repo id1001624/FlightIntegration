@@ -17,6 +17,8 @@ class Flight(Base):
     arrival_airport_id = db.Column(db.String, db.ForeignKey('airports.airport_id'), nullable=False)
     scheduled_departure = db.Column(db.DateTime(timezone=True), nullable=False)
     scheduled_arrival = db.Column(db.DateTime(timezone=True), nullable=False)
+    actual_departure = db.Column(db.DateTime(timezone=True), nullable=True)
+    actual_arrival = db.Column(db.DateTime(timezone=True), nullable=True)
     status = db.Column(db.String)
     is_delayed = db.Column(db.Boolean, default=False)  # 是否延誤
     
