@@ -383,9 +383,9 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         old_request_method = self.client.make_request
         try:
             # 保存原始的 target_airlines 以便之後恢復
-            original_target_airlines = self.client.TARGET_AIRLINES
+            original_target_airlines = self.client.target_airlines
             # 設置更小的航空公司集合以加速測試
-            self.client.TARGET_AIRLINES = ['BR']
+            self.client.target_airlines = ['BR']
             
             # Mock 方法模擬請求超時
             def mock_request_raising_exception(*args, **kwargs):
@@ -408,7 +408,7 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
             self.client.make_request = old_request_method
             # 恢復原始的 target_airlines
             if 'original_target_airlines' in locals():
-                self.client.TARGET_AIRLINES = original_target_airlines
+                self.client.target_airlines = original_target_airlines
 
 
 class CacheUtilsTest(unittest.TestCase):
