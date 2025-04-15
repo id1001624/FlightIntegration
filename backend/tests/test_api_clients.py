@@ -242,8 +242,9 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         """測試獲取機場離港航班"""
         dep_airport = 'TPE'
         date = datetime.now().strftime('%Y-%m-%d')
-        print(f"\n----- 測試 FlightStats get_departures (機場: {dep_airport}, {date}) -----")
-        departures = self.client.get_departures(dep_airport, date, hour=0, num_hours=6) # 測試獲取早上6小時的航班
+        print(f"\n----- 測試 FlightStats get_departures (機場: {dep_airport}, {date}, 預設行為) -----")
+        # 測試獲取早上6小時的航班
+        departures = self.client.get_departures(dep_airport, date, hour=0, num_hours=6)
         self.assertIsNotNone(departures, "API調用應返回列表或空列表，而不是None")
         self.assertIsInstance(departures, list, "返回的應是列表類型")
 
@@ -264,6 +265,41 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
             self.assertEqual(first_flight.get('source'), 'FlightStats')
         else:
             print(f"✓ 未找到 {dep_airport} 在 {date} 早上的離港航班 (可能該時段無目標航班)")
+
+    @unittest.skipIf(not USING_NEW_STRUCTURE, "需要新結構才能測試")
+    def test_get_departures_specific_case(self):
+        """測試獲取機場離港航班 (特定日期和航空公司案例，模擬 curl 成功場景)"""
+        dep_airport = 'TPE'
+        date_str = '2025-04-14' # 使用 curl 成功的日期
+        hour = 0
+        num_hours = 1
+        target_airline = 'BR' # 指定航空公司
+        print(f"\n----- 測試 FlightStats get_departures (特定案例: {dep_airport}, {date_str}, 小時 {hour}, 時長 {num_hours}, 航空 {target_airline}) -----")
+
+        # --- 重要提示 ---
+        # 原始 get_departures 方法會迭代所有 TARGET_AIRLINES 進行查詢。
+        # 為了精確匹配 curl 行為（只查 BR），這裡的測試 *假設* get_departures 內部
+        # 能夠正確處理單一航空公司的查詢或測試需要模擬該行為。
+        # 如果 get_departures 無法直接指定 carrier，此測試可能需要調整。
+        # 暫時按原樣調用，但驗證結果應考慮到這一點。
+
+        departures = self.client.get_departures(dep_airport, date_str, hour=hour, num_hours=num_hours)
+        self.assertIsNotNone(departures, "API調用應返回列表或空列表，而不是None")
+        self.assertIsInstance(departures, list, "返回的應是列表類型")
+
+        # 過濾出目標航空公司的航班
+        br_departures = [f for f in departures if f.get('airline_id') == target_airline]
+
+        # 斷言：基於 curl 的結果，我們預期找到至少一個 BR 航班
+        self.assertTrue(len(br_departures) > 0, f"預期在 {dep_airport} 於 {date_str} {hour}:00-{hour+num_hours}:00 找到至少一個 {target_airline} 航班")
+        print(f"✓ 成功從 API 獲取數據，並在結果中找到 {len(br_departures)} 個 {target_airline} 航班")
+
+        if br_departures:
+            first_flight = br_departures[0]
+            print(f"  範例 ({target_airline}): {first_flight}")
+            self.assertIn('flight_number', first_flight)
+            self.assertEqual(first_flight.get('airline_id'), target_airline)
+            self.assertEqual(first_flight.get('departure_airport'), dep_airport)
 
 
 class CacheUtilsTest(unittest.TestCase):
