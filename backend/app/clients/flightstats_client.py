@@ -464,29 +464,127 @@ class FlightStatsApiClient(BaseAPIClient):
             # 使用 /airport/status 端點，並加入 carrier 參數
             url = f"{self.base_url}/flightstatus/rest/v2/json/airport/status/{dep_airport}/dep/{year}/{month}/{day}/{hour}"
 
+            params = self._build_params({
+                'extendedOptions': 'includeNewFields,useInlinedReferences',
+                'numHours': num_hours,
+                'codeType': 'IATA', # 確保使用IATA代碼
+                'carrier': target_airline # --- 新增 carrier 參數 ---
+            })
+            
+            # --- 增加調試：輸出完整請求URL與參數 ---
+            self.logger.debug(f"FlightStats API 完整請求: URL={url}, 參數={params}")
+            # --- 結束調試 ---
+
             response = self.make_request(
                 url=url,
-                params=self._build_params({
-                    'extendedOptions': 'includeNewFields,useInlinedReferences',
-                    'numHours': num_hours,
-                    'codeType': 'IATA', # 確保使用IATA代碼
-                    'carrier': target_airline # --- 新增 carrier 參數 ---
-                })
+                params=params
             )
+
+            # --- 增加調試：檢查原始回應結構 ---
+            if response:
+                response_keys = list(response.keys()) if isinstance(response, dict) else "非字典類型"
+                self.logger.debug(f"FlightStats API 回應結構：包含鍵={response_keys}")
+                
+                # 檢查 appendix 中是否包含航空公司信息
+                if isinstance(response, dict) and 'appendix' in response:
+                    appendix_keys = list(response['appendix'].keys())
+                    self.logger.debug(f"回應中的 appendix 包含: {appendix_keys}")
+                    
+                    # 如果存在 airlines，輸出其結構
+                    if 'airlines' in response['appendix']:
+                        self.logger.debug(f"回應中的 appendix.airlines 包含 {len(response['appendix']['airlines'])} 個項目")
+                
+                # 檢查 flightStatuses 是否存在
+                if isinstance(response, dict) and 'flightStatuses' in response and response['flightStatuses'] and len(response['flightStatuses']) > 0:
+                    first_flight = response['flightStatuses'][0]
+                    first_flight_keys = list(first_flight.keys())
+                    self.logger.debug(f"第一個航班信息結構: 包含鍵={first_flight_keys}")
+                    
+                    # 專門檢查 carrierFsCode 的位置
+                    if 'carrierFsCode' in first_flight:
+                        self.logger.debug(f"找到直接的 carrierFsCode: {first_flight['carrierFsCode']}")
+                    elif 'carrier' in first_flight:
+                        self.logger.debug(f"找到 carrier 對象: {first_flight['carrier']}")
+                    elif 'carrier' in first_flight.get('airline', {}):
+                        self.logger.debug(f"找到 airline.carrier: {first_flight['airline']['carrier']}")
+                    else:
+                        self.logger.warning(f"在第一個航班信息中未找到航空公司代碼，需要檢查完整結構")
+                        # 輸出完整的第一個航班信息用於分析
+                        self.logger.debug(f"完整的第一個航班信息: {json.dumps(first_flight, indent=2)}")
+            # --- 結束調試 ---
 
             # 解析回應 (假設結構與 /route/status 類似，都是 flightStatuses)
             if response and 'flightStatuses' in response:
                 self.logger.info(f"接收到 airport/status ({target_airline}) 回應，包含 {len(response['flightStatuses'])} 個航班狀態")
                 try:
-                    for item in response['flightStatuses']:
-                        # --- 移除客戶端篩選邏輯 ---
-                        # airline_code = item.get('carrierFsCode', '')
-                        # if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
-                        #     continue # 跳過非目標航空公司
-                        # --- 結束移除 ---
-
+                    for idx, item in enumerate(response['flightStatuses']):
                         # --- 開始解析航班數據 (與 get_flights 類似) ---
-                        airline_code = item.get('carrierFsCode', '') # 仍然需要獲取 airline_code
+                        
+                        # --- 深入調試：檢查航空公司代碼存在的位置 ---
+                        if idx == 0:  # 只對第一個項目做詳細調試
+                            item_has_keys = list(item.keys())
+                            self.logger.debug(f"航班項目有以下鍵: {item_has_keys}")
+                            
+                            # 直接檢查是否存在各種可能的航空公司代碼字段
+                            possible_airline_fields = [
+                                'carrierFsCode', 'carrier', 'airlineCode', 'airline',
+                                'operatingCarrier', 'marketingCarrier'
+                            ]
+                            
+                            for field in possible_airline_fields:
+                                if field in item:
+                                    self.logger.debug(f"找到可能的航空公司字段 '{field}': {item[field]}")
+                                    
+                                    # 如果是嵌套字典，進一步檢查
+                                    if isinstance(item[field], dict):
+                                        self.logger.debug(f"字段 '{field}' 是嵌套對象，包含鍵: {list(item[field].keys())}")
+                                        
+                                        # 檢查嵌套對象中的常見代碼字段
+                                        for subfield in ['code', 'fsCode', 'iata', 'icao', 'name']:
+                                            if subfield in item[field]:
+                                                self.logger.debug(f"在 '{field}' 中找到 '{subfield}': {item[field][subfield]}")
+                        # --- 結束深入調試 ---
+                        
+                        airline_code = '' # 預設為空
+                        try:
+                            # 嘗試從找到的位置獲取航空公司代碼
+                            # 優先順序：carrierFsCode > carrier.code > carrier.fsCode > marketingCarrier.code > marketingCarrier.fsCode
+                            
+                            if 'carrierFsCode' in item:
+                                airline_code = item['carrierFsCode']
+                                self.logger.debug(f"從 carrierFsCode 獲取到航空公司代碼: {airline_code}")
+                            elif isinstance(item.get('carrier'), dict) and 'code' in item['carrier']:
+                                airline_code = item['carrier']['code']
+                                self.logger.debug(f"從 carrier.code 獲取到航空公司代碼: {airline_code}")
+                            elif isinstance(item.get('carrier'), dict) and 'fsCode' in item['carrier']:
+                                airline_code = item['carrier']['fsCode']
+                                self.logger.debug(f"從 carrier.fsCode 獲取到航空公司代碼: {airline_code}")
+                            elif isinstance(item.get('marketingCarrier'), dict) and 'code' in item['marketingCarrier']:
+                                airline_code = item['marketingCarrier']['code']
+                                self.logger.debug(f"從 marketingCarrier.code 獲取到航空公司代碼: {airline_code}")
+                            elif isinstance(item.get('marketingCarrier'), dict) and 'fsCode' in item['marketingCarrier']:
+                                airline_code = item['marketingCarrier']['fsCode']
+                                self.logger.debug(f"從 marketingCarrier.fsCode 獲取到航空公司代碼: {airline_code}")
+                            # 最後的尋找嘗試: 嘗試從 appendix.airlines
+                            elif 'flightId' in item and 'appendix' in response and 'airlines' in response['appendix']:
+                                flight_id = item.get('flightId')
+                                # 這需要遍歷 appendix.airlines 並找出與當前航班相關的，但現在沒有明確的映射方式
+                                # 如果 appendix 中有明確的關聯方式，可以在這裡實現
+                                self.logger.debug(f"航班 ID: {flight_id}，但無法直接從 appendix.airlines 獲取相關信息")
+                            
+                            # 最後的後備方案: 如果所有嘗試都失敗，使用目標航空公司代碼
+                            if not airline_code:
+                                airline_code = target_airline
+                                self.logger.debug(f"無法從 API 回應獲取航空公司代碼，使用查詢參數作為後備: {airline_code}")
+                            
+                        except Exception as e:
+                            self.logger.error(f"解析航空公司代碼時發生錯誤: {str(e)}")
+                            # 使用後備值
+                            airline_code = target_airline
+                            self.logger.debug(f"發生異常，使用目標航空公司作為後備: {airline_code}")
+
+                        self.logger.debug(f"最終確定的航空公司代碼: {airline_code}")
+
                         scheduled_dep_time = None
                         scheduled_arr_time = None
                         actual_dep_time = None
@@ -527,10 +625,10 @@ class FlightStatsApiClient(BaseAPIClient):
 
                         flight = {
                             'flight_number': airline_code + item.get('flightNumber', ''),
-                            'airline_id': airline_code, # 使用 carrierFsCode 作為 airline_id
-                            'flight_id': flight_id_str, # 使用 API 返回的數字 ID (字串)
+                            'airline_id': airline_code, # 確保鍵名精確為 airline_id，並使用剛處理好的 airline_code
+                            'flight_id': flight_id_str,
                             'departure_airport': dep_airport,
-                            'arrival_airport': arrival_airport, # 從狀態信息中獲取
+                            'arrival_airport': arrival_airport,
                             'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
                             'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
                             'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
@@ -538,7 +636,13 @@ class FlightStatsApiClient(BaseAPIClient):
                             'status': model_status,
                             'source': 'FlightStats'
                         }
-                        all_flights.append(flight) # --- 修改：添加到累積列表 ---
+                        
+                        # --- 最終確認: 打印生成的字典 ---
+                        if idx < 3: # 只打印前三個航班以避免過多輸出
+                            self.logger.debug(f"創建的航班字典[{idx}]: airline_id='{flight['airline_id']}', flight={flight}")
+                        # --- 結束確認 ---
+                        
+                        all_flights.append(flight)
                     # --- 結束解析航班數據 ---
 
                     self.logger.info(f"成功解析 {len(response['flightStatuses'])} 個 {target_airline} 的離港航班信息")
@@ -552,4 +656,14 @@ class FlightStatsApiClient(BaseAPIClient):
 
         # --- 修改：返回累積的結果 ---
         self.logger.info(f"{dep_airport} 機場總計從 FlightStats 獲取 {len(all_flights)} 個目標航班")
+        
+        # --- 最終調試: 驗證所有已解析航班的 airline_id ---
+        empty_airline_count = sum(1 for f in all_flights if not f.get('airline_id'))
+        self.logger.debug(f"已解析的航班中有 {empty_airline_count}/{len(all_flights)} 個空的 airline_id")
+        
+        if len(all_flights) > 0:
+            sample_flight = all_flights[0]
+            self.logger.debug(f"樣本航班: flight_number={sample_flight.get('flight_number')}, airline_id={sample_flight.get('airline_id')}")
+        # --- 結束最終調試 ---
+        
         return all_flights

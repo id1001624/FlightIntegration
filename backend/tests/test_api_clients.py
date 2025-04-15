@@ -37,7 +37,7 @@ else:
 
 # 配置日誌
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('api_test')
@@ -248,6 +248,14 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         self.assertIsNotNone(departures, "API調用應返回列表或空列表，而不是None")
         self.assertIsInstance(departures, list, "返回的應是列表類型")
 
+        # --- 添加最終調試：打印返回列表中每個航班的 airline_id 及其類型 ---
+        print("\n--- Debugging airline_id in returned list ---")
+        for idx, flight_dict in enumerate(departures):
+            aid = flight_dict.get('airline_id')
+            print(f"  Index {idx}: airline_id = {repr(aid)} (Type: {type(aid)})")
+        print("--- End Debugging ---\n")
+        # --- 結束調試 ---
+
         if departures:
             print(f"✓ 成功獲取 {len(departures)} 個從 {dep_airport} 出發的航班 (前6小時)")
             first_flight = departures[0]
@@ -286,6 +294,14 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         departures = self.client.get_departures(dep_airport, date_str, hour=hour, num_hours=num_hours)
         self.assertIsNotNone(departures, "API調用應返回列表或空列表，而不是None")
         self.assertIsInstance(departures, list, "返回的應是列表類型")
+
+        # --- 添加最終調試：打印返回列表中每個航班的 airline_id 及其類型 ---
+        print("\n--- Debugging airline_id in returned list ---")
+        for idx, flight_dict in enumerate(departures):
+            aid = flight_dict.get('airline_id')
+            print(f"  Index {idx}: airline_id = {repr(aid)} (Type: {type(aid)})")
+        print("--- End Debugging ---\n")
+        # --- 結束調試 ---
 
         # 過濾出目標航空公司的航班
         br_departures = [f for f in departures if f.get('airline_id') == target_airline]
