@@ -56,14 +56,30 @@ class BaseAPIClient:
         
         while retry_count < self.max_retries:
             try:
-                self.logger.debug(f"請求: {method} {url}")
+                self.logger.debug(f"請求: {params} {url}")
+                
+                # 檢查參數類型
+                if not isinstance(url, str):
+                    self.logger.error(f"URL必須是字串類型，而不是 {type(url)}: {url}")
+                    return None
+                
+                if not isinstance(method, str):
+                    self.logger.error(f"HTTP方法必須是字串類型，而不是 {type(method)}: {method}")
+                    method = 'GET'  # 預設為GET
                 
                 # 發送請求
-                if method.upper() == 'GET':
+                try:
+                    method_upper = method.upper()
+                    self.logger.debug(f"HTTP方法轉換成功: {method} -> {method_upper}")
+                except Exception as e:
+                    self.logger.error(f"HTTP方法轉換失敗: {str(e)}")
+                    method_upper = 'GET'  # 預設為GET
+                
+                if method_upper == 'GET':
                     response = self.session.get(
                         url, params=params, headers=headers, timeout=timeout
                     )
-                elif method.upper() == 'POST':
+                elif method_upper == 'POST':
                     response = self.session.post(
                         url, params=params, headers=headers, data=data, timeout=timeout
                     )
@@ -103,11 +119,13 @@ class BaseAPIClient:
                     return None
                     
             except requests.RequestException as e:
-                self.logger.error(f"請求異常: {str(e)}")
+                self.logger.error(f"API請求失敗: RequestException - {e}", exc_info=True)
                 if retry_count < self.max_retries - 1:
+                    self.logger.warning(f"請求異常，{current_retry_delay}秒後進行第 {retry_count + 1} 次重試...")
                     retry_count += 1
                     time.sleep(current_retry_delay)
                     continue
+                self.logger.error(f"請求異常且達到最大重試次數 ({self.max_retries})，最終失敗")
                 return None
         
         self.logger.error(f"達到最大重試次數({self.max_retries})，請求失敗")
