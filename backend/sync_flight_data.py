@@ -409,244 +409,129 @@ class FlightDataSyncTool:
             return {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 1, "message": f"同步航班數據到資料庫時出錯: {str(e)}"}
     
     def sync_taiwan_flights(self, date_str, days=1):
-        """同步從台灣出發的航班數據"""
-        logger.info(f"開始同步從台灣出發的航班數據，日期: {date_str}，天數: {days}...")
+        """同步所有台灣機場的國內和國際航班"""
+        logger.info(f"開始同步台灣機場航班, 日期: {date_str}, 天數: {days}")
         
-        # 從API獲取航班數據
-        taiwan_flights = self.api_manager.sync_taiwan_departures(date_str, days)
+        # 獲取日期範圍
+        dates = self.api_manager.get_date_range(date_str, days)
+        all_synced_flights = []
         
-        if not taiwan_flights:
-            logger.warning("未獲取到從台灣出發的航班數據")
-            return {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "未獲取到航班數據"}
-        
-        # 計算總航班數
-        total_flights = sum(len(flights) for flights in taiwan_flights.values())
-        logger.info(f"從API獲取了 {total_flights} 個從台灣出發的航班")
-        
-        # 首先確保航空公司和機場資料已同步
-        logger.info("確保航空公司和機場資料已同步...")
-        airlines = self.api_manager.sync_airlines()
-        if airlines:
-            self.db_manager.sync_airlines(airlines)
+        for date in dates:
+            logger.info(f"處理日期: {date}")
+            flights_for_date = []
             
-        airports = self.api_manager.sync_airports()
-        if airports:
-            self.db_manager.sync_airports(airports)
-        
-        # 獲取航空公司和機場映射
-        airlines_map, airports_map = self.db_manager.get_existing_airlines_airports()
-        
-        # 合併所有航班數據
-        all_flights = []
-        for airport, flights in taiwan_flights.items():
-            all_flights.extend(flights)
-        
-        # 過濾航班數據
-        filtered_flights = self.db_manager.filter_flights_by_existing_data(all_flights, airlines_map, airports_map)
-        logger.info(f"過濾後保留 {len(filtered_flights)} 個航班數據")
-        
-        if not filtered_flights:
-            logger.warning("過濾後沒有可用的航班數據")
-            result = {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "過濾後沒有可用的航班數據"}
-        else:
-            # 添加詳細日誌輸出，檢查數據格式問題
-            logger.info("=================== 準備導入航班數據 ===================")
+            # 1. 同步國內航班 (TDX)
+            try:
+                logger.info("同步國內航班 (TDX)")
+                domestic_flights = self.api_manager.get_domestic_flights_for_date(date)
+                flights_for_date.extend(domestic_flights)
+                logger.info(f"  從 TDX 獲取 {len(domestic_flights)} 條國內航班")
+            except Exception as e:
+                logger.error(f"同步國內航班出錯: {str(e)}")
             
-            # 輸出前5個航班的詳細信息（如果數量少於5則全部輸出）
-            sample_size = min(5, len(filtered_flights))
-            logger.info(f"輸出前 {sample_size} 個航班的詳細信息：")
-            
-            for idx, flight in enumerate(filtered_flights[:sample_size]):
-                logger.info(f"航班 {idx + 1}/{sample_size}:")
-                logger.info(f"  航班號: {flight.get('flight_number')}")
-                logger.info(f"  航空公司: {flight.get('airline_code')} -> {flight.get('airline_id')}")
-                logger.info(f"  出發機場: {flight.get('departure_airport')} -> {flight.get('departure_airport_id')}")
-                logger.info(f"  到達機場: {flight.get('arrival_airport')} -> {flight.get('arrival_airport_id')}")
-                logger.info(f"  計劃出發: {flight.get('scheduled_departure')}")
-                logger.info(f"  計劃到達: {flight.get('scheduled_arrival')}")
+            # 2. 同步台灣出發的國際航班 (FlightStats - 使用 airport/status 端點)
+            try:
+                logger.info("同步台灣機場出發的國際航班 (FlightStats)")
+                international_flights = []
+                for airport in self.api_manager.tdx_api.taiwan_airports:  # 使用TDX API客戶端中的台灣機場列表
+                    logger.info(f"  處理機場: {airport}")
+                    try:
+                        # 呼叫 FlightStats 的 get_departures 方法，獲取全天數據
+                        departures = self.api_manager.flightstats_api.get_departures(
+                            airport, 
+                            date, 
+                            hour=0, 
+                            num_hours=24,
+                            extended_options='languageCode:en'
+                        )
+                        international_flights.extend(departures)
+                        logger.info(f"    從 FlightStats 獲取 {len(departures)} 條 {airport} 出發的航班")
+                    except Exception as e:
+                        logger.error(f"    處理機場 {airport} 出錯: {str(e)}")
                 
-                # 特別檢查是否已有flight_id
-                if 'flight_id' in flight:
-                    flight_id = flight['flight_id']
-                    logger.info(f"  已有flight_id: {flight_id} (類型: {type(flight_id).__name__})")
-                else:
-                    logger.info("  沒有預設的flight_id，將在導入時生成")
+                flights_for_date.extend(international_flights)
+            except Exception as e:
+                logger.error(f"同步國際航班出錯: {str(e)}")
+
+            if flights_for_date:
+                logger.info(f"準備將 {len(flights_for_date)} 條航班數據同步到數據庫 (日期: {date})")
+                try:
+                    self.db_manager.sync_flights(flights_for_date)
+                    all_synced_flights.extend(flights_for_date) # 記錄成功同步的航班
+                    logger.info(f"成功將 {len(flights_for_date)} 條航班數據同步到數據庫")
+                except Exception as e:
+                    logger.error(f"數據庫同步航班時出錯: {str(e)}")
+            else:
+                logger.warning(f"日期 {date} 未找到任何航班數據可同步")
                 
-                # 檢查缺少的必要字段
-                missing_fields = []
-                for field in ['flight_number', 'airline_id', 'departure_airport_id', 'arrival_airport_id', 'scheduled_departure', 'scheduled_arrival']:
-                    if not flight.get(field):
-                        missing_fields.append(field)
-                
-                if missing_fields:
-                    logger.warning(f"  缺少必要字段: {', '.join(missing_fields)}")
-            
-            # 統計數據格式問題
-            logger.info("數據格式統計:")
-            field_counts = {
-                'flight_number': 0,
-                'airline_id': 0,
-                'departure_airport_id': 0,
-                'arrival_airport_id': 0,
-                'scheduled_departure': 0,
-                'scheduled_arrival': 0
-            }
-            
-            for flight in filtered_flights:
-                for field in field_counts:
-                    if flight.get(field):
-                        field_counts[field] += 1
-            
-            for field, count in field_counts.items():
-                percentage = (count / len(filtered_flights)) * 100 if filtered_flights else 0
-                logger.info(f"  {field}: {count}/{len(filtered_flights)} ({percentage:.1f}%)")
-            
-            logger.info("=======================================================")
-            
-            # 直接導入到數據庫
-            result = self.db_manager.import_flights_to_database(filtered_flights)
-        
-        # 輸出結果
-        print("\n=== 台灣出發航班同步結果 ===")
-        print(f"總數: {result.get('total', 0)}")
-        print(f"新增: {result.get('inserted', 0)}")
-        print(f"更新: {result.get('updated', 0)}")
-        print(f"跳過: {result.get('skipped', 0)}")
-        
-        # 輸出各機場統計
-        print("\n各機場統計:")
-        for airport, flights in taiwan_flights.items():
-            print(f"  {airport}: {len(flights)} 個航班")
-            
-        return result
+        logger.info(f"航班數據同步完成, 共處理 {len(dates)} 天，同步 {len(all_synced_flights)} 條航班記錄")
+        return all_synced_flights
     
     def sync_flights_only(self, date_str, days=1):
-        """僅同步航班數據（不更新航空公司和機場資料）"""
-        print("\n=== 開始僅同步航班數據 ===\n")
+        """僅同步航班數據，不包括機場和航空公司"""
+        logger.info(f"開始僅同步航班數據, 日期: {date_str}, 天數: {days}")
         
-        # 測試連接狀態
-        api_ok = self.test_api_connectivity()
-        db_ok = self.test_database_connectivity()
+        # 獲取日期範圍
+        dates = self.api_manager.get_date_range(date_str, days)
+        all_synced_flights = []
         
-        if not api_ok or not db_ok:
-            logger.error("連接測試失敗，無法進行同步")
-            return
-        
-        # 直接獲取航空公司和機場映射，不執行同步
-        logger.info("獲取現有航空公司和機場映射...")
-        airlines_map, airports_map = self.db_manager.get_existing_airlines_airports()
-        logger.info(f"已載入 {len(airlines_map)} 個航空公司映射和 {len(airports_map)} 個機場映射")
-        
-        # 從API獲取航班數據
-        logger.info(f"開始同步從台灣出發的航班數據，日期: {date_str}，天數: {days}...")
-        taiwan_flights = self.api_manager.sync_taiwan_departures(date_str, days)
-        
-        if not taiwan_flights:
-            logger.warning("未獲取到從台灣出發的航班數據")
-            return {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "未獲取到航班數據"}
-        
-        # 計算總航班數
-        total_flights = sum(len(flights) for flights in taiwan_flights.values())
-        logger.info(f"從API獲取了 {total_flights} 個從台灣出發的航班")
-        
-        # 合併所有航班數據
-        all_flights = []
-        for airport, flights in taiwan_flights.items():
-            all_flights.extend(flights)
-        
-        # 過濾航班數據
-        filtered_flights = self.db_manager.filter_flights_by_existing_data(all_flights, airlines_map, airports_map)
-        logger.info(f"過濾後保留 {len(filtered_flights)} 個航班數據")
-        
-        if not filtered_flights:
-            logger.warning("過濾後沒有可用的航班數據")
-            result = {"total": 0, "inserted": 0, "updated": 0, "skipped": 0, "errors": 0, "message": "過濾後沒有可用的航班數據"}
-        else:
-            # 添加詳細日誌輸出，檢查數據格式問題
-            logger.info("=================== 準備導入航班數據 ===================")
+        for date in dates:
+            logger.info(f"處理日期: {date}")
+            flights_for_date = []
             
-            # 輸出前5個航班的詳細信息（如果數量少於5則全部輸出）
-            sample_size = min(5, len(filtered_flights))
-            logger.info(f"輸出前 {sample_size} 個航班的詳細信息：")
+            # 1. 同步國內航班 (TDX)
+            try:
+                logger.info("同步國內航班 (TDX)")
+                domestic_flights = self.api_manager.get_domestic_flights_for_date(date)
+                flights_for_date.extend(domestic_flights)
+                logger.info(f"  從 TDX 獲取 {len(domestic_flights)} 條國內航班")
+            except Exception as e:
+                logger.error(f"同步國內航班出錯: {str(e)}")
             
-            for idx, flight in enumerate(filtered_flights[:sample_size]):
-                logger.info(f"航班 {idx + 1}/{sample_size}:")
-                logger.info(f"  航班號: {flight.get('flight_number')}")
-                logger.info(f"  航空公司: {flight.get('airline_code')} -> {flight.get('airline_id')}")
-                logger.info(f"  出發機場: {flight.get('departure_airport')} -> {flight.get('departure_airport_id')}")
-                logger.info(f"  到達機場: {flight.get('arrival_airport')} -> {flight.get('arrival_airport_id')}")
-                logger.info(f"  計劃出發: {flight.get('scheduled_departure')}")
-                logger.info(f"  計劃到達: {flight.get('scheduled_arrival')}")
-                
-                # 特別檢查是否已有flight_id
-                if 'flight_id' in flight:
-                    flight_id = flight['flight_id']
-                    logger.info(f"  已有flight_id: {flight_id} (類型: {type(flight_id).__name__})")
+            # 2. 同步台灣出發的國際航班 (FlightStats - 使用 airport/status 端點)
+            try:
+                logger.info("同步台灣機場出發的國際航班 (FlightStats)")
+                international_flights = []
+                # 注意：這裡使用了ApiSyncManager中的target_airlines
+                if not hasattr(self.api_manager, 'target_airlines'):
+                    logger.warning("ApiSyncManager 中缺少 target_airlines 屬性，無法確定目標機場")
+                    target_airports = self.api_manager.tdx_api.taiwan_airports # 使用備用方案
                 else:
-                    logger.info("  沒有預設的flight_id，將在導入時生成")
+                     target_airports = self.api_manager.tdx_api.taiwan_airports # 保持使用台灣機場列表
+
+                for airport in target_airports:
+                    logger.info(f"  處理機場: {airport}")
+                    try:
+                        # 呼叫 FlightStats 的 get_departures 方法，獲取全天數據
+                        departures = self.api_manager.flightstats_api.get_departures(
+                            airport, 
+                            date, 
+                            hour=0, 
+                            num_hours=24,
+                            extended_options='languageCode:en'
+                        )
+                        international_flights.extend(departures)
+                        logger.info(f"    從 FlightStats 獲取 {len(departures)} 條 {airport} 出發的航班")
+                    except Exception as e:
+                        logger.error(f"    處理機場 {airport} 出錯: {str(e)}")
                 
-                # 檢查各種日期格式問題
-                for date_field in ['scheduled_departure', 'scheduled_arrival']:
-                    if flight.get(date_field):
-                        date_value = flight[date_field]
-                        logger.info(f"  {date_field}: {date_value} (類型: {type(date_value).__name__})")
-                        
-                        # 如果是字符串，檢查格式
-                        if isinstance(date_value, str):
-                            logger.info(f"    字符串格式檢查: 長度={len(date_value)}, 內容={date_value}")
+                flights_for_date.extend(international_flights)
+            except Exception as e:
+                logger.error(f"同步國際航班出錯: {str(e)}")
+
+            if flights_for_date:
+                logger.info(f"準備將 {len(flights_for_date)} 條航班數據同步到數據庫 (日期: {date})")
+                try:
+                    self.db_manager.sync_flights(flights_for_date)
+                    all_synced_flights.extend(flights_for_date) # 記錄成功同步的航班
+                    logger.info(f"成功將 {len(flights_for_date)} 條航班數據同步到數據庫")
+                except Exception as e:
+                    logger.error(f"數據庫同步航班時出錯: {str(e)}")
+            else:
+                logger.warning(f"日期 {date} 未找到任何航班數據可同步")
                 
-                # 檢查缺少的必要字段
-                missing_fields = []
-                for field in ['flight_number', 'airline_id', 'departure_airport_id', 'arrival_airport_id', 'scheduled_departure', 'scheduled_arrival']:
-                    if not flight.get(field):
-                        missing_fields.append(field)
-                
-                if missing_fields:
-                    logger.warning(f"  缺少必要字段: {', '.join(missing_fields)}")
-            
-            # 統計主要問題
-            scheduled_departure_formats = {}
-            scheduled_arrival_formats = {}
-            flight_id_types = {}
-            
-            for flight in filtered_flights:
-                # 檢查日期格式
-                for date_field, formats_dict in [('scheduled_departure', scheduled_departure_formats), 
-                                               ('scheduled_arrival', scheduled_arrival_formats)]:
-                    if flight.get(date_field):
-                        date_value = flight[date_field]
-                        date_type = type(date_value).__name__
-                        formats_dict[date_type] = formats_dict.get(date_type, 0) + 1
-                
-                # 檢查flight_id類型
-                if 'flight_id' in flight:
-                    id_type = type(flight['flight_id']).__name__
-                    flight_id_types[id_type] = flight_id_types.get(id_type, 0) + 1
-            
-            # 輸出統計結果
-            logger.info("數據格式統計:")
-            logger.info(f"  scheduled_departure 格式: {scheduled_departure_formats}")
-            logger.info(f"  scheduled_arrival 格式: {scheduled_arrival_formats}")
-            logger.info(f"  flight_id 類型: {flight_id_types}")
-            logger.info("=======================================================")
-            
-            # 直接導入到數據庫
-            result = self.db_manager.import_flights_to_database(filtered_flights)
-        
-        # 輸出結果
-        print("\n=== 台灣出發航班同步結果 ===")
-        print(f"總數: {result.get('total', 0)}")
-        print(f"新增: {result.get('inserted', 0)}")
-        print(f"更新: {result.get('updated', 0)}")
-        print(f"跳過: {result.get('skipped', 0)}")
-        
-        # 輸出各機場統計
-        print("\n各機場統計:")
-        for airport, flights in taiwan_flights.items():
-            print(f"  {airport}: {len(flights)} 個航班")
-            
-        print("\n=== 航班數據同步完成 ===")
-        return result
+        logger.info(f"航班數據同步完成, 共處理 {len(dates)} 天，同步 {len(all_synced_flights)} 條航班記錄")
+        return all_synced_flights
     
     def sync_all(self, date_str, days=1):
         """同步所有數據"""

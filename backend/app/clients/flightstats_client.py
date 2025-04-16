@@ -245,54 +245,56 @@ class FlightStatsApiClient(BaseAPIClient):
             
             if response and 'scheduledFlights' in response:
                 self.logger.info(f"接收到 scheduledFlights 回應，包含 {len(response['scheduledFlights'])} 個航班")
-        try:
-            for item in response['scheduledFlights']:
-                # 篩選目標航空公司
-                airline_code = item.get('carrierFsCode', '')
-                if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
-                    continue
-                    
-                # 解析日期時間
-                dep_time = None
-                arr_time = None
-                
                 try:
-                    dep_time_str = item.get('departureTime', '')
-                    if dep_time_str:
-                        dep_time = parse_datetime(dep_time_str)
-                    
-                    arr_time_str = item.get('arrivalTime', '')
-                    if arr_time_str:
-                        arr_time = parse_datetime(arr_time_str)
+                    for item in response['scheduledFlights']:
+                        # 篩選目標航空公司
+                        airline_code = item.get('carrierFsCode', '')
+                        if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
+                            continue
+
+                        # 解析日期時間
+                        dep_time = None
+                        arr_time = None
+
+                        try:
+                            dep_time_str = item.get('departureTime', '')
+                            if dep_time_str:
+                                dep_time = parse_datetime(dep_time_str)
+
+                            arr_time_str = item.get('arrivalTime', '')
+                            if arr_time_str:
+                                arr_time = parse_datetime(arr_time_str)
+                        except Exception as e:
+                            self.logger.warning(f"解析日期時間出錯: {str(e)}")
+
+                        # 創建航班信息字典
+                        flight = {
+                            'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
+                            'airline_code': item.get('carrierFsCode', ''),
+                            'airline_name': '',  # 需要單獨獲取
+                                    'flight_id': str(item.get('flightId', '')),
+                            'departure_airport': dep_airport,
+                            'arrival_airport': arr_airport,
+                                    'scheduled_departure': format_datetime(dep_time) if dep_time else None,
+                                    'scheduled_arrival': format_datetime(arr_time) if arr_time else None,
+                                    'departure_terminal': item.get('departureTerminal', ''),
+                                    'status': 'STATUS_ON_TIME',  # schedules接口不提供狀態，默認為準時
+                            'aircraft': item.get('flightEquipmentIataCode', ''),
+                            'source': 'FlightStats'
+                        }
+
+                        flights.append(flight)
+
+                    if flights:
+                        self.logger.info(f"成功從schedules接口獲取並添加 {len(flights)} 個航班信息")
+
                 except Exception as e:
-                    self.logger.warning(f"解析日期時間出錯: {str(e)}")
-                
-                # 創建航班信息字典
-                flight = {
-                    'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
-                    'airline_code': item.get('carrierFsCode', ''),
-                    'airline_name': '',  # 需要單獨獲取
-                            'flight_id': str(item.get('flightId', '')),
-                    'departure_airport': dep_airport,
-                    'arrival_airport': arr_airport,
-                            'scheduled_departure': format_datetime(dep_time) if dep_time else None,
-                            'scheduled_arrival': format_datetime(arr_time) if arr_time else None,
-                            'departure_terminal': item.get('departureTerminal', ''),
-                            'status': 'STATUS_ON_TIME',  # schedules接口不提供狀態，默認為準時
-                    'aircraft': item.get('flightEquipmentIataCode', ''),
-                    'source': 'FlightStats'
-                }
-                
-                flights.append(flight)
-                
-                self.logger.info(f"成功從schedules接口獲取{len(flights)}個航班信息")
-        except Exception as e:
                     self.logger.error(f"解析schedules數據時出錯: {str(e)}")
-        
+
         if not flights:
             self.logger.warning(f"獲取航班信息失敗: {dep_airport} → {arr_airport}, 日期: {date}")
-        
-            return flights
+
+        return flights
     
     def _map_flight_status(self, fs_status: str) -> str:
         """
@@ -450,7 +452,8 @@ class FlightStatsApiClient(BaseAPIClient):
 
     # 新增方法：使用 /airport/status 端點獲取離港航班
     @cached(ttl=7200, key_prefix="flightstats_departures")
-    def get_departures(self, dep_airport: str, date: str, hour: int = 0, num_hours: int = 24) -> List[Dict]:
+    def get_departures(self, dep_airport: str, date: str, hour: int = 0, num_hours: int = 24, 
+                       extended_options: str = 'includeNewFields,useInlinedReferences') -> List[Dict]:
         """
         獲取特定機場在指定時間範圍內的離港航班信息 (針對每個目標航空公司分別查詢)
 
@@ -459,6 +462,7 @@ class FlightStatsApiClient(BaseAPIClient):
             date: 日期字符串，格式為YYYY-MM-DD
             hour: 開始的小時 (0-23)，預設為 0
             num_hours: 從開始小時起查詢的小時數，預設為 24
+            extended_options: FlightStats API的extendedOptions參數，默認為 'includeNewFields,useInlinedReferences'
 
         Returns:
             航班信息列表
@@ -532,7 +536,7 @@ class FlightStatsApiClient(BaseAPIClient):
                 
                 try:
                     extra_params = {
-                        'extendedOptions': 'includeNewFields,useInlinedReferences',
+                        'extendedOptions': extended_options,
                         'numHours': num_hours,
                         'codeType': 'IATA',
                         'carrier': target_airline

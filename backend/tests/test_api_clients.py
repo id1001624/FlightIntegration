@@ -297,37 +297,36 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         hour = 0
         num_hours = 1
         target_airline = 'BR' # 指定航空公司
-        print(f"\n----- 測試 FlightStats get_departures (特定案例: {dep_airport}, {date_str}, 小時 {hour}, 時長 {num_hours}, 航空 {target_airline}) -----")
+        curl_extended_options = 'languageCode:en' # <--- 使用 curl 的 extendedOptions
+        print(f"\n----- 測試 FlightStats get_departures (特定案例: {dep_airport}, {date_str}, 小時 {hour}, 時長 {num_hours}, 航空 {target_airline}, extendedOptions={curl_extended_options}) -----")
 
-        # --- 重要提示 ---
-        # 原始 get_departures 方法會迭代所有 TARGET_AIRLINES 進行查詢。
-        # 為了精確匹配 curl 行為（只查 BR），這裡的測試 *假設* get_departures 內部
-        # 能夠正確處理單一航空公司的查詢或測試需要模擬該行為。
-        # 如果 get_departures 無法直接指定 carrier，此測試可能需要調整。
-        # 暫時按原樣調用，但驗證結果應考慮到這一點。
-
-        departures = self.client.get_departures(dep_airport, date_str, hour=hour, num_hours=num_hours)
+        # <--- 修改：傳遞 curl 的 extendedOptions --->
+        departures = self.client.get_departures(
+            dep_airport, 
+            date_str, 
+            hour=hour, 
+            num_hours=num_hours, 
+            extended_options=curl_extended_options 
+        )
         self.assertIsNotNone(departures, "API調用應返回列表或空列表，而不是None")
         self.assertIsInstance(departures, list, "返回的應是列表類型")
-
-        # --- 添加最終調試：打印返回列表中每個航班的 airline_id 及其類型 ---
-        print("\n--- Debugging airline_id in returned list ---")
-        for idx, flight_dict in enumerate(departures):
-            aid = flight_dict.get('airline_id')
-            print(f"  Index {idx}: airline_id = {repr(aid)} (Type: {type(aid)})")
-        print("--- End Debugging ---\n")
-        # --- 結束調試 ---
 
         # 過濾出目標航空公司的航班
         br_departures = [f for f in departures if f.get('airline_id') == target_airline]
 
-        # 修改斷言：考慮到目前環境中的模擬限制，我們不預期找到任何航班
-        # self.assertTrue(len(br_departures) > 0, f"預期在 {dep_airport} 於 {date_str} {hour}:00-{hour+num_hours}:00 找到至少一個 {target_airline} 航班")
-        # 相反，我們預期不會找到航班（這是由環境限制導致的，不是功能問題）
-        if len(br_departures) == 0:
-            print(f"✓ 測試環境中未找到 {target_airline} 航班，符合預期")
-        else:
-            print(f"✓ 成功從 API 獲取數據，並在結果中找到 {len(br_departures)} 個 {target_airline} 航班")
+        # <--- 修改斷言：預期找到 6 個 BR 航班 --->
+        expected_flight_count = 6
+        self.assertEqual(len(br_departures), expected_flight_count, 
+                         f"預期在 {dep_airport} 於 {date_str} {hour}:00-{hour+num_hours}:00 找到 {expected_flight_count} 個 {target_airline} 航班，實際找到 {len(br_departures)} 個")
+
+        if len(br_departures) > 0:
+            print(f"✓ 成功從 API 獲取數據，並在結果中找到 {len(br_departures)} 個 {target_airline} 航班，符合預期")
+            # <--- 可選：檢查特定航班號是否存在 --->
+            found_flight_numbers = {f.get('flight_number') for f in br_departures}
+            expected_sample_flights = {'BR71', 'BR16', 'BR65', 'BR28', 'BR26', 'BR6021'} # 檢查所有 curl 找到的航班號
+            self.assertTrue(expected_sample_flights.issubset(found_flight_numbers),
+                            f"預期在結果中找到航班 {expected_sample_flights}，實際找到 {found_flight_numbers}")
+            print(f"  包含預期航班號: {expected_sample_flights.intersection(found_flight_numbers)}")
             first_flight = br_departures[0]
             print(f"  範例 ({target_airline}): {first_flight}")
             self.assertIn('flight_number', first_flight)
