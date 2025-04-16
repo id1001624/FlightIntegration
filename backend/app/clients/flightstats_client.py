@@ -170,6 +170,7 @@ class FlightStatsApiClient(BaseAPIClient):
                         'flight_id': uuid.uuid4(),  # 生成真正的UUID
                         'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
                         'airline_id': item.get('carrierFsCode', ''),
+                        'airline_code': item.get('carrierFsCode', ''),
                         'departure_airport_id': dep_airport,
                         'arrival_airport_id': arr_airport,
                         'scheduled_departure': format_datetime(dep_time) if dep_time else None,
@@ -192,3 +193,6 @@ class FlightStatsApiClient(BaseAPIClient):
             self.logger.warning(f"獲取航班信息失敗: {dep_airport} → {arr_airport}, 日期: {date}")
 
         return flights
+
+    def get_airports(self) -> List[Dict]:
+        """獲取所有機場信息"""

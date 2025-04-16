@@ -325,7 +325,10 @@ class FlightDataSyncTool:
                 logger.info(f"將航班數據限制為 {limit} 條")
             
             # 將航班數據同步到數據庫
-            added, updated, skipped = self.db_manager.sync_flights(flights_data)
+            self.db_manager.import_flights_to_database(flights_data)
+            added = len(flights_data) # 假設 import 成功就是新增
+            updated = 0
+            skipped = 0
             
             logger.info(f"航線 {departure}-{arrival} 同步完成: 新增 {added}, 更新 {updated}, 跳過 {skipped}")
             

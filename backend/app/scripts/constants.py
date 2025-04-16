@@ -40,32 +40,6 @@ TARGET_AIRLINES = [
     'SQ',  # 新加坡航空 (Singapore Airlines)
 ]
 
-# API返回的航班狀態代碼翻譯
-FLIGHT_STATUS_TRANSLATIONS = {
-    # FlightStats狀態代碼
-    'A': '活躍',     # Active
-    'C': '取消',     # Canceled
-    'D': '改航',     # Diverted
-    'DN': '改航',    # Diverted
-    'L': '已降落',   # Landed
-    'NO': '未運營',  # Not Operational
-    'R': '重定向',   # Redirected
-    'S': '計劃',     # Scheduled
-    'U': '未知',     # Unknown
-    
-    # TDX狀態代碼/文字
-    'CANCELLED': '取消',
-    'DELAYED': '延誤',
-    'ARRIVED': '已抵達',
-    'DEPARTED': '已起飛',
-    'SCHEDULED': '計劃',
-    'UNKNOWN': '未知',
-    'LANDING': '著陸中',
-    'TAKE-OFF': '起飛中',
-    'BOARDING': '登機中',
-    'CHECK-IN': '報到中',
-}
-
 # 常用時間格式
 DATETIME_FORMATS = [
     '%Y-%m-%dT%H:%M:%S.%f',  # ISO格式帶毫秒
@@ -176,23 +150,35 @@ rmq_destinations = [
     'HKG', 'MFM', 'SGN' # 香港/澳門/越南 (根據用戶之前的定義)
 ]
 
-POPULAR_INTERNATIONAL_ROUTES_TUPLES = []
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TPE', dest) for dest in tpe_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TSA', dest) for dest in tsa_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('KHH', dest) for dest in khh_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('RMQ', dest) for dest in rmq_destinations])
+POPULAR_INTERNATIONAL_ROUTES_TUPLES = [
+    ('TPE', 'NRT'), ('TPE', 'KIX'), ('TPE', 'ICN'), ('TPE', 'HKG'),
+    ('TPE', 'SIN'), ('TPE', 'BKK'), ('TPE', 'LAX'), ('TPE', 'SFO'),
+    ('TPE', 'JFK'), ('TPE', 'HNL'),
+    ('TSA', 'HND'), ('TSA', 'ITM'), ('TSA', 'OKA'), ('TSA', 'CTS'),
+    ('TSA', 'GMP'), ('TSA', 'ICN'), ('TSA', 'PVG'), ('TSA', 'SHA'),
+    ('KHH', 'NRT'), ('KHH', 'KIX'), ('KHH', 'ICN'), ('KHH', 'HKG'),
+    ('RMQ', 'KIX'), ('RMQ', 'NRT'), ('RMQ', 'OKA'), ('RMQ', 'ICN'),
+    ('RMQ', 'HKG'), ('RMQ', 'MFM'), ('RMQ', 'SGN')
+]
 
 # 熱門國內航線 (字典格式，用於 API 回應)
-POPULAR_DOMESTIC_ROUTES_DICTS = [
-    {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
-    for dep, arr in POPULAR_DOMESTIC_ROUTES_TUPLES
-]
+# 注意：POPULAR_DOMESTIC_ROUTES_DICTS 應在需要它的 API 端點中動態生成，
+# 因為它需要查詢 airport_names。Constants 檔案不應執行數據庫查詢。
+# POPULAR_DOMESTIC_ROUTES_DICTS = []
+# for dep, arr in POPULAR_DOMESTIC_ROUTES_TUPLES:
+#     dep_name = airport_names.get(dep, dep)
+#     arr_name = airport_names.get(arr, arr)
+#     # 簡化台北名稱
+#     if dep in ['TPE', 'TSA']: dep_name = '台北'
+#     POPULAR_DOMESTIC_ROUTES_DICTS.append({'departure': dep, 'arrival': arr, 'name': f"{dep_name}-{arr_name}"})
 
 # 熱門國際航線 (字典格式，用於 API 回應)
-POPULAR_INTERNATIONAL_ROUTES_DICTS = [
-    {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
-    for dep, arr in POPULAR_INTERNATIONAL_ROUTES_TUPLES
-]
+# 注意：POPULAR_INTERNATIONAL_ROUTES_DICTS 應在需要它的 API 端點中動態生成，
+# 因為它需要查詢 airport_names。Constants 檔案不應執行數據庫查詢。
+# POPULAR_INTERNATIONAL_ROUTES_DICTS = [
+#     {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
+#     for dep, arr in POPULAR_INTERNATIONAL_ROUTES_TUPLES
+# ]
 
 # --- 新增：專門給前端使用的熱門航線列表 --- 
 
@@ -203,18 +189,19 @@ _fe_khh_dest = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
 _fe_rmq_dest = ['HKG', 'MFM', 'SGN']
 _fe_hun_dest = ['HKG'] # 花蓮包機
 
-FRONTEND_POPULAR_ROUTES_TUPLES = []
-FRONTEND_POPULAR_ROUTES_TUPLES.extend([('TPE', dest) for dest in _fe_tpe_dest])
-# 對於松山，只添加表格中明確提到的
-FRONTEND_POPULAR_ROUTES_TUPLES.extend([('TSA', dest) for dest in _fe_tsa_dest]) 
-FRONTEND_POPULAR_ROUTES_TUPLES.extend([('KHH', dest) for dest in _fe_khh_dest])
-FRONTEND_POPULAR_ROUTES_TUPLES.extend([('RMQ', dest) for dest in _fe_rmq_dest])
-FRONTEND_POPULAR_ROUTES_TUPLES.extend([('HUN', dest) for dest in _fe_hun_dest])
-
-# 前端熱門航線 (字典格式，用於 API 回應)
-FRONTEND_POPULAR_ROUTES_DICTS = [
-    {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
-    for dep, arr in FRONTEND_POPULAR_ROUTES_TUPLES
+FRONTEND_POPULAR_ROUTES_TUPLES: list[tuple[str, str]] = [
+    ("TPE", "NRT"), ("TPE", "KIX"), ("TPE", "ICN"), ("TPE", "SIN"), ("TPE", "BKK"),
+    ("TPE", "HKG"), ("TPE", "PVG"), ("TPE", "SFO"), ("TPE", "LAX"), ("TPE", "JFK"),
+    ("TSA", "HND"), ("TSA", "GMP"), ("TSA", "SHA"),
+    ("RMQ", "HKG"), ("RMQ", "KIX"),
+    ("KHH", "NRT"), ("KHH", "KIX"), ("KHH", "ICN"), ("KHH", "HKG"), ("KHH", "SIN")
 ]
+
+# FRONTEND_POPULAR_ROUTES_DICTS: list[dict[str, str]] = [
+#     {"departure": dep, "arrival": arr, "departure_name": airport_names.get(dep, dep), "arrival_name": airport_names.get(arr, arr)}
+#     for dep, arr in FRONTEND_POPULAR_ROUTES_TUPLES
+# ]
+# 注意：FRONTEND_POPULAR_ROUTES_DICTS 應在需要它的 API 端點中動態生成，
+# 因為它需要查詢 airport_names。Constants 檔案不應執行數據庫查詢。
 
 # --- 結束新增 ---

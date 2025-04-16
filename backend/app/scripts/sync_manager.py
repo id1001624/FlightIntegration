@@ -392,7 +392,7 @@ class ApiSyncManager:
                 logger.info(f"嘗試從 TDX 獲取 {departure}->{arrival} 的 AE、B7、DA 航班")
                 
                 # 先嘗試獲取國內航班時刻表
-                tdx_raw_flights = self.tdx_api.get_domestic_flight_schedules(departure)
+                tdx_raw_flights = self.tdx_api.get_domestic_flight_schedules(departure, date_str)
                 if isinstance(tdx_raw_flights, list):
                     # --- 篩選邏輯在此 ---
                     tdx_domestic_flights = [
@@ -424,8 +424,15 @@ class ApiSyncManager:
 
                 # Correct indentation for the conditional block
                 if fs_flights:
+                    # 添加日誌，查看原始航班的航空公司代碼
+                    original_airlines = {f.get('airline_code') for f in fs_flights if f.get('airline_code')}
+                    logger.info(f"FlightStats 返回的原始航空公司代碼: {original_airlines}")
+                        
                     # Correct indentation for list comprehensions
                     all_target_flights = [f for f in fs_flights if f.get('airline_code') in TARGET_AIRLINES]
+                    # 添加日誌，查看第一次篩選後的結果
+                    filtered_airlines = {f.get('airline_code') for f in all_target_flights if f.get('airline_code')}
+                    logger.info(f"篩選 TARGET_AIRLINES 後的航空公司代碼: {filtered_airlines}")
 
                     other_airlines_flights = [
                         f for f in all_target_flights if f.get('airline_code') not in self.TDX_TARGET_AIRLINES
@@ -507,6 +514,7 @@ class ApiSyncManager:
             # else:
             #     logger.debug(f"跳過重複航班: {flight_key}")
         # logger.info(f"添加了 {added_count} 個唯一航班") # 可以取消註釋以調試
+        logger.info(f"在 _add_unique_flights 中添加了 {added_count} 個唯一航班到目標列表")
     
     def sync_popular_routes(self, date: Union[dt_datetime, str] = None, days: int = 1) -> Dict[Tuple[str, str], List[Dict]]:
         """

@@ -468,7 +468,6 @@ class DataSyncService:
                                     'flight_number': flight_number,
                                     'scheduled_departure': scheduled_departure,
                                     'scheduled_arrival': scheduled_arrival,
-                                    'status': flight.get('status', 'scheduled'),
                                     'departure_terminal': flight.get('departure_terminal', ''),
                                     'departure_gate': flight.get('departure_gate', ''),
                                     'arrival_terminal': flight.get('arrival_terminal', ''),
@@ -487,23 +486,21 @@ class DataSyncService:
                                             arrival_airport_id = $3,
                                             scheduled_departure = $4,
                                             scheduled_arrival = $5,
-                                            status = $6,
-                                            departure_terminal = $7,
-                                            departure_gate = $8,
-                                            arrival_terminal = $9,
-                                            arrival_gate = $10,
-                                            aircraft_type = $11,
-                                            duration_minutes = $12,
+                                            departure_terminal = $6,
+                                            departure_gate = $7,
+                                            arrival_terminal = $8,
+                                            arrival_gate = $9,
+                                            aircraft_type = $10,
+                                            duration_minutes = $11,
                                             updated_at = NOW()
-                                        WHERE flight_id = $13
+                                        WHERE flight_id = $12
                                     """, 
                                     flight_data['airline_id'], flight_data['departure_airport_id'],
                                     flight_data['arrival_airport_id'], flight_data['scheduled_departure'],
-                                    flight_data['scheduled_arrival'], flight_data['status'],
-                                    flight_data['departure_terminal'], flight_data['departure_gate'],
-                                    flight_data['arrival_terminal'], flight_data['arrival_gate'],
-                                    flight_data['aircraft_type'], flight_data['duration_minutes'],
-                                    flight_id)
+                                    flight_data['scheduled_arrival'], flight_data['departure_terminal'],
+                                    flight_data['departure_gate'], flight_data['arrival_terminal'],
+                                    flight_data['arrival_gate'], flight_data['aircraft_type'],
+                                    flight_data['duration_minutes'], flight_id)
                                     update_count += 1
                                 else:
                                     # 插入新航班
@@ -511,19 +508,18 @@ class DataSyncService:
                                         INSERT INTO flights (
                                             airline_id, departure_airport_id, arrival_airport_id,
                                             flight_number, scheduled_departure, scheduled_arrival,
-                                            status, departure_terminal, departure_gate,
+                                            departure_terminal, departure_gate,
                                             arrival_terminal, arrival_gate, aircraft_type,
                                             duration_minutes, created_at, updated_at
-                                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+                                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
                                         RETURNING flight_id
                                     """, 
                                     flight_data['airline_id'], flight_data['departure_airport_id'],
                                     flight_data['arrival_airport_id'], flight_data['flight_number'],
                                     flight_data['scheduled_departure'], flight_data['scheduled_arrival'],
-                                    flight_data['status'], flight_data['departure_terminal'],
-                                    flight_data['departure_gate'], flight_data['arrival_terminal'],
-                                    flight_data['arrival_gate'], flight_data['aircraft_type'],
-                                    flight_data['duration_minutes'])
+                                    flight_data['departure_terminal'], flight_data['departure_gate'],
+                                    flight_data['arrival_terminal'], flight_data['arrival_gate'],
+                                    flight_data['aircraft_type'], flight_data['duration_minutes'])
                                     new_count += 1
                                 
                                 # 處理票價信息
@@ -900,17 +896,27 @@ class DataSyncService:
                                     arrival_airport_id = $4,
                                     scheduled_departure = $5,
                                     scheduled_arrival = $6,
-                                    status = $7,
+                                    departure_terminal = $7,
+                                    departure_gate = $8,
+                                    arrival_terminal = $9,
+                                    arrival_gate = $10,
+                                    aircraft_type = $11,
+                                    duration_minutes = $12,
                                     updated_at = NOW()
-                                WHERE flight_id = $8
+                                WHERE flight_id = $13
                             """,
                             flight['flight_number'],
                             flight['airline_id'],
                             flight['departure_airport_id'],
                             flight['arrival_airport_id'],
-                            flight['departure_time'],
-                            flight['arrival_time'],
-                            flight.get('status', 'scheduled'),
+                            flight['scheduled_departure'],
+                            flight['scheduled_arrival'],
+                            flight['departure_terminal'],
+                            flight['departure_gate'],
+                            flight['arrival_terminal'],
+                            flight['arrival_gate'],
+                            flight['aircraft_type'],
+                            flight['duration_minutes'],
                             flight_id
                             )
                         else:
@@ -920,18 +926,24 @@ class DataSyncService:
                                     flight_id, flight_number, airline_id,
                                     departure_airport_id, arrival_airport_id,
                                     scheduled_departure, scheduled_arrival,
-                                    status, created_at, updated_at
-                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+                                    departure_terminal, departure_gate,
+                                    arrival_terminal, arrival_gate, aircraft_type,
+                                    duration_minutes, created_at, updated_at
+                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
                             """,
                             flight_id,
                             flight['flight_number'],
                             flight['airline_id'],
                             flight['departure_airport_id'],
                             flight['arrival_airport_id'],
-                            flight['departure_time'],
-                            flight['arrival_time'],
-                            flight.get('status', 'scheduled')
-                            )
+                            flight['scheduled_departure'],
+                            flight['scheduled_arrival'],
+                            flight['departure_terminal'],
+                            flight['departure_gate'],
+                            flight['arrival_terminal'],
+                            flight['arrival_gate'],
+                            flight['aircraft_type'],
+                            flight['duration_minutes'])
                         
                         # 更新票價信息
                         await self._update_ticket_prices(conn, flight_id, flight)

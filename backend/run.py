@@ -76,8 +76,7 @@ async def debug_flights():
                     'code': flight['airline_code'],
                     'name': flight['airline_name']
                 },
-                'departure_time': flight['scheduled_departure'].isoformat() if flight['scheduled_departure'] else None,
-                'status': flight['status']
+                'departure_time': flight['scheduled_departure'].isoformat() if flight['scheduled_departure'] else None
             })
         
         return jsonify(result)
