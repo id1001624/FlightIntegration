@@ -105,28 +105,29 @@ class TdxApiClient(BaseAPIClient):
         }
     
     @cached(ttl=1800, key_prefix="tdx_fids_flight") # 使用 FIDS Flight 的快取
-    def get_domestic_flight_schedules(self, airport_iata: str) -> List[Dict]:
+    def get_domestic_flight_schedules(self, airport_iata: str, date_str: str) -> List[Dict]:
         """
-        獲取特定機場當天出發的國內航班時刻表與狀態 (AE、B7、DA 航空公司)
-        從 /v2/Air/FIDS/Flight 獲取所有當天數據，然後在程式碼中篩選
+        獲取特定機場在指定日期的國內航班時刻表與狀態 (AE、B7、DA 航空公司)
+        從 /v2/Air/FIDS/Flight 獲取所有數據，然後在程式碼中篩選
 
         Args:
             airport_iata: 機場 IATA 代碼 (例如: 'TSA', 'KHH', 'RMQ')
+            date_str: 指定日期字符串 (格式: YYYY-MM-DD)
 
         Returns:
             航班信息列表 (包含狀態)
         """
         supported_airlines = {'AE', 'B7', 'DA'} # 使用集合以便快速查找
-        current_date_str = datetime.now().strftime('%Y-%m-%d')
-        self.logger.info(f"正在從 TDX FIDS Flight 獲取所有航空公司的航班狀態 ({current_date_str})")
+        # current_date_str = datetime.now().strftime('%Y-%m-%d') # 不再使用當前日期
+        self.logger.info(f"正在從 TDX FIDS Flight 獲取 {airport_iata} 機場在 {date_str} 的航班狀態")
 
         url = f"{self.base_url}/v2/Air/FIDS/Flight"
 
         params = {
             '$format': 'JSON',
-            # '$filter': f"FlightDate eq '{current_date_str}'", # 移除日期過濾以避免 400 錯誤
-            '$orderby': 'ScheduleDepartureTime', # 仍然可以排序
-            '$top': 3000 # 可能需要獲取更多數據，因為不過濾日期了
+            # 不再使用日期過濾
+            '$orderby': 'ScheduleDepartureTime', 
+            '$top': 3000 # 獲取足夠多的數據以供篩選
         }
 
         self.logger.debug(f"請求 TDX FIDS Flight URL: {url} with params: {params}")
@@ -141,16 +142,19 @@ class TdxApiClient(BaseAPIClient):
             self.logger.warning(f"從 TDX FIDS Flight 獲取航班數據失敗或返回空/非列表數據")
             return []
 
-        self.logger.info(f"成功從 TDX FIDS Flight 獲取 {len(response)} 筆原始航班記錄，準備篩選")
+        self.logger.info(f"成功從 TDX FIDS Flight 獲取 {len(response)} 筆原始航班記錄，準備篩選指定日期 ({date_str}) 和機場 ({airport_iata})")
 
         parsed_and_filtered_flights = []
         for item in response:
             try:
                 airline_id = item.get('AirlineID', '')
                 departure_airport = item.get('DepartureAirportID', '')
+                flight_date = item.get('FlightDate', '') # 獲取航班日期
 
-                # 在這裡進行篩選
-                if airline_id not in supported_airlines or departure_airport != airport_iata:
+                # 在這裡進行篩選 (機場 + 日期 + 航空公司)
+                if (departure_airport != airport_iata or 
+                    flight_date != date_str or 
+                    airline_id not in supported_airlines):
                     continue # 跳過不符合條件的航班
 
                 flight_number_only = item.get('FlightNumber', '')
@@ -176,12 +180,12 @@ class TdxApiClient(BaseAPIClient):
                 flight = {
                     'flight_number': airline_id + flight_number_only,
                     'airline_id': airline_id,
-                    'departure_airport': departure_airport,
-                    'arrival_airport': item.get('ArrivalAirportID', ''),
-                    'scheduled_departure': scheduled_departure,
-                    'scheduled_arrival': scheduled_arrival,
-                    'actual_departure': actual_departure,
-                    'actual_arrival': actual_arrival,
+                    'departure_airport_id': departure_airport,
+                    'arrival_airport_id': item.get('ArrivalAirportID', ''),
+                    'scheduled_departure': format_datetime(scheduled_departure) if scheduled_departure else None,
+                    'scheduled_arrival': format_datetime(scheduled_arrival) if scheduled_arrival else None,
+                    'actual_departure': format_datetime(actual_departure) if actual_departure else None,
+                    'actual_arrival': format_datetime(actual_arrival) if actual_arrival else None,
                     'status': status,
                     'source': 'TDX'
                 }

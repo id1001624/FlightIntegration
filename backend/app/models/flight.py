@@ -1,10 +1,20 @@
 """
 航班模型
 """
+import enum
 from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
 from datetime import datetime, timedelta
 from .base import db, Base
+
+# <--- 定義 FlightStatus Enum --- >
+class FlightStatus(enum.Enum):
+    ON_TIME = "準時"
+    DELAYED = "延誤"
+    CANCELLED = "取消"
+    DEPARTED = "已起飛"
+    ARRIVED = "已抵達"
+# <--- 結束 Enum 定義 --- >
 
 class Flight(Base):
     """航班數據模型"""
@@ -33,13 +43,6 @@ class Flight(Base):
     # 關聯
     ticket_prices = db.relationship('TicketPrice', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
     price_history = db.relationship('PriceHistory', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
-    
-    # 狀態常量
-    STATUS_ON_TIME = "準時"
-    STATUS_DELAYED = "延誤"
-    STATUS_CANCELLED = "取消"
-    STATUS_DEPARTED = "已起飛"
-    STATUS_ARRIVED = "已抵達"
     
     def __repr__(self):
         return f"<Flight {self.flight_number} {self.scheduled_departure.strftime('%Y-%m-%d %H:%M')}>"

@@ -527,8 +527,8 @@ class FlightStatsApiClient(BaseAPIClient):
                 module_logger.debug(f"URL組裝前參數: base_url={self.base_url}, dep_airport={dep_airport}, year={year}, month={month}, day={day}, hour={hour}")
                 
                 try:
-                    # 使用 /airport/status 端點，並加入 carrier 參數
-                    url = f"{self.base_url}/flightstatus/rest/v2/json/airport/status/{dep_airport}/dep/{year}/{month}/{day}/{hour}"
+                    # 使用 /schedules 端點，並加入 carrier 參數
+                    url = f"{self.base_url}/schedules/rest/v1/json/from/{dep_airport}/departing/{year}/{month}/{day}/{hour}"
                     module_logger.debug(f"URL組裝成功: {url}")
                 except Exception as e:
                     module_logger.error(f"URL組裝失敗: {str(e)}")
@@ -539,7 +539,6 @@ class FlightStatsApiClient(BaseAPIClient):
                         'extendedOptions': extended_options,
                         'numHours': num_hours,
                         'codeType': 'IATA',
-                        'carrier': target_airline
                     }
                     module_logger.debug(f"額外參數組裝成功: {extra_params}")
                     params = self._build_params(extra_params)
@@ -552,129 +551,94 @@ class FlightStatsApiClient(BaseAPIClient):
                 module_logger.debug(f"FlightStats API 完整請求: URL={url}, 參數={params}")
                 # --- 結束調試 ---
 
-                # 發送請求並獲取特定機場出發的航班
-                try:
-                    # 修正: 正確指定請求方法和參數
-                    response = self.make_request(url, 'GET', params)
-                    
-                    # 檢查回應是否為None
-                    if response is None:
-                        module_logger.warning(f"從 airport/status 端點 ({target_airline}) 獲取航班信息失敗或返回空數據: {dep_airport}, 日期: {date}")
-                        continue
-                    
-                    # 檢查回應中是否包含 flightStatuses 鍵
-                    if 'flightStatuses' not in response:
-                        module_logger.warning(f"回應中缺少 'flightStatuses' 鍵: {dep_airport}, 日期: {date}, 航空: {target_airline}")
-                        continue
-                    
-                    # 進行數據處理
-                    if response and 'flightStatuses' in response and response['flightStatuses']:
-                        try:
-                            # 解析航班數據
-                            for idx, item in enumerate(response['flightStatuses']):
-                                # --- 處理航空公司代碼: 從carrier物件內獲取 ---
-                                airline_code = ''
-                                carrier_obj = item.get('carrier', {})
-                                
-                                # 檢查carrier是否存在且是字典
-                                if isinstance(carrier_obj, dict):
-                                    module_logger.debug(f"成功找到carrier物件: {carrier_obj}")
-                                    # 嘗試從carrier物件中提取iata代碼
-                                    if 'iata' in carrier_obj:
-                                        airline_code = carrier_obj.get('iata', '')
-                                        module_logger.debug(f"從carrier.iata獲取到航空公司代碼: '{airline_code}'")
-                                    else:
-                                        module_logger.warning(f"carrier物件中缺少iata鍵: {carrier_obj}")
-                                else:
-                                    module_logger.warning(f"找不到有效的carrier物件或格式不正確: {carrier_obj}")
-                                
-                                # 如果從carrier獲取失敗，嘗試使用備用方法
-                                if not airline_code:
-                                    airline_code = item.get('carrierFsCode', '')
-                                    module_logger.debug(f"使用備用方法從carrierFsCode獲取航空公司代碼: '{airline_code}'")
+                # 發送請求
+                response = self.make_request(url, 'GET', params)
 
-                                module_logger.debug(f"最終確定的航空公司代碼: {airline_code}")
+                # 檢查回應是否為None
+                if response is None:
+                    module_logger.warning(f"從 /schedules 端點獲取航班時刻表失敗或返回空數據: {dep_airport}, 日期: {date}")
+                    return [] # 直接返回空列表
 
-                                scheduled_dep_time = None
-                                scheduled_arr_time = None
-                                actual_dep_time = None
-                                actual_arr_time = None
-                                arrival_airport = item.get('arrivalAirportFsCode', '') # 從 status item 獲取到達機場
-                                flight_id_str = str(item.get('flightId', '')) # 獲取數字ID並轉為字串
+                # --- 修改：檢查 scheduledFlights 鍵 ---
+                if response and 'scheduledFlights' in response and response['scheduledFlights']:
+                    try:
+                        # 解析航班數據
+                        for idx, item in enumerate(response['scheduledFlights']):
+                            # --- 處理航空公司代碼: 嘗試從 item['carrier']['fs'] 或 item['carrierFsCode'] 獲取 ---
+                            airline_code = None
+                            if 'carrier' in item and isinstance(item['carrier'], dict):
+                                airline_code = item['carrier'].get('fs') or item['carrier'].get('iata') # 嘗試 fs 或 iata
+                            
+                            # 如果從 carrier 物件中未找到，再嘗試直接從 item 獲取 carrierFsCode (備用)
+                            if not airline_code:
+                                airline_code = item.get('carrierFsCode')
 
-                                try:
-                                    # 獲取預計時間 (優先使用 Gate 時間)
-                                    if dep_date_local := item.get('departureDate', {}).get('dateLocal'):
-                                        scheduled_dep_time = parse_datetime(dep_date_local)
-                                    elif pub_dep_time := item.get('operationalTimes', {}).get('publishedDeparture', {}).get('dateLocal'):
-                                        scheduled_dep_time = parse_datetime(pub_dep_time)
+                            if not airline_code:
+                                module_logger.warning(f" scheduledFlight item 既缺少 carrierFsCode 也無法從 carrier 物件獲取代碼: {item}")
+                                continue # 跳過缺少航空公司代碼的記錄
+                            # --- 結束修改 ---
 
-                                    if arr_date_local := item.get('arrivalDate', {}).get('dateLocal'):
-                                        scheduled_arr_time = parse_datetime(arr_date_local)
-                                    elif pub_arr_time := item.get('operationalTimes', {}).get('publishedArrival', {}).get('dateLocal'):
-                                        scheduled_arr_time = parse_datetime(pub_arr_time)
+                            module_logger.debug(f"最終確定的航空公司代碼: {airline_code}")
 
-                                    # 獲取實際時間 (優先使用 Gate 時間，不存在才嘗試 Runway)
-                                    op_times = item.get('operationalTimes', {})
-                                    if actual_dep_gate := op_times.get('actualGateDeparture', {}).get('dateLocal'):
-                                        actual_dep_time = parse_datetime(actual_dep_gate)
-                                    elif actual_dep_runway := op_times.get('actualRunwayDeparture', {}).get('dateLocal'):
-                                         actual_dep_time = parse_datetime(actual_dep_runway) # 備用
+                            scheduled_dep_time = None
+                            scheduled_arr_time = None
+                            arrival_airport = item.get('arrivalAirportFsCode', '') # 從 status item 獲取到達機場
+                            flight_id_num = item.get('flightId') # 可能不存在或為數字
+                            if flight_id_num:
+                                 flight_id_str = str(flight_id_num)
+                            else:
+                                 flight_number_only = item.get('flightNumber', '')
+                                 flight_id_str = f"SCHED_{airline_code}{flight_number_only}_{date}" # 創建備用ID
+                            # --- 結束修改 ---
 
-                                    if actual_arr_gate := op_times.get('actualGateArrival', {}).get('dateLocal'):
-                                        actual_arr_time = parse_datetime(actual_arr_gate)
-                                    elif actual_arr_runway := op_times.get('actualRunwayArrival', {}).get('dateLocal'):
-                                         actual_arr_time = parse_datetime(actual_arr_runway) # 備用
+                            try:
+                                # 獲取預計時間 (優先使用 Gate 時間)
+                                if dep_time_str := item.get('departureTime'):
+                                    scheduled_dep_time = parse_datetime(dep_time_str)
+                                if arr_time_str := item.get('arrivalTime'):
+                                    scheduled_arr_time = parse_datetime(arr_time_str)
 
-                                except Exception as e:
-                                    module_logger.warning(f"解析航班 {airline_code}{item.get('flightNumber', '')} 的日期時間出錯: {str(e)}")
+                            except Exception as e:
+                                module_logger.warning(f"解析航班 {airline_code}{item.get('flightNumber', '')} 的日期時間出錯: {str(e)}")
 
-                                # 獲取並映射狀態
-                                status_code = item.get('status', '')
-                                model_status = self._map_flight_status(status_code)
+                            # 獲取並映射狀態
+                            model_status = 'STATUS_ON_TIME' # 直接使用字串或導入 FlightStatus Enum
 
-                                flight = {
-                                    'flight_number': airline_code + item.get('flightNumber', ''),
-                                    'airline_id': airline_code, # 確保鍵名精確為 airline_id，並使用剛處理好的 airline_code
-                                    'flight_id': flight_id_str,
-                                    'departure_airport': dep_airport,
-                                    'arrival_airport': arrival_airport,
-                                    'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
-                                    'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
-                                    'actual_departure': format_datetime(actual_dep_time) if actual_dep_time else None,
-                                    'actual_arrival': format_datetime(actual_arr_time) if actual_arr_time else None,
-                                    'status': model_status,
-                                    'source': 'FlightStats'
-                                }
-                                
-                                # --- 最終確認: 打印生成的字典 ---
-                                if idx < 3: # 只打印前三個航班以避免過多輸出
-                                    module_logger.debug(f"創建的航班字典[{idx}]: airline_id='{flight['airline_id']}', flight={flight}")
-                                # --- 結束確認 ---
-                                
-                                all_flights.append(flight)
-                            # --- 結束解析航班數據 ---
+                            flight = {
+                                'flight_number': airline_code + item.get('flightNumber', ''),
+                                'airline_id': airline_code, # 確保鍵名精確為 airline_id，並使用剛處理好的 airline_code
+                                'flight_id': flight_id_str,
+                                'departure_airport_id': item.get('departureAirportFsCode', dep_airport), # 使用 item 中的值，備用傳入的 dep_airport
+                                'arrival_airport_id': arrival_airport,
+                                'scheduled_departure': format_datetime(scheduled_dep_time) if scheduled_dep_time else None,
+                                'scheduled_arrival': format_datetime(scheduled_arr_time) if scheduled_arr_time else None,
+                                'status': model_status,
+                                'departure_terminal': item.get('departureTerminal', ''),
+                                'arrival_terminal': item.get('arrivalTerminal', ''),
+                                'aircraft': item.get('flightEquipmentIataCode', ''), # 機型代碼
+                                'source': 'FlightStats-Schedules' # 標記來源
+                            }
+                            
+                            # --- 最終確認: 打印生成的字典 ---
+                            if idx < 3: # 只打印前三個航班以避免過多輸出
+                                module_logger.debug(f"創建的航班字典[{idx}]: airline_id='{flight['airline_id']}', flight={flight}")
+                            # --- 結束確認 ---
+                            
+                            all_flights.append(flight)
+                        # --- 結束解析航班數據 ---
 
-                            module_logger.info(f"成功解析 {len(response['flightStatuses'])} 個 {target_airline} 的離港航班信息")
-                        except Exception as e:
-                            module_logger.error(f"解析 airport/status ({target_airline}) 回應數據時出錯: {str(e)}")
-                    else: # 無效的回應格式
-                        module_logger.warning(f"從 airport/status 端點 ({target_airline}) 獲取航班信息失敗或返回空數據: {dep_airport}, 日期: {date}")
-                except Exception as e:
-                    # 處理每個航空公司查詢過程中可能發生的任何異常
-                    module_logger.error(f"處理航空公司 {target_airline} 的離港航班數據時發生錯誤: {str(e)}")
-                    continue
-
-                # --- 新增：在每次航空公司請求後暫停 ---
-                time.sleep(self.request_interval) # 遵循請求間隔
+                        module_logger.info(f"成功解析 {len(response['scheduledFlights'])} 個 {target_airline} 的離港航班信息")
+                    except Exception as e:
+                        module_logger.error(f"解析 /schedules ({dep_airport}) 回應數據時出錯: {str(e)}")
+                else: # scheduledFlights 鍵存在但列表為空，或鍵不存在
+                    module_logger.warning(f"從 /schedules 端點 ({dep_airport}) 未找到航班時刻表數據或列表為空")
 
             except Exception as e:
-                # 處理每個航空公司查詢過程中可能發生的任何異常
-                module_logger.error(f"處理航空公司 {target_airline} 的離港航班數據時發生錯誤: {str(e)}")
-                continue
+                # 處理請求過程中可能發生的任何異常
+                module_logger.error(f"處理 {dep_airport} 的離港時刻表數據時發生錯誤: {str(e)}")
 
         # --- 修改：返回累積的結果 ---
-        module_logger.info(f"{dep_airport} 機場總計從 FlightStats 獲取 {len(all_flights)} 個目標航班")
+        module_logger.info(f"{dep_airport} 機場總計從 FlightStats Schedules 獲取 {len(all_flights)} 個目標航班時刻表")
         
         # --- 最終調試: 驗證所有已解析航班的 airline_id ---
         empty_airline_count = sum(1 for f in all_flights if not f.get('airline_id'))

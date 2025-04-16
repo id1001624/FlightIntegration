@@ -29,10 +29,15 @@ TARGET_AIRLINES = [
     'BR',  # 長榮航空 (EVA Air)
     'CI',  # 中華航空 (China Airlines)
     'CX',  # 國泰航空 (Cathay Pacific)
+    'JX',  # 星宇航空 (STARLUX Airlines)
     'IT',  # 台灣虎航 (Tiger Air Taiwan)
     'JL',  # 日本航空 (Japan Airlines)
-    'JX',  # 星宇航空 (STARLUX Airlines)
+    'NH',  # 全日空航空 (All Nippon Airways)
+    'AK',  # 亞洲航空 (AirAsia Berhad)
+    'KE',  # 大韓航空 (Korean Air)
     'OZ',  # 韓亞航空 (Asiana Airlines)
+    'MU',  # 中國東方航空 (China Eastern Airlines)
+    'SQ',  # 新加坡航空 (Singapore Airlines)
 ]
 
 # API返回的航班狀態代碼翻譯

@@ -254,9 +254,12 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
 
     @unittest.skipIf(not USING_NEW_STRUCTURE, "需要新結構才能測試")
     def test_get_departures(self):
-        """測試獲取機場離港航班"""
+        """測試獲取機場離港航班 (使用較近日期)"""
         dep_airport = 'TPE'
-        date = datetime.now().strftime('%Y-%m-%d')
+        # --- 修改：使用明天的日期 --- 
+        tomorrow = datetime.now() + timedelta(days=1)
+        date = tomorrow.strftime('%Y-%m-%d') 
+        # --- 結束修改 ---
         print(f"\n----- 測試 FlightStats get_departures (機場: {dep_airport}, {date}, 預設行為) -----")
         # 測試獲取早上6小時的航班
         departures = self.client.get_departures(dep_airport, date, hour=0, num_hours=6)
@@ -271,23 +274,25 @@ class FlightStatsApiClientSpecificTest(unittest.TestCase):
         print("--- End Debugging ---\n")
         # --- 結束調試 ---
 
+        # --- 修改：斷言調整 --- 
         if departures:
-            print(f"✓ 成功獲取 {len(departures)} 個從 {dep_airport} 出發的航班 (前6小時)")
+            print(f"✓ 成功獲取 {len(departures)} 個從 {dep_airport} 出發的航班 (日期: {date}, 前6小時)")
             first_flight = departures[0]
             print(f"  範例: {first_flight}")
             self.assertIn('flight_number', first_flight)
             self.assertIn('airline_id', first_flight)
-            # self.assertIn(first_flight['airline_id'], TARGET_AIRLINES)
-            self.assertEqual(first_flight.get('departure_airport'), dep_airport)
-            self.assertIn('arrival_airport', first_flight)
+            # self.assertIn(first_flight['airline_id'], TARGET_AIRLINES) # 可以在客戶端層面驗證
+            self.assertEqual(first_flight.get('departure_airport_id'), dep_airport) # 驗證內部格式鍵
+            self.assertIn('arrival_airport_id', first_flight) # 驗證內部格式鍵
             self.assertIn('scheduled_departure', first_flight)
             self.assertIn('scheduled_arrival', first_flight)
-            self.assertIn('actual_departure', first_flight)
-            self.assertIn('actual_arrival', first_flight)
+            # self.assertNotIn('actual_departure', first_flight) # schedules 不應有實際時間
+            # self.assertNotIn('actual_arrival', first_flight)  # schedules 不應有實際時間
             self.assertIn('status', first_flight)
-            self.assertEqual(first_flight.get('source'), 'FlightStats')
+            self.assertEqual(first_flight.get('source'), 'FlightStats-Schedules') # 驗證來源標記
         else:
-            print(f"✓ 未找到 {dep_airport} 在 {date} 早上的離港航班 (可能該時段無目標航班)")
+            print(f"✓ 未找到 {dep_airport} 在 {date} 早上的離港航班 (可能該時段無目標航班，或 API 未提供該日期數據)")
+        # --- 結束修改 ---
 
     @unittest.skipIf(not USING_NEW_STRUCTURE, "需要新結構才能測試")
     def test_get_departures_specific_case(self):

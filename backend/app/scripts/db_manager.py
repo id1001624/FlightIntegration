@@ -12,14 +12,21 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set, Tuple
 
-
-
 # 配置日誌
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger('db_manager')
+
+# Add FlightStatus import
+try:
+    from app.models.flight import FlightStatus
+except ImportError:
+    logger.warning("無法導入 FlightStatus Enum，延誤判斷可能不準確")
+    # Define a dummy class/enum if import fails to avoid NameError
+    class FlightStatus:
+        DELAYED = type('Enum', (), {'value': '延誤'})()
 
 # 嘗試導入常量
 try:
@@ -366,27 +373,31 @@ class DbManager:
                         price_business = flight.get('price_business')
                         price_first = flight.get('price_first')
                         
-                        # 計算航班是否延誤
-                        is_delayed = flight.get('is_delayed', False)
-                        # 如果 flight 數據中沒有提供 is_delayed，則根據 status 或比較計劃時間和實際時間來判斷
-                        if is_delayed is None and status and 'DELAY' in status.upper():
+                        # 計算航班是否延誤 (修改後邏輯)
+                        is_delayed = None # 初始化為 None
+
+                        # 1. 優先檢查 status 欄位
+                        if status == FlightStatus.DELAYED.value:
                             is_delayed = True
-                        # 如果有計劃和實際起飛時間，也可以比較判斷是否延誤
-                        elif is_delayed is None and scheduled_departure and actual_departure:
+                        
+                        # 2. 如果狀態不是延誤，且有時間數據，則比較時間
+                        elif scheduled_departure and actual_departure:
                             try:
-                                sd = datetime.fromisoformat(scheduled_departure.replace('Z', '+00:00'))
-                                ad = datetime.fromisoformat(actual_departure.replace('Z', '+00:00'))
-                                # 如果實際起飛時間晚於計劃起飛時間超過 15 分鐘，認為是延誤
-                                is_delayed = (ad - sd).total_seconds() > 15*60
+                                sd_dt = datetime.fromisoformat(scheduled_departure.replace('Z', '+00:00'))
+                                ad_dt = datetime.fromisoformat(actual_departure.replace('Z', '+00:00'))
+                                # 如果實際起飛時間晚於計劃起飛時間超過 15 分鐘
+                                if (ad_dt - sd_dt).total_seconds() > 15 * 60:
+                                    is_delayed = True
                             except (ValueError, TypeError) as e:
-                                logger.warning(f"比較計劃與實際起飛時間出錯: {str(e)}, 使用默認值 False")
-                                is_delayed = False
-                        else:
-                            # 默認不延誤
+                                logger.warning(f"比較計劃與實際起飛時間出錯 for flight {flight.get('flight_number')}: {str(e)}, is_delayed 將依賴其他條件或默認為 False")
+                                # 出錯時不設置 is_delayed，讓其掉到後面的默認值
+                        
+                        # 3. 如果經過以上檢查 is_delayed 仍為 None，則默認為 False
+                        if is_delayed is None:
                             is_delayed = False
                         
                         if existing:
-                            # 更新現有航班 (移除 updated_at, terminal, gate)
+                            # 更新現有航班
                             cursor.execute("""
                                 UPDATE flights SET 
                                     airline_id = %s,
@@ -397,8 +408,7 @@ class DbManager:
                                     actual_departure = %s,
                                     actual_arrival = %s,
                                     status = %s,
-                                    is_delayed = %s, -- 添加 is_delayed
-                                    data_source = %s
+                                    is_delayed = %s -- 添加 is_delayed
                                     -- updated_at 由數據庫自動更新
                                     -- terminal, gate 已移除
                                 WHERE flight_id = %s
@@ -407,32 +417,31 @@ class DbManager:
                                 scheduled_departure, scheduled_arrival, 
                                 actual_departure, actual_arrival,
                                 status, is_delayed, 
-                                data_source, flight_id
+                                str(flight_id) 
                             ))
                             updated += 1
                             logger.debug(f"已更新航班: {flight_number} ({flight_id})")
                         else:
+                            # 插入新航班 (移除 data_source)
                             cursor.execute("""
                                 INSERT INTO flights (
                                     flight_id, flight_number, airline_id, departure_airport_id,
                                     arrival_airport_id, scheduled_departure, scheduled_arrival,
-                                    actual_departure, actual_arrival, status, is_delayed, 
-                                    data_source 
+                                    actual_departure, actual_arrival, status, is_delayed 
                                     -- created_at, updated_at 由數據庫自動處理
                                     -- terminal, gate 已移除
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                             """, (
-                                flight_id, flight_number, airline_id, departure_airport_id,
+                                str(flight_id), flight_number, airline_id, departure_airport_id,
                                 arrival_airport_id, scheduled_departure, scheduled_arrival,
-                                actual_departure, actual_arrival, status, is_delayed,
-                                data_source
+                                actual_departure, actual_arrival, status, is_delayed
                             ))
                             inserted += 1
                             logger.debug(f"已新增航班: {flight_number} ({flight_id})")
                             
                             # 如果有票價資訊，新增票價
                             if any([price_economy, price_business, price_first]):
-                                self._add_flight_prices(cursor, flight_id, price_economy, price_business, price_first)
+                                self._add_flight_prices(cursor, str(flight_id), price_economy, price_business, price_first) # <--- 確保傳遞字串
                         
                     except Exception as e:
                         errors += 1
@@ -460,9 +469,9 @@ class DbManager:
         finally:
             conn.close()
     
-    def _add_flight_prices(self, cursor, flight_id, price_economy, price_business, price_first):
-        """添加航班票價"""
-        # 使用UUID物件而非字串
+    def _add_flight_prices(self, cursor, flight_id_str: str, price_economy, price_business, price_first):
+        """添加航班票價，接收字串格式的 flight_id"""
+        # 使用UUID物件而非字串來生成 price_id
         price_id = uuid.uuid4()
         created_at = datetime.now().isoformat()
         
@@ -472,12 +481,12 @@ class DbManager:
                 first_price, created_at
             ) VALUES (%s, %s, %s, %s, %s, %s)
         """, (
-            price_id, flight_id, price_economy, price_business,
+            str(price_id), flight_id_str, price_economy, price_business, # <--- 將 price_id 也轉為字串
             price_first, created_at
         ))
     
-    def _update_flight_prices(self, cursor, flight_id, price_economy, price_business, price_first):
-        """更新航班票價"""
+    def _update_flight_prices(self, cursor, flight_id_str: str, price_economy, price_business, price_first):
+        """更新航班票價，接收字串格式的 flight_id"""
         created_at = datetime.now().isoformat()
         
         # 檢查是否已經有票價記錄
@@ -486,7 +495,7 @@ class DbManager:
             WHERE flight_id = %s
             ORDER BY created_at DESC
             LIMIT 1
-        """, (flight_id,))
+        """, (flight_id_str,))
         
         existing = cursor.fetchone()
         
@@ -503,7 +512,7 @@ class DbManager:
             ))
         else:
             # 添加新票價
-            self._add_flight_prices(cursor, flight_id, price_economy, price_business, price_first) 
+            self._add_flight_prices(cursor, flight_id_str, price_economy, price_business, price_first) 
     
     def _debug_flight_data(self, flight: Dict) -> Dict:
         """
