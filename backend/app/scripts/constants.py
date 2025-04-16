@@ -135,23 +135,52 @@ POPULAR_DOMESTIC_ROUTES_TUPLES = [
 ]
 
 # 熱門國際航線 (元組格式，用於內部邏輯如 sync_manager) - 根據用戶提供更新
-# TPE 出發
-_tpe_destinations = ['HKG', 'NRT', 'HND', 'KIX', 'ICN', 'BKK', 'SIN', 'PVG', 'MNL', 'SGN', 'KUL', 'MFM', 'NGO', 'CTS', 'FUK', 'LAX', 'SFO', 'YVR', 'JFK', 'LHR', 'CDG']
-# TSA 出發 (精簡)
-_tsa_destinations = ['HND', 'PVG', 'HKG', 'ICN'] # 假設松山主要飛這些
-# KHH 出發
-_khh_destinations = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
-# RMQ 出發
-_rmq_destinations = ['HKG', 'MFM', 'SGN']
-# HUN 出發 (包機為主，可選)
-_hun_destinations = ['HKG']
+
+# 台灣桃園 (TPE) 出發
+tpe_destinations = [
+    'NRT', 'HND', 'KIX', 'NGO', 'CTS', 'FUK', 'OKA', # 日本
+    'ICN', 'PUS', # 韓國
+    'PVG', 'PEK', 'CAN', # 中國大陸 (使用 PEK 和 CAN 代表北京、廣州)
+    'HKG', # 香港
+    'SIN', # 新加坡
+    'BKK', 'KUL', 'SGN', 'DPS', 'MNL', # 東南亞
+    'SYD', 'MEL', 'BNE', # 澳洲
+    'LHR', 'FRA', # 歐洲
+    'SFO', 'LAX', 'JFK', 'HNL' # 美國
+]
+
+# 台北松山 (TSA) 出發 (僅國際/區域)
+tsa_destinations = [
+    'HND', 'ITM', 'OKA', 'CTS', # 日本
+    'GMP', 'ICN', # 韓國 (GMP, ICN 兩個都有可能，都加入)
+    'PVG', 'SHA', # 中國大陸
+    'HKG', # 香港
+    'BKK', # 泰國
+    'KUL', # 馬來西亞
+    'MFM'  # 澳門
+]
+
+# 高雄 (KHH) 出發
+khh_destinations = [
+    'NRT', 'KIX', 'FUK', 'OKA', # 日本
+    'ICN', # 韓國
+    'PVG', # 中國大陸
+    'BKK', 'SIN', # 東南亞
+    'MFM'  # 澳門 (也加入)
+]
+
+# 台中 (RMQ) 出發
+rmq_destinations = [
+    'KIX', 'NRT', 'OKA', # 日本
+    'ICN', # 韓國
+    'HKG', 'MFM', 'SGN' # 香港/澳門/越南 (根據用戶之前的定義)
+]
 
 POPULAR_INTERNATIONAL_ROUTES_TUPLES = []
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TPE', dest) for dest in _tpe_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TSA', dest) for dest in _tsa_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('KHH', dest) for dest in _khh_destinations])
-POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('RMQ', dest) for dest in _rmq_destinations])
-# POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('HUN', dest) for dest in _hun_destinations]) # 暫不包含花蓮包機
+POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TPE', dest) for dest in tpe_destinations])
+POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('TSA', dest) for dest in tsa_destinations])
+POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('KHH', dest) for dest in khh_destinations])
+POPULAR_INTERNATIONAL_ROUTES_TUPLES.extend([('RMQ', dest) for dest in rmq_destinations])
 
 # 熱門國內航線 (字典格式，用於 API 回應)
 POPULAR_DOMESTIC_ROUTES_DICTS = [
@@ -164,3 +193,28 @@ POPULAR_INTERNATIONAL_ROUTES_DICTS = [
     {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
     for dep, arr in POPULAR_INTERNATIONAL_ROUTES_TUPLES
 ]
+
+# --- 新增：專門給前端使用的熱門航線列表 --- 
+
+# 根據用戶提供的表格定義前端熱門航線
+_fe_tpe_dest = ['HKG', 'NRT', 'HND', 'KIX', 'ICN', 'BKK', 'SIN', 'PVG', 'MNL', 'SGN', 'KUL', 'MFM', 'NGO', 'CTS', 'FUK', 'LAX', 'SFO', 'YVR', 'JFK', 'LHR', 'CDG']
+_fe_tsa_dest = ['HKG', 'HND', 'GMP', 'PVG', 'SHA'] # GMP 代表首爾金浦, SHA 代表上海虹橋
+_fe_khh_dest = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
+_fe_rmq_dest = ['HKG', 'MFM', 'SGN']
+_fe_hun_dest = ['HKG'] # 花蓮包機
+
+FRONTEND_POPULAR_ROUTES_TUPLES = []
+FRONTEND_POPULAR_ROUTES_TUPLES.extend([('TPE', dest) for dest in _fe_tpe_dest])
+# 對於松山，只添加表格中明確提到的
+FRONTEND_POPULAR_ROUTES_TUPLES.extend([('TSA', dest) for dest in _fe_tsa_dest]) 
+FRONTEND_POPULAR_ROUTES_TUPLES.extend([('KHH', dest) for dest in _fe_khh_dest])
+FRONTEND_POPULAR_ROUTES_TUPLES.extend([('RMQ', dest) for dest in _fe_rmq_dest])
+FRONTEND_POPULAR_ROUTES_TUPLES.extend([('HUN', dest) for dest in _fe_hun_dest])
+
+# 前端熱門航線 (字典格式，用於 API 回應)
+FRONTEND_POPULAR_ROUTES_DICTS = [
+    {'departure': dep, 'arrival': arr, 'name': _get_route_name(dep, arr)}
+    for dep, arr in FRONTEND_POPULAR_ROUTES_TUPLES
+]
+
+# --- 結束新增 ---

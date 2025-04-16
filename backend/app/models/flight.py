@@ -7,15 +7,6 @@ from uuid import uuid4
 from datetime import datetime, timedelta
 from .base import db, Base
 
-# <--- 定義 FlightStatus Enum --- >
-class FlightStatus(enum.Enum):
-    ON_TIME = "準時"
-    DELAYED = "延誤"
-    CANCELLED = "取消"
-    DEPARTED = "已起飛"
-    ARRIVED = "已抵達"
-# <--- 結束 Enum 定義 --- >
-
 class Flight(Base):
     """航班數據模型"""
     __tablename__ = 'flights'
@@ -27,14 +18,9 @@ class Flight(Base):
     arrival_airport_id = db.Column(db.String, db.ForeignKey('airports.airport_id'), nullable=False)
     scheduled_departure = db.Column(db.DateTime(timezone=True), nullable=False)
     scheduled_arrival = db.Column(db.DateTime(timezone=True), nullable=False)
-    actual_departure = db.Column(db.DateTime(timezone=True), nullable=True)
-    actual_arrival = db.Column(db.DateTime(timezone=True), nullable=True)
-    status = db.Column(db.String)
-    is_delayed = db.Column(db.Boolean, default=False)  # 是否延誤
-    
-    # 保留的欄位
-    terminal = db.Column(db.String, nullable=True)  # 航廈資訊
-    gate = db.Column(db.String, nullable=True)      # 登機門資訊
+    aircraft = db.Column(db.String, nullable=False)
+    departure_terminal = db.Column(db.String(10), nullable=True)
+    arrival_terminal = db.Column(db.String(10), nullable=True)
     
     # 使用應用程式所在時區的當前時間，而非UTC時間
     created_at = db.Column(db.DateTime, default=datetime.now, nullable=True)
@@ -60,33 +46,6 @@ class Flight(Base):
         # 此處簡單判斷，可能需要根據實際情況調整
         return (self.departure_airport.country == 'Taiwan' or 
                 self.arrival_airport.country == 'Taiwan')
-                
-    def update_status(self):
-        """
-        根據當前時間和航班計劃時間更新航班狀態
-        
-        邏輯：
-        1. 如果 is_delayed 為真，狀態設為「延誤」
-        2. 當前時間超過計劃降落時間，狀態設為「已抵達」
-        3. 當前時間超過計劃起飛時間，狀態設為「已起飛」
-        4. 其他情況，狀態保持「準時」
-        
-        注意：如需更精確的狀態判斷，建議通過API獲取實時資料
-        """
-        now = datetime.now()
-        
-        # 如果手動標記為延誤
-        if self.is_delayed:
-            self.status = self.STATUS_DELAYED
-            return
-            
-        # 根據當前時間判斷狀態
-        if now > self.scheduled_arrival:
-            self.status = self.STATUS_ARRIVED
-        elif now > self.scheduled_departure:
-            self.status = self.STATUS_DEPARTED
-        else:
-            self.status = self.STATUS_ON_TIME
     
     @classmethod
     def search_flights(cls, departure_airport_id, arrival_airport_id, 
@@ -179,9 +138,5 @@ class Flight(Base):
             query = query.filter_by(airline_id=airline_id)
         
         flights = query.all()
-        
-        # 更新所有航班的狀態
-        for flight in flights:
-            flight.update_status()
             
         return flights 

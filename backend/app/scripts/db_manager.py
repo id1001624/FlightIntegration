@@ -19,15 +19,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger('db_manager')
 
-# Add FlightStatus import
-try:
-    from app.models.flight import FlightStatus
-except ImportError:
-    logger.warning("無法導入 FlightStatus Enum，延誤判斷可能不準確")
-    # Define a dummy class/enum if import fails to avoid NameError
-    class FlightStatus:
-        DELAYED = type('Enum', (), {'value': '延誤'})()
-
 # 嘗試導入常量
 try:
     from app.scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES
@@ -307,6 +298,11 @@ class DbManager:
         conn = self.get_db_connection()
         try:
             with conn.cursor() as cursor:
+                # 先獲取資料表結構，以確保只插入存在的欄位
+                cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'flights'")
+                valid_columns = [row[0] for row in cursor.fetchall()]
+                logger.info(f"資料庫表 'flights' 有效欄位: {valid_columns}")
+                
                 for flight in flights:
                     try:
                         # 檢查必要欄位
@@ -340,6 +336,26 @@ class DbManager:
                             skipped += 1
                             continue
                         
+                        # 過濾掉不在資料庫表結構中的欄位
+                        filtered_flight = {}
+                        for key, value in flight.items():
+                            if key in valid_columns:
+                                filtered_flight[key] = value
+                            else:
+                                logger.debug(f"移除航班不存在於資料庫的欄位: {key}")
+                        
+                        # 確保 flight_id 是 UUID 格式
+                        if 'flight_id' not in filtered_flight or not filtered_flight['flight_id']:
+                            filtered_flight['flight_id'] = uuid.uuid4()
+                        elif not isinstance(filtered_flight['flight_id'], uuid.UUID):
+                            try:
+                                if isinstance(filtered_flight['flight_id'], str):
+                                    filtered_flight['flight_id'] = uuid.UUID(filtered_flight['flight_id'])
+                                else:
+                                    filtered_flight['flight_id'] = uuid.uuid4()
+                            except ValueError:
+                                filtered_flight['flight_id'] = uuid.uuid4()
+                        
                         # 創建或更新航班
                         cursor.execute("""
                             SELECT flight_id FROM flights
@@ -347,101 +363,71 @@ class DbManager:
                         """, (flight_number, scheduled_departure))
                         existing = cursor.fetchone()
                         
-                        # 生成唯一航班ID - 使用UUID物件而非字串
-                        if not existing:
-                            flight_id = uuid.uuid4()
-                        else:
-                            # 如果現有ID是字串，轉換為UUID物件
-                            try:
-                                flight_id = existing[0] if isinstance(existing[0], uuid.UUID) else uuid.UUID(existing[0])
-                            except (ValueError, TypeError):
-                                logger.warning(f"現有flight_id格式不正確: {existing[0]}，將生成新ID")
-                                flight_id = uuid.uuid4()
-                        
-                        # 準備數據
-                        status = flight.get('status', '')
-                        actual_departure = flight.get('actual_departure')
-                        actual_arrival = flight.get('actual_arrival')
-                        terminal_departure = flight.get('terminal_departure', '')
-                        terminal_arrival = flight.get('terminal_arrival', '')
-                        gate_departure = flight.get('gate_departure', '')
-                        gate_arrival = flight.get('gate_arrival', '')
-                        baggage_claim = flight.get('baggage_claim', '')
-                        data_source = flight.get('data_source', 'API')
-                        updated_at = datetime.now().isoformat()
-                        price_economy = flight.get('price_economy')
-                        price_business = flight.get('price_business')
-                        price_first = flight.get('price_first')
-                        
-                        # 計算航班是否延誤 (修改後邏輯)
-                        is_delayed = None # 初始化為 None
-
-                        # 1. 優先檢查 status 欄位
-                        if status == FlightStatus.DELAYED.value:
-                            is_delayed = True
-                        
-                        # 2. 如果狀態不是延誤，且有時間數據，則比較時間
-                        elif scheduled_departure and actual_departure:
-                            try:
-                                sd_dt = datetime.fromisoformat(scheduled_departure.replace('Z', '+00:00'))
-                                ad_dt = datetime.fromisoformat(actual_departure.replace('Z', '+00:00'))
-                                # 如果實際起飛時間晚於計劃起飛時間超過 15 分鐘
-                                if (ad_dt - sd_dt).total_seconds() > 15 * 60:
-                                    is_delayed = True
-                            except (ValueError, TypeError) as e:
-                                logger.warning(f"比較計劃與實際起飛時間出錯 for flight {flight.get('flight_number')}: {str(e)}, is_delayed 將依賴其他條件或默認為 False")
-                                # 出錯時不設置 is_delayed，讓其掉到後面的默認值
-                        
-                        # 3. 如果經過以上檢查 is_delayed 仍為 None，則默認為 False
-                        if is_delayed is None:
-                            is_delayed = False
-                        
                         if existing:
-                            # 更新現有航班
-                            cursor.execute("""
+                            # 使用現有 ID
+                            flight_id = existing[0]
+                            
+                            # 動態構建 UPDATE 語句，只更新存在的欄位
+                            update_fields = []
+                            update_values = []
+                            
+                            for field in valid_columns:
+                                if field != 'flight_id' and field in filtered_flight:
+                                    update_fields.append(f"{field} = %s")
+                                    update_values.append(filtered_flight[field])
+                            
+                            # 如果沒有要更新的欄位，跳過
+                            if not update_fields:
+                                logger.info(f"航班 {flight_number} 沒有要更新的欄位，跳過")
+                                continue
+                                
+                            # 添加 WHERE 條件的 flight_id
+                            update_values.append(flight_id)
+                            
+                            # 構建並執行 UPDATE 語句
+                            update_sql = f"""
                                 UPDATE flights SET 
-                                    airline_id = %s,
-                                    departure_airport_id = %s,
-                                    arrival_airport_id = %s,
-                                    scheduled_departure = %s,
-                                    scheduled_arrival = %s,
-                                    actual_departure = %s,
-                                    actual_arrival = %s,
-                                    status = %s,
-                                    is_delayed = %s -- 添加 is_delayed
-                                    -- updated_at 由數據庫自動更新
-                                    -- terminal, gate 已移除
+                                    {', '.join(update_fields)}
                                 WHERE flight_id = %s
-                            """, (
-                                airline_id, departure_airport_id, arrival_airport_id, 
-                                scheduled_departure, scheduled_arrival, 
-                                actual_departure, actual_arrival,
-                                status, is_delayed, 
-                                str(flight_id) 
-                            ))
+                            """
+                            cursor.execute(update_sql, update_values)
                             updated += 1
                             logger.debug(f"已更新航班: {flight_number} ({flight_id})")
                         else:
-                            # 插入新航班 (移除 data_source)
-                            cursor.execute("""
+                            # 動態構建 INSERT 語句，只插入存在的欄位
+                            insert_fields = []
+                            insert_placeholders = []
+                            insert_values = []
+                            
+                            # 確保 flight_id 總是第一個欄位
+                            if 'flight_id' in filtered_flight:
+                                insert_fields.append('flight_id')
+                                insert_placeholders.append('%s')
+                                insert_values.append(str(filtered_flight['flight_id']))
+                            
+                            for field in valid_columns:
+                                if field != 'flight_id' and field in filtered_flight:
+                                    insert_fields.append(field)
+                                    insert_placeholders.append('%s')
+                                    insert_values.append(filtered_flight[field])
+                            
+                            # 構建並執行 INSERT 語句
+                            insert_sql = f"""
                                 INSERT INTO flights (
-                                    flight_id, flight_number, airline_id, departure_airport_id,
-                                    arrival_airport_id, scheduled_departure, scheduled_arrival,
-                                    actual_departure, actual_arrival, status, is_delayed 
-                                    -- created_at, updated_at 由數據庫自動處理
-                                    -- terminal, gate 已移除
-                                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            """, (
-                                str(flight_id), flight_number, airline_id, departure_airport_id,
-                                arrival_airport_id, scheduled_departure, scheduled_arrival,
-                                actual_departure, actual_arrival, status, is_delayed
-                            ))
+                                    {', '.join(insert_fields)}
+                                ) VALUES ({', '.join(insert_placeholders)})
+                            """
+                            cursor.execute(insert_sql, insert_values)
                             inserted += 1
-                            logger.debug(f"已新增航班: {flight_number} ({flight_id})")
+                            logger.debug(f"已新增航班: {flight_number} ({filtered_flight['flight_id']})")
                             
                             # 如果有票價資訊，新增票價
-                            if any([price_economy, price_business, price_first]):
-                                self._add_flight_prices(cursor, str(flight_id), price_economy, price_business, price_first) # <--- 確保傳遞字串
+                            price_economy = flight.get('price_economy')
+                            price_business = flight.get('price_business')
+                            price_first = flight.get('price_first')
+                            
+                            if any([price_economy, price_business, price_first]) and 'flight_id' in filtered_flight:
+                                self._add_flight_prices(cursor, str(filtered_flight['flight_id']), price_economy, price_business, price_first)
                         
                     except Exception as e:
                         errors += 1
