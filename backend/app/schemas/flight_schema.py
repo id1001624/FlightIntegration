@@ -61,8 +61,55 @@ class FlightSearchResultSchema(Schema):
     lowest_price = fields.Float(allow_none=True) # 假設服務層會計算
     duration_minutes = fields.Int(allow_none=True) # 假設服務層會計算
 
+# --- 新增用於 /from_taiwan 端點的請求參數 Schema ---
+class FlightsFromTaiwanArgsSchema(Schema):
+    date = fields.Date(required=True, format='%Y-%m-%d', error_messages={'required': '必須提供出發日期', 'invalid': '日期格式錯誤，請使用 YYYY-MM-DD'})
+    airlines = fields.List(fields.String(), required=False, load_default=None, metadata={"description": "航空公司代碼列表 (e.g., 'CI,BR')"})
+    price_min = fields.Float(required=False, load_default=None, validate=validate.Range(min=0), metadata={"description": "最低價格"})
+    price_max = fields.Float(required=False, load_default=None, validate=validate.Range(min=0), metadata={"description": "最高價格"})
+    class_type = fields.String(required=False, load_default='經濟', validate=validate.OneOf(['經濟', '商務', '頭等']), metadata={"description": "艙位等級"})
+    passengers = fields.Int(required=False, load_default=1, validate=validate.Range(min=1), metadata={"description": "乘客數量"})
+    max_results = fields.Int(required=False, load_default=20, validate=validate.Range(min=1), metadata={"description": "最大結果數量"})
+    sort_by = fields.String(required=False, load_default='price', validate=validate.OneOf(['price', 'duration', 'departure_time', 'arrival_time']), metadata={"description": "排序依據"})
+    only_target_airlines = fields.Boolean(required=False, load_default=True, metadata={"description": "是否僅顯示目標航空公司"})
+
+    @validates_schema
+    def validate_prices(self, data, **kwargs):
+        if data.get('price_min') is not None and data.get('price_max') is not None and data['price_min'] > data['price_max']:
+            raise ValidationError('最低價格不能高於最高價格', ['price_min', 'price_max'])
+
+# --- 新增用於 /status 端點的響應 Schema ---
+class FlightStatusSchema(Schema):
+    status = fields.String(allow_none=True, metadata={"description": "航班狀態 (中文)"})
+    status_en = fields.String(allow_none=True, metadata={"description": "航班狀態 (英文)"})
+    actual_departure_time = fields.DateTime(allow_none=True, metadata={"description": "實際起飛時間"})
+    actual_arrival_time = fields.DateTime(allow_none=True, metadata={"description": "實際到達時間"})
+    gate = fields.String(allow_none=True, metadata={"description": "登機門"})
+    terminal = fields.String(allow_none=True, metadata={"description": "航廈"})
+    source = fields.String(required=True, metadata={"description": "狀態來源 (e.g., FlightStats)"})
+    retrieved_at = fields.DateTime(required=True, metadata={"description": "狀態獲取時間"})
+
+# --- 新增用於 /sync-taiwan-flights 端點的請求體 Schema ---
+class SyncTaiwanFlightsArgsSchema(Schema):
+    date = fields.Date(required=True, format='%Y-%m-%d', error_messages={'required': '必須提供日期', 'invalid': '日期格式錯誤，請使用 YYYY-MM-DD'})
+    days = fields.Int(required=False, load_default=1, validate=validate.Range(min=1), error_messages={'invalid': '天數必須是有效的正整數'})
+
+# --- 新增用於 /generate-test-data 端點的請求體 Schema ---
+class GenerateTestDataArgsSchema(Schema):
+    departure = fields.Str(required=True, error_messages={'required': '必須提供出發機場代碼'})
+    arrival = fields.Str(required=True, error_messages={'required': '必須提供到達機場代碼'})
+    start_date = fields.Date(required=True, format='%Y-%m-%d', error_messages={'required': '必須提供開始日期', 'invalid': '日期格式錯誤，請使用 YYYY-MM-DD'})
+    num_days = fields.Int(required=False, load_default=30, validate=validate.Range(min=1), error_messages={'invalid': '天數必須是有效的正整數'})
+    flights_per_day = fields.Int(required=False, load_default=5, validate=validate.Range(min=1), error_messages={'invalid': '每日航班數必須是有效的正整數'})
+
+# --- 導出 Schema 實例 ---
 flight_search_args_schema = FlightSearchArgsSchema()
+flights_search_result_schema = FlightSearchResultSchema(many=True)
 flight_schema = FlightSchema()
-flights_schema = FlightSchema(many=True)
-flight_search_result_schema = FlightSearchResultSchema()
-flights_search_result_schema = FlightSearchResultSchema(many=True) 
+flights_from_taiwan_args_schema = FlightsFromTaiwanArgsSchema()
+flight_status_schema = FlightStatusSchema()
+sync_taiwan_flights_args_schema = SyncTaiwanFlightsArgsSchema() # 新增
+generate_test_data_args_schema = GenerateTestDataArgsSchema() # 新增
+
+airport_basic_schema = AirportBasicSchema()
+airports_basic_schema = AirportBasicSchema(many=True) 

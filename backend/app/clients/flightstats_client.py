@@ -141,45 +141,45 @@ class FlightStatsApiClient(BaseAPIClient):
         flights = []
             
         if response and 'scheduledFlights' in response:
-            self.logger.info(f"接收到 scheduledFlights 回應，包含 {len(response['scheduledFlights'])} 個航班")
-            try:
-                for item in response['scheduledFlights']:
-                    # 篩選目標航空公司
-                    airline_code = item.get('carrierFsCode', '')
-                    if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
-                        continue
-                    # 解析日期時間
-                    dep_time = None
-                    arr_time = None
-                    try:
-                        dep_time_str = item.get('departureTime', '')
-                        if dep_time_str:
-                            dep_time = parse_datetime(dep_time_str)
-                        arr_time_str = item.get('arrivalTime', '')
-                        if arr_time_str:
-                            arr_time = parse_datetime(arr_time_str)
-                    except Exception as e:
-                        self.logger.warning(f"解析日期時間出錯: {str(e)}")
-            # 創建航班信息字典，只包含資料庫中存在的欄位
-            # 並使用UUID為flight_id生成真正的UUID
-                    flight = {
-                'flight_id': uuid.uuid4(),  # 生成真正的UUID
-                        'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
-                'airline_id': item.get('carrierFsCode', ''),
-                        'airline_code': item.get('carrierFsCode', ''),
-                'departure_airport_id': dep_airport,
-                'arrival_airport_id': arr_airport,
-                                'scheduled_departure': format_datetime(dep_time) if dep_time else None,
-                                'scheduled_arrival': format_datetime(arr_time) if arr_time else None,
-                        'aircraft': item.get('flightEquipmentIataCode', ''),
-                # 確保提取航廈資訊，如果為 None 或空字串則設為 None
-                'departure_terminal': item.get('departureTerminal') or None,
-                'arrival_terminal': item.get('arrivalTerminal') or None,
-                    }
-                    flights.append(flight)
-                    self.logger.info(f"成功從schedules接口獲取並添加 {len(flights)} 個航班信息")
-            except Exception as e:
-                self.logger.error(f"解析schedules數據時出錯: {str(e)}")
+                self.logger.info(f"接收到 scheduledFlights 回應，包含 {len(response['scheduledFlights'])} 個航班")
+                try:
+                    for item in response['scheduledFlights']:
+                        # 篩選目標航空公司
+                        airline_code = item.get('carrierFsCode', '')
+                        if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
+                            continue
+                        # 解析日期時間
+                        dep_time = None
+                        arr_time = None
+                        try:
+                            dep_time_str = item.get('departureTime', '')
+                            if dep_time_str:
+                                dep_time = parse_datetime(dep_time_str)
+                            arr_time_str = item.get('arrivalTime', '')
+                            if arr_time_str:
+                                arr_time = parse_datetime(arr_time_str)
+                        except Exception as e:
+                            self.logger.warning(f"解析日期時間出錯: {str(e)}")
+        # 創建航班信息字典，只包含資料庫中存在的欄位
+        # 並使用UUID為flight_id生成真正的UUID
+                        flight = {
+            'flight_id': uuid.uuid4(),  # 生成真正的UUID
+                            'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
+            'airline_id': item.get('carrierFsCode', ''),
+                            'airline_code': item.get('carrierFsCode', ''),
+            'departure_airport_id': dep_airport,
+            'arrival_airport_id': arr_airport,
+                                    'scheduled_departure': format_datetime(dep_time) if dep_time else None,
+                                    'scheduled_arrival': format_datetime(arr_time) if arr_time else None,
+                            'aircraft': item.get('flightEquipmentIataCode', ''),
+            # 確保提取航廈資訊，如果為 None 或空字串則設為 None
+            'departure_terminal': item.get('departureTerminal') or None,
+            'arrival_terminal': item.get('arrivalTerminal') or None,
+                        }
+                        flights.append(flight)
+                        self.logger.info(f"成功從schedules接口獲取並添加 {len(flights)} 個航班信息")
+                except Exception as e:
+                    self.logger.error(f"解析schedules數據時出錯: {str(e)}")
 
         if not flights:
             self.logger.warning(f"獲取航班信息失敗: {dep_airport} → {arr_airport}, 日期: {date}")

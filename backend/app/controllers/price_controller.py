@@ -9,17 +9,15 @@ from ..services.price_service import PriceService
 from datetime import datetime
 from werkzeug.exceptions import BadRequest, NotFound
 from flask import current_app # 用於日誌
+from marshmallow import ValidationError
+from ..schemas.price_schema import (
+    ticket_price_by_flight_args_schema,
+    lowest_prices_args_schema,
+    price_history_args_schema,
+    price_analysis_args_schema
+)
 
 # --- 輔助函數 (如果沒有共享的，可以在這裡定義) ---
-def _validate_date(date_str, param_name):
-    """驗證日期字符串格式"""
-    if not date_str:
-        raise BadRequest(f'必須提供 {param_name}')
-    try:
-        return datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        raise BadRequest(f'{param_name} 日期格式錯誤，請使用 YYYY-MM-DD')
-
 def _success_response(data):
     return jsonify({'success': True, 'data': data})
 
@@ -38,11 +36,16 @@ ticket_price_bp = Blueprint('ticket_price', __name__)
 def get_prices_by_flight(flight_id):
     """獲取特定航班的票價信息"""
     try:
-        # 獲取請求參數
-        class_type = request.args.get('class_type')
+        # 使用 Schema 驗證請求參數
+        try:
+            args = ticket_price_by_flight_args_schema.load(request.args)
+        except ValidationError as err:
+            return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
+        
+        # 提取驗證後的參數
+        class_type = args.get('class_type')
         
         # 使用票價服務查詢
-        # 假設服務層在找不到 flight_id 時會處理（例如返回空列表或None）
         prices = PriceService.get_price_by_flight(flight_id, class_type)
         
         # 如果服務層返回空列表，也視為成功（只是沒有數據）
@@ -57,30 +60,24 @@ def get_prices_by_flight(flight_id):
 def get_lowest_prices():
     """獲取特定路線和日期範圍的最低票價"""
     try:
-        # 獲取請求參數
-        departure = request.args.get('departure')
-        arrival = request.args.get('arrival')
-        start_date_str = request.args.get('start_date')
-        end_date_str = request.args.get('end_date')
+        # 使用 Schema 驗證請求參數
+        try:
+            args = lowest_prices_args_schema.load(request.args)
+        except ValidationError as err:
+            return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
-        # 驗證必須參數
-        if not departure or not arrival:
-            raise BadRequest('必須提供出發機場和到達機場代碼')
-        
-        # 驗證日期
-        start_date = _validate_date(start_date_str, '開始日期')
-        end_date = None
-        if end_date_str:
-            end_date = _validate_date(end_date_str, '結束日期')
-            if end_date < start_date:
-                raise BadRequest('結束日期不能早於開始日期')
+        # 提取驗證後的參數
+        departure = args['departure'].upper()
+        arrival = args['arrival'].upper()
+        start_date = args['start_date'].isoformat()
+        end_date = args.get('end_date').isoformat() if args.get('end_date') else None
         
         # 使用票價服務查詢
         prices = PriceService.get_lowest_prices(
-            departure.upper(), 
-            arrival.upper(), 
-            start_date.isoformat(), # 傳遞 ISO 格式日期字符串給服務層
-            end_date.isoformat() if end_date else None
+            departure, 
+            arrival, 
+            start_date,
+            end_date
         )
         
         # 服務層可能返回錯誤字典
@@ -93,8 +90,6 @@ def get_lowest_prices():
             
         return _success_response(prices)
         
-    except BadRequest as e:
-        return _error_response(str(e), 400)
     except Exception as e:
         current_app.logger.error(f"獲取最低票價時出錯: {e}", exc_info=True)
         return _error_response('獲取最低票價時發生內部錯誤', 500)
@@ -103,16 +98,15 @@ def get_lowest_prices():
 def get_price_history(flight_id):
     """獲取航班的歷史票價"""
     try:
-        # 獲取請求參數
-        class_type = request.args.get('class_type', '經濟艙')
-        days_str = request.args.get('days', '30') # 將預設值改為字串
-        
+        # 使用 Schema 驗證請求參數
         try:
-            days = int(days_str)
-            if days <= 0:
-                 raise ValueError('天數必須是正整數')
-        except ValueError as ve:
-            raise BadRequest(str(ve))
+            args = price_history_args_schema.load(request.args)
+        except ValidationError as err:
+            return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
+        
+        # 提取驗證後的參數
+        class_type = args['class_type']
+        days = args['days']
         
         # 使用票價服務查詢
         history = PriceService.get_price_history(flight_id, class_type, days)
@@ -120,8 +114,6 @@ def get_price_history(flight_id):
         # 服務層可能返回錯誤，但在當前實現中，找不到數據會返回空列表
         return _success_response(history)
 
-    except BadRequest as e:
-        return _error_response(str(e), 400)
     except Exception as e:
         current_app.logger.error(f"獲取航班 {flight_id} 歷史票價時出錯: {e}", exc_info=True)
         return _error_response('獲取歷史票價時發生內部錯誤', 500)
@@ -130,8 +122,14 @@ def get_price_history(flight_id):
 def analyze_price_trend(flight_id):
     """分析票價趨勢並提供購買建議"""
     try:
-        # 獲取請求參數
-        class_type = request.args.get('class_type', '經濟艙')
+        # 使用 Schema 驗證請求參數
+        try:
+            args = price_analysis_args_schema.load(request.args)
+        except ValidationError as err:
+            return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
+        
+        # 提取驗證後的參數
+        class_type = args['class_type']
         
         # 使用票價服務分析
         analysis = PriceService.analyze_price_trend(flight_id, class_type)
