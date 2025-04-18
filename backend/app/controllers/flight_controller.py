@@ -54,60 +54,79 @@ def _error_response(message, status_code):
 @flight_bp.route('/search', methods=['GET'])
 async def search_flights():
     """搜索航班"""
-    # 1. 使用 Schema 驗證請求參數
+    # 1. 參數驗證 (保持不變)
     try:
-        # request.args 包含查詢參數
         args = flight_search_args_schema.load(request.args)
     except ValidationError as err:
-        # 返回清晰的驗證錯誤信息
-        # err.messages 是一個字典，包含了錯誤字段和錯誤信息
         return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
 
-    # 提取驗證和處理後的參數
+    # 提取驗證後的參數 (保持不變)
     departure = args['departure'].upper()
     arrival = args['arrival'].upper()
-    departure_date = args['date'].strftime('%Y-%m-%d') # 確保是字串格式
+    departure_date = args['date'].strftime('%Y-%m-%d')
     return_date = args.get('return_date').strftime('%Y-%m-%d') if args.get('return_date') else None
-    airlines_input = args.get('airlines') # 獲取驗證後的列表或 None
+    airlines_input = args.get('airlines')
     price_min = args.get('price_min')
     price_max = args.get('price_max')
-    class_type = args['class_type']
+    class_type = args['class_type'] # e.g., "經濟", "商務"
     only_target_airlines = args['only_target_airlines']
     passengers_int = args['passengers']
     max_results_int = args['max_results']
     sort_by = args['sort_by']
 
-    # 根據 only_target_airlines 決定最終的 airlines 列表
+    # 處理 airlines 列表 (保持不變)
     airlines = None
     if airlines_input:
-        airlines = airlines_input # 如果客戶端提供了，使用客戶端提供的
+        airlines = airlines_input
     elif only_target_airlines:
-        airlines = TARGET_AIRLINES.copy() # 否則，如果標記為 true，使用目標航司
+        airlines = TARGET_AIRLINES.copy()
 
     try:
-        # 使用搜索服務進行查詢，傳遞驗證後的參數
-        result_data = await SearchService.search_flights(
+        # 2. 調用服務層獲取數據
+        service_result = await SearchService.search_flights(
             departure, arrival, departure_date,
             airlines, return_date,
             price_min, price_max, class_type,
             passengers_int, max_results_int, sort_by
         )
+        
+        # 檢查服務層是否返回錯誤
+        if isinstance(service_result, dict) and "error" in service_result:
+            # 如果服務層返回錯誤字典，直接返回錯誤響應
+            return _error_response(service_result["error"], 500) 
+        
+        # 3. 根據請求的 class_type 提取對應的航班列表 (從新的結構中提取)
+        cabin_key_map = {"經濟": "economy", "商務": "business", "頭等": "first"}
+        requested_cabin_key = cabin_key_map.get(class_type, "economy")
+        
+        # 提取去程航班 (從 all_cabins.departure 中提取)
+        outbound_flights_list = service_result.get("all_cabins", {}).get("departure", {}).get(requested_cabin_key, {}).get("flights", [])
+        
+        # 提取回程航班 (從 all_cabins.return 中提取)
+        inbound_flights_list = None
+        if "return" in service_result.get("all_cabins", {}):
+             inbound_flights_list = service_result.get("all_cabins", {}).get("return", {}).get(requested_cabin_key, {}).get("flights", [])
 
-        # 2. 使用 Schema 序列化響應數據
-        # 假設 SearchService 返回的是包含 Flight 模型對象的列表或其他可序列化結構
-        # dump 方法會根據 FlightSearchResultSchema 將數據轉換為 JSON 友好的格式
-        serialized_flights = flights_search_result_schema.dump(result_data.get('flights', [])) # 假設返回結構中有 'flights' 鍵
-
-        # 構建最終響應
+        # 4. 使用 Schema 序列化提取出的航班列表
+        serialized_outbound = flights_search_result_schema.dump(outbound_flights_list)
+        serialized_inbound = flights_search_result_schema.dump(inbound_flights_list) if inbound_flights_list is not None else None
+        
+        # 5. 構建最終響應 (保持不變，使用 outbound_flights/inbound_flights)
         final_response = {
-            'flights': serialized_flights,
-            'total': result_data.get('total', len(serialized_flights)) # 使用服務層返回的總數或序列化後的數量
-            # 可能還有分頁信息等
+            'outbound_flights': serialized_outbound,
+            'total_outbound': len(serialized_outbound)
         }
+        if serialized_inbound is not None:
+            final_response['inbound_flights'] = serialized_inbound
+            final_response['total_inbound'] = len(serialized_inbound)
+            
+        # 可以選擇性地返回所有艙位的數據 (現在 service_result 本身就包含了)
+        # final_response['all_cabins_data'] = service_result.get('all_cabins')
+            
         return _success_response(final_response)
 
-    except Exception as e: # 捕捉服務層或其他地方的錯誤
-        current_app.logger.error(f"搜索航班時發生未預期錯誤: {e}", exc_info=True)
+    except Exception as e: 
+        current_app.logger.error(f"搜索航班控制器層發生未預期錯誤: {e}", exc_info=True)
         return _error_response('搜索航班時發生內部錯誤', 500)
 
 @flight_bp.route('/from_taiwan/<string:arrival_iata>', methods=['GET'])
@@ -140,7 +159,7 @@ async def flights_from_taiwan(arrival_iata):
 
     try:
         # 調用新的服務層方法
-        all_outbound_flights_data = await SearchService.search_flights_from_taiwan(
+        all_outbound_flights_list = await SearchService.search_flights_from_taiwan(
             arrival_iata=arrival_iata.upper(),
             date_str=departure_date,
             airlines=airlines,
@@ -152,19 +171,19 @@ async def flights_from_taiwan(arrival_iata):
             sort_by=sort_by
         )
 
-        # 序列化結果
-        serialized_flights = flights_search_result_schema.dump(all_outbound_flights_data.get('flights', []))
+        # 序列化結果 (直接序列化返回的列表)
+        serialized_flights = flights_search_result_schema.dump(all_outbound_flights_list)
 
-        # 直接返回服務層處理後的結果
+        # 返回結果
         return _success_response({
             'flights': serialized_flights,
-            'total': all_outbound_flights_data.get('total', len(serialized_flights))
+            'total': len(serialized_flights) # 計算返回列表的長度
         })
 
-    except BadRequest as e: # 保留對服務層可能拋出的 BadRequest 的處理
+    except BadRequest as e:
         return _error_response(str(e), 400)
     except Exception as e:
-        current_app.logger.error(f"獲取從台灣出發的航班時發生錯誤: {e}", exc_info=True)
+        current_app.logger.error(f"獲取從台灣出發的航班控制器層發生錯誤: {e}", exc_info=True)
         return _error_response('獲取從台灣出發的航班時發生內部錯誤', 500)
 
 @flight_bp.route('/<string:flight_id>', methods=['GET'])

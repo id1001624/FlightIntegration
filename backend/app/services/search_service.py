@@ -55,75 +55,87 @@ class SearchService:
         Returns:
             Dict[str, Any]: 搜索結果
         """
-        # 獲取數據庫連接
-        db = await get_db()
-        
-        # 查詢航班
-        outbound_flights = await SearchService._query_flights(
-            db, departure_code, arrival_code, date_str, 
-            airline_code, price_min, price_max, 
-            cabin_class, max_results, sort_by
-        )
-        
-        # 生成三種艙等的航班數據
-        cabin_classes = ["經濟", "商務", "頭等"]
-        outbound_results = {
-            "economy": await SearchService._format_flights(outbound_flights, "經濟"),
-            "business": await SearchService._format_flights(outbound_flights, "商務"),
-            "first": await SearchService._format_flights(outbound_flights, "頭等")
-        }
-        
-        # 如果提供了回程日期，也查詢回程航班
-        inbound_results = None
-        if return_date_str:
-            inbound_flights = await SearchService._query_flights(
-                db, arrival_code, departure_code, return_date_str, 
+        db = None # 初始化 db
+        try:
+            # 獲取數據庫連接
+            db = await get_db()
+            
+            # 查詢航班
+            outbound_flights = await SearchService._query_flights(
+                db, departure_code, arrival_code, date_str, 
                 airline_code, price_min, price_max, 
                 cabin_class, max_results, sort_by
             )
-            inbound_results = {
-                "economy": await SearchService._format_flights(inbound_flights, "經濟"),
-                "business": await SearchService._format_flights(inbound_flights, "商務"),
-                "first": await SearchService._format_flights(inbound_flights, "頭等")
+            
+            # 生成三種艙等的航班數據
+            cabin_classes = ["經濟", "商務", "頭等"]
+            outbound_results = {
+                "economy": await SearchService._format_flights(outbound_flights, "經濟"),
+                "business": await SearchService._format_flights(outbound_flights, "商務"),
+                "first": await SearchService._format_flights(outbound_flights, "頭等")
             }
             
-        # 準備結果
-        result = {
-            "outbound": outbound_results.get(cabin_class.lower().replace("艙", ""), outbound_results["economy"]),
-            "all_cabins": {
-                "economy": {
-                    "name": "經濟艙",
-                    "flights": outbound_results["economy"]
-                },
-                "business": {
-                    "name": "商務艙",
-                    "flights": outbound_results["business"]
-                },
-                "first": {
-                    "name": "頭等艙",
-                    "flights": outbound_results["first"]
+            # 如果提供了回程日期，也查詢回程航班
+            inbound_results = None
+            if return_date_str:
+                inbound_flights = await SearchService._query_flights(
+                    db, arrival_code, departure_code, return_date_str, 
+                    airline_code, price_min, price_max, 
+                    cabin_class, max_results, sort_by
+                )
+                inbound_results = {
+                    "economy": await SearchService._format_flights(inbound_flights, "經濟"),
+                    "business": await SearchService._format_flights(inbound_flights, "商務"),
+                    "first": await SearchService._format_flights(inbound_flights, "頭等")
                 }
-            }
-        }
-        
-        if inbound_results:
-            result["inbound"] = inbound_results.get(cabin_class.lower().replace("艙", ""), inbound_results["economy"])
-            result["all_cabins"]["return"] = {
-                "economy": {
-                    "name": "經濟艙",
-                    "flights": inbound_results["economy"]
-                },
-                "business": {
-                    "name": "商務艙",
-                    "flights": inbound_results["business"]
-                },
-                "first": {
-                    "name": "頭等艙",
-                    "flights": inbound_results["first"]
+                
+            # 準備結果
+            result = {
+                "all_cabins": {
+                    "departure": { # 將去程放入 departure
+                        "economy": {
+                            "name": "經濟艙",
+                            "flights": outbound_results["economy"]
+                        },
+                        "business": {
+                            "name": "商務艙",
+                            "flights": outbound_results["business"]
+                        },
+                        "first": {
+                            "name": "頭等艙",
+                            "flights": outbound_results["first"]
+                        }
+                    }
                 }
             }
             
-        return result
+            if inbound_results:
+                result["all_cabins"]["return"] = { # 將回程放入 return
+                    "economy": {
+                        "name": "經濟艙",
+                        "flights": inbound_results["economy"]
+                    },
+                    "business": {
+                        "name": "商務艙",
+                        "flights": inbound_results["business"]
+                    },
+                    "first": {
+                        "name": "頭等艙",
+                        "flights": inbound_results["first"]
+                    }
+                }
+                
+            return result # 成功時返回包含 outbound/inbound 的字典
+
+        except Exception as e:
+            logger.error(f"執行航班搜索時發生未預期錯誤: {e}", exc_info=True)
+            # 發生錯誤時，返回一個包含錯誤信息的字典，而不是列表
+            return {"error": f"搜索服務內部錯誤: {str(e)}"} 
+
+        finally:
+            # 確保數據庫連接被釋放
+            if db:
+                await release_db(db)
     
     @staticmethod
     async def _query_flights(
@@ -171,8 +183,6 @@ class SearchService:
             f.flight_number, 
             f.scheduled_departure, 
             f.scheduled_arrival, 
-            f.status,
-            al.is_domestic,
             a_dep.airport_id as departure_id, 
             a_dep.name_zh as departure_name,
             a_dep.city as departure_city,
@@ -180,7 +190,10 @@ class SearchService:
             a_arr.name_zh as arrival_name,
             a_arr.city as arrival_city,
             al.airline_id, 
-            al.name_zh as airline_name
+            al.name_zh as airline_name_zh,
+            al.name_en as airline_name_en,
+            al.is_domestic as airline_is_domestic,
+            al.logo_path as airline_logo_path
         FROM 
             flights f
         JOIN 
@@ -237,7 +250,7 @@ class SearchService:
         格式化航班列表為API響應格式，並生成模擬票價數據
         
         Args:
-            flights: 航班列表
+            flights: 航班列表 (應包含 airline_id, airline_name, logo_path)
             cabin_class: 艙位類型
             
         Returns:
@@ -283,29 +296,32 @@ class SearchService:
             if status is None or status.lower() == "unknown" or status == "":
                 status = random.choices(possible_statuses, weights=status_weights, k=1)[0]
             
-            # 格式化航班數據
+            # 格式化航班數據 - 匹配 AirlineBasicSchema
             formatted_flight = {
                 "flight_id": flight["flight_id"],
                 "airline": {
-                    "airline_id": flight["airline_id"],
-                    "name": flight["airline_name"],
-                    "logo_url": f"https://example.com/airlines/{flight['airline_id']}.png"
+                    "code": flight["airline_id"], # 使用 airline_id 作為 code
+                    "name_zh": flight.get("airline_name_zh"),
+                    "name_en": flight.get("airline_name_en"),
+                    "logo_path": flight.get("airline_logo_path"),
+                    "is_domestic": flight.get("airline_is_domestic")
+                    # is_target 通常在控制器層面根據需求添加，這裡不包含
                 },
                 "flight_number": flight["flight_number"],
                 "departure": {
                     "airport_id": flight["departure_id"],
-                    "name": flight["departure_name"],
+                    "name": flight["departure_name"], # API Schema 可能期望 name
                     "city": flight["departure_city"],
-                    "terminal": random.choice(["1", "2", "3"]),
-                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}",
+                    "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
+                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
                     "time": flight["scheduled_departure"].isoformat()
                 },
                 "arrival": {
                     "airport_id": flight["arrival_id"],
-                    "name": flight["arrival_name"],
+                    "name": flight["arrival_name"], # API Schema 可能期望 name
                     "city": flight["arrival_city"],
-                    "terminal": random.choice(["1", "2", "3"]),
-                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}",
+                    "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
+                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
                     "time": flight["scheduled_arrival"].isoformat()
                 },
                 "duration_minutes": duration_minutes,
@@ -752,7 +768,7 @@ class SearchService:
         try:
             logger.info(f"正在獲取航班 ID: {flight_id} 的詳細信息")
 
-            # 查詢航班基本信息及關聯機場、航空公司
+            # 查詢航班基本信息及關聯機場、航空公司，包含 logo_path
             query = """
             SELECT
                 f.flight_id,
@@ -775,7 +791,10 @@ class SearchService:
                 a_arr.city as arrival_city,
                 a_arr.country as arrival_country,
                 al.airline_id,
-                al.name_zh as airline_name
+                al.name_zh as airline_name_zh,
+                al.name_en as airline_name_en,
+                al.is_domestic as airline_is_domestic,
+                al.logo_path as airline_logo_path
             FROM
                 flights f
             JOIN
@@ -836,15 +855,15 @@ class SearchService:
             except Exception as dur_e:
                 logger.warning(f"計算航班 {flight_id} 飛行時間時出錯: {dur_e}")
 
-            # 格式化結果
+            # 格式化結果 - 使用真實的 logo_path
             result = {
                 'flight_id': flight_record['flight_id'],
                 'flight_number': flight_record['flight_number'],
                 'airline': {
                     'id': flight_record['airline_id'],
                     'code': flight_record['airline_id'],
-                    'name': flight_record['airline_name'],
-                    'logo_url': f"https://example.com/airlines/{flight_record['airline_id']}.png"
+                    'name': flight_record['airline_name_zh'],
+                    'logo_path': flight_record.get('airline_logo_path')
                 },
                 'departure': {
                     'airport_id': flight_record['departure_id'],
@@ -871,7 +890,7 @@ class SearchService:
                 'status': flight_record['status'],
                 'duration_minutes': duration_minutes,
                 'aircraft': flight_record['aircraft_type'],
-                'is_domestic': flight_record['is_domestic'],
+                'is_domestic': flight_record['airline_is_domestic'],
                 'prices': prices
             }
 
@@ -918,7 +937,6 @@ class SearchService:
                 f.flight_number,
                 f.scheduled_departure,
                 f.scheduled_arrival,
-                f.status,
                 al.is_domestic,
                 a_dep.airport_id as departure_id,
                 a_dep.name_zh as departure_name,
@@ -927,7 +945,9 @@ class SearchService:
                 a_arr.name_zh as arrival_name,
                 a_arr.city as arrival_city,
                 al.airline_id,
-                al.name_zh as airline_name
+                al.name_zh as airline_name_zh,
+                al.name_en as airline_name_en,
+                al.logo_path as airline_logo_path
             FROM
                 flights f
             JOIN

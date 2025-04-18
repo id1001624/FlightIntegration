@@ -53,10 +53,11 @@ class FlightSearchResultSchema(Schema):
     scheduled_arrival = fields.DateTime()
     departure_terminal = fields.Str(allow_none=True)
     arrival_terminal = fields.Str(allow_none=True)
-    # 嵌套基本信息即可 - **假設關聯名稱正確**
-    airline = fields.Nested(AirlineBasicSchema, attribute="airline_rel", dump_only=True)
-    departure_airport = fields.Nested(AirportBasicSchema, attribute="departure_airport_rel", dump_only=True)
-    arrival_airport = fields.Nested(AirportBasicSchema, attribute="arrival_airport_rel", dump_only=True)
+    # 嵌套基本信息即可 - 移除 attribute="airline_rel"
+    # airline = fields.Nested(AirlineBasicSchema, attribute="airline_rel", dump_only=True)
+    airline = fields.Nested(AirlineBasicSchema, dump_only=True)
+    departure_airport = fields.Nested(AirportBasicSchema, attribute="departure_airport_rel", dump_only=True) # 保留，假設 airport 字段名不同
+    arrival_airport = fields.Nested(AirportBasicSchema, attribute="arrival_airport_rel", dump_only=True)   # 保留，假設 airport 字段名不同
     # 可能需要最低票價
     lowest_price = fields.Float(allow_none=True) # 假設服務層會計算
     duration_minutes = fields.Int(allow_none=True) # 假設服務層會計算
