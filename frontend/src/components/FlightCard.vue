@@ -67,6 +67,9 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { RouterLink } from 'vue-router';
 
+// 定義後端基礎 URL
+const backendUrl = 'http://localhost:5000';
+
 export default {
   name: 'FlightCard',
   props: {
@@ -86,34 +89,33 @@ export default {
     const airplaneIcon = ref(null);
     let animationFrame = null;
     
-    // --- Logo Mapping ---
-    const airlineLogos = {
-      // IATA Code: Logo Path
-      'CI': '/assets/images/airlines/中華航空.png',
-      'BR': '/assets/images/airlines/長榮航空.png',
-      'AE': '/assets/images/airlines/華信航空.png',
-      'B7': '/assets/images/airlines/立榮航空.png',
-      'JX': '/assets/images/airlines/星宇航空.png',
-      'DA': '/assets/images/airlines/德安航空.png',
-      'JL': '/assets/images/airlines/日本航空.png',
-      'CX': '/assets/images/airlines/國泰航空.png',
-      'OZ': '/assets/images/airlines/韓亞航空.png',
-      'IT': '/assets/images/airlines/台灣虎行.png',
-      // Add more airlines as needed
-    };
+    // --- 移除 Logo Mapping ---
+    // const airlineLogos = {
+    //   // ... 原來的硬編碼內容 ...
+    // };
 
-    const getAirlineCode = computed(() => {
-        if (props.flight.airline && typeof props.flight.airline === 'object') {
-            return props.flight.airline.code || props.flight.airline.iata_code;
-        }
-        return props.flight.airline_code || (props.flight.flight_number ? props.flight.flight_number.substring(0, 2) : null);
-    });
+    // --- 移除 getAirlineCode，因為我們直接用 logo_path ---
+    // const getAirlineCode = computed(() => {
+    //     // ... 原來的邏輯 ...
+    // });
 
+    // --- 修改 airlineLogoUrl 以使用 logo_path ---
     const airlineLogoUrl = computed(() => {
-        const code = getAirlineCode.value;
-        return code ? airlineLogos[code] : null;
+        const logoPath = props.flight?.airline?.logo_path;
+        // 確保 logoPath 存在且不為空
+        if (logoPath && typeof logoPath === 'string' && logoPath.trim() !== '') {
+            // 檢查 logoPath 是否已經是完整的 URL (雖然我們的 API 返回相對路徑)
+            if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+                return logoPath;
+            }
+            // 為相對路徑添加後端基礎 URL
+            // 確保路徑以 '/' 開頭，避免 //
+            const correctedPath = logoPath.startsWith('/') ? logoPath : `/${logoPath}`;
+            return `${backendUrl}${correctedPath}`;
+        }
+        return null; // 如果沒有 logo_path，返回 null
     });
-    // --- End Logo Mapping ---
+    // --- End Logo Path Logic ---
 
     const formatTime = (dateTimeString) => {
       if (!dateTimeString) return '--:--';
