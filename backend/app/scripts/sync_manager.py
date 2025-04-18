@@ -408,7 +408,11 @@ class ApiSyncManager:
                            self.is_tdx_target_airline(f.get('AirlineID')) # <-- 使用 AirlineID
                     ]
                     # --- 結束篩選 ---
-                    logger.info(f"TDX API 為 {departure} on {date_str} 返回 {len(tdx_raw_flights)} 原始記錄, 篩選後得到 {len(tdx_domestic_flights)} 個 AE/B7/DA 航班")
+                    # logger.info(f"TDX API 為 {departure} on {date_str} 返回 {len(tdx_raw_flights)} 原始記錄, 篩選後得到 {len(tdx_domestic_flights)} 個 AE/B7/DA 航班")
+                    # 修改日誌輸出格式
+                    logger.info(f"--- TDX API 數據 ({departure} -> {arrival} on {date_str}) ---")
+                    logger.info(f"  - 為機場 {departure} 獲取 {len(tdx_raw_flights)} 筆原始航班記錄")
+                    logger.info(f"  - 篩選指定航空公司 ({', '.join(self.TDX_TARGET_AIRLINES)}) 後，找到 {len(tdx_domestic_flights)} 個航班")
                     if tdx_domestic_flights:
                         self._add_unique_flights(flights, tdx_domestic_flights, flight_keys)
                         tdx_flights_fetched = True
