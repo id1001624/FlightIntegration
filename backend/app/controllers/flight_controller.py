@@ -30,7 +30,7 @@ from ..schemas.flight_schema import (
     sync_taiwan_flights_args_schema, # 新增導入
     generate_test_data_args_schema # 新增導入
 )
-from ..schemas.airline_schema import airlines_basic_schema
+from ..schemas.airline_schema import airlines_schema, airlines_basic_schema
 from ..schemas.airport_schema import airports_basic_schema
 
 # 創建藍圖
@@ -185,17 +185,16 @@ async def get_flight_details(flight_id):
         return _error_response('獲取航班詳情時發生內部錯誤', 500)
 
 @flight_bp.route('/airlines', methods=['GET'])
-@cache.cached(timeout=3600)  # 緩存1小時
-async def get_available_airlines():
-    """獲取所有可用的航空公司列表，用於篩選條件"""
+@cache.cached(timeout=3600)  # 快取1小時
+async def get_airlines():
+    """獲取可用航空公司列表"""
     try:
-        airlines_data = await SearchService.get_available_airlines()
-        # 使用 Schema 序列化結果
-        serialized_data = airlines_basic_schema.dump(airlines_data)
-        return _success_response(serialized_data)
+        airlines = await SearchService.get_available_airlines()
+        # 直接返回服務提供的數據，不使用 Schema 序列化
+        return _success_response(airlines)
     except Exception as e:
-        current_app.logger.error(f"獲取可用航空公司時發生錯誤: {e}", exc_info=True)
-        return _error_response('獲取可用航空公司時發生內部錯誤', 500)
+        current_app.logger.error(f"獲取航空公司列表失敗: {str(e)}")
+        return _error_response("獲取航空公司列表失敗", 500)
 
 @flight_bp.route('/<string:departure_code>/destinations', methods=['GET'])
 @cache.cached(timeout=3600, query_string=True)  # 緩存1小時，考慮查詢參數

@@ -11,11 +11,11 @@ class FlightSearchArgsSchema(Schema):
     airlines = fields.List(fields.Str(), allow_none=True) # 允許不傳遞
     price_min = fields.Float(validate=validate.Range(min=0), allow_none=True)
     price_max = fields.Float(validate=validate.Range(min=0), allow_none=True)
-    class_type = fields.Str(missing='經濟') # 默認值
-    only_target_airlines = fields.Bool(missing=True) # 默認值
-    passengers = fields.Int(validate=validate.Range(min=1), missing=1) # 默認值
-    max_results = fields.Int(validate=validate.Range(min=1), missing=20) # 默認值
-    sort_by = fields.Str(validate=validate.OneOf(['price', 'departure_time', 'arrival_time', 'duration']), missing='price') # 限制選項
+    class_type = fields.Str(load_default='經濟') # 默認值
+    only_target_airlines = fields.Bool(load_default=True) # 默認值
+    passengers = fields.Int(validate=validate.Range(min=1), load_default=1) # 默認值
+    max_results = fields.Int(validate=validate.Range(min=1), load_default=20) # 默認值
+    sort_by = fields.Str(validate=validate.OneOf(['price', 'departure_time', 'arrival_time', 'duration']), load_default='price') # 限制選項
 
     # 價格範圍驗證
     @validates_schema

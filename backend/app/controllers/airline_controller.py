@@ -27,13 +27,15 @@ airline_bp = Blueprint('airline', __name__)
 def get_airlines():
     """獲取所有航空公司"""
     try:
-        # 使用 .with_entities() 選擇需要的欄位，提高效率
+        # 查詢 Airline 對象，其中應包含 logo_path
         airlines = db.session.query(Airline).order_by(Airline.name_zh).all()
         result = [{
             'id': airline.airline_id,
+            'iata_code': airline.airline_id,  # airline_id 即為 IATA code
             'name_zh': airline.name_zh,
             'name_en': airline.name_en,
-            'is_domestic': airline.is_domestic
+            'is_domestic': airline.is_domestic,
+            'logo_path': airline.logo_path  # 直接從模型獲取 logo_path
         } for airline in airlines]
         return _success_response(result)
     except Exception as e:

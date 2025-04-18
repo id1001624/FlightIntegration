@@ -1,21 +1,24 @@
 from marshmallow import Schema, fields
 
 class AirlineSchema(Schema):
-    id = fields.Str(attribute="airline_id", dump_only=True)
-    code = fields.Str(attribute="airline_id") # API 中常用 code
+    """航空公司 Schema"""
+    id = fields.Int(dump_only=True)
+    code = fields.Str()
     name_zh = fields.Str()
     name_en = fields.Str()
-    is_domestic = fields.Bool()
+    logo_path = fields.Str()
+    is_domestic = fields.Boolean()
     # 根據需要添加 website, contact_phone
     # dump_only=True
 
 class AirlineBasicSchema(Schema):
-     """用於篩選等簡化場景"""
-     id = fields.Str(attribute="airline_id")
-     code = fields.Str(attribute="airline_id")
-     name_zh = fields.Str()
-     name_en = fields.Str()
-     is_target = fields.Bool(dump_only=True) # 由控制器添加的標記
+    """簡化版航空公司 Schema，用於篩選"""
+    code = fields.Str()
+    name_zh = fields.Str()
+    name_en = fields.Str()
+    logo_path = fields.Str()
+    is_domestic = fields.Boolean()
+    is_target = fields.Bool(dump_only=True) # 由控制器添加的標記
 
 airline_schema = AirlineSchema()
 airlines_schema = AirlineSchema(many=True)

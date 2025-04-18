@@ -593,13 +593,15 @@ class SearchService:
         """
         db = await get_db()
         try:
+            # 在查詢中包含 logo_path
             query = """
             SELECT 
                 airline_id, 
                 airline_id as iata_code, 
                 name_zh, 
                 name_en, 
-                is_domestic
+                is_domestic,
+                logo_path  -- 新增 logo_path
             FROM 
                 airlines
             ORDER BY 
@@ -610,16 +612,19 @@ class SearchService:
             result = []
             
             for airline in airlines:
-                # 使用固定模板生成logo_url
-                logo_url = f"https://example.com/airlines/{airline['airline_id']}.png"
+                # 不再生成假的 logo_url，使用從數據庫讀取的 logo_path
+                # logo_url = f"https://example.com/airlines/{airline['airline_id']}.png"
                 
                 result.append({
                     'airline_id': airline['airline_id'],
                     'iata_code': airline['iata_code'],
-                    'name': airline['name_zh'],
+                    'name': airline['name_zh'], # 前端可能期望 'name'
+                    'name_zh': airline['name_zh'], # 同時保留 name_zh
                     'name_en': airline['name_en'],
-                    'logo_url': logo_url,
-                    'country': '台灣' if airline.get('is_domestic') else '國際'
+                    # 'logo_url': logo_url, # 移除舊的 logo_url
+                    'logo_path': airline['logo_path'], # 添加 logo_path
+                    'is_domestic': airline.get('is_domestic'), # 保留 is_domestic
+                    'country': '台灣' if airline.get('is_domestic') else '國際' # 可以選擇性保留 country
                 })
             
             return result
