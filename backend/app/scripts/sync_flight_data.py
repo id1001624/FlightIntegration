@@ -14,14 +14,23 @@ from datetime import datetime, timedelta
 import psycopg2
 import time
 
-# 添加應用程式路徑
+# -- 路徑計算更新 --
+# current_dir: backend/app/scripts/
 current_dir = os.path.dirname(os.path.abspath(__file__))
-app_dir = os.path.join(current_dir, 'backend')
-if app_dir not in sys.path:
-    sys.path.append(app_dir)
+# app_dir: backend/app/
+app_dir = os.path.dirname(current_dir)
+# backend_dir: backend/
+backend_dir = os.path.dirname(app_dir)
+# project_root_dir: (專案根目錄)
+project_root_dir = os.path.dirname(backend_dir)
 
-# 確保logs目錄存在
-logs_dir = os.path.join(current_dir, 'logs')
+# 將 backend 目錄添加到 sys.path，以便導入 app.*
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+# -- 日誌路徑更新 --
+# logs_dir: backend/logs/
+logs_dir = os.path.join(backend_dir, 'logs')
 if not os.path.exists(logs_dir):
     os.makedirs(logs_dir)
 
@@ -52,37 +61,18 @@ console_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-# 導入相關模組
+# -- 模塊導入更新 --
+# 使用相對導入
 try:
-    # 優先使用相對路徑導入
     logger.info("嘗試使用相對路徑導入...")
-    from app.scripts.sync_manager import ApiSyncManager
-    from app.scripts.db_manager import DbManager
+    from .sync_manager import ApiSyncManager
+    from .db_manager import DbManager
     logger.info("成功使用相對路徑導入客戶端")
 except ImportError as e:
-    logger.warning(f"相對路徑導入失敗: {str(e)}")
-    try:
-        # 嘗試使用舊版客戶端
-        logger.info("嘗試導入舊版客戶端...")
-        from app.scripts.sync_manager import ApiSyncManager
-        from app.deprecated.database_sync import DatabaseSyncManager as DbManager
-        logger.info("成功導入舊版客戶端")
-    except ImportError as e2:
-        # 最後嘗試調整路徑然後導入
-        logger.error(f"導入舊版客戶端也失敗: {str(e2)}")
-        logger.info("嘗試調整路徑後導入...")
-        try:
-            # 添加必要的路徑
-            if app_dir not in sys.path:
-                sys.path.append(app_dir)
-            
-            from app.scripts.sync_manager import ApiSyncManager
-            from app.scripts.db_manager import DbManager
-            logger.info("調整路徑後成功導入客戶端")
-        except ImportError as e3:
-            logger.error(f"所有導入嘗試均失敗: {str(e3)}")
-            logger.critical("無法導入必要模組，程序退出")
-            sys.exit(1)
+    logger.error(f"導入模塊失敗: {e}", exc_info=True)
+    logger.critical("無法導入必要模組，請檢查 sync_manager.py 和 db_manager.py 是否存在於 scripts 目錄下，程序退出")
+    sys.exit(1)
+
 
 class FlightDataSyncTool:
     """航班數據同步工具，整合API調用和數據庫同步功能"""
@@ -112,7 +102,7 @@ class FlightDataSyncTool:
         
         if missing_vars:
             logger.error(f"加載後仍缺少以下環境變數: {', '.join(missing_vars)}")
-            logger.error("請確保.env文件中包含所有必要的環境變數")
+            logger.error("請確保.env文件中包含所有必要的環境變數 (應位於 backend/ 或專案根目錄)")
             sys.exit(1)
         
         # 初始化API同步管理器
@@ -134,10 +124,11 @@ class FlightDataSyncTool:
     def _load_env_from_dotenv(self):
         """從.env文件加載環境變數"""
         try:
-            # 嘗試從當前目錄和backend目錄查找.env文件
+            # -- .env 搜索路徑更新 --
+            # 優先 backend 目錄，其次是專案根目錄
             dotenv_paths = [
-                os.path.join(current_dir, '.env'),
-                os.path.join(app_dir, '.env')
+                os.path.join(backend_dir, '.env'),
+                os.path.join(project_root_dir, '.env')
             ]
             
             for dotenv_path in dotenv_paths:
@@ -154,14 +145,14 @@ class FlightDataSyncTool:
                             if '=' in line:
                                 key, value = line.split('=', 1)
                                 # 去除引號
-                                value = value.strip('"\'')
+                                value = value.strip('\'"')
                                 # 設置環境變數
                                 os.environ[key.strip()] = value
                     
                     logger.info("環境變數加載完成")
                     return
             
-            logger.warning("未找到.env文件")
+            logger.warning(f"未在 {backend_dir} 或 {project_root_dir} 找到 .env 文件")
         except Exception as e:
             logger.error(f"加載環境變數時發生錯誤: {str(e)}")
     
@@ -481,7 +472,7 @@ def main():
         sync_tool.sync_flights_only(args.date, args.days)
     
     elif args.command == 'popular':
-        sync_tool.sync_all(args.date, args.days)
+        sync_tool.sync_all(args.date, args.days) # 注意：popular 指令現在也調用 sync_all
     
     else:
         parser.print_help()
