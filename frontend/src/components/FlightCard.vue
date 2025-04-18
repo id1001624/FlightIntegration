@@ -1,71 +1,98 @@
 <template>
-  <router-link 
-    :to="{ name: 'FlightDetail', params: { id: flight.id } }" 
-    class="flight-card-link" 
-    :class="{'flight-card-active': isActive}"
-  >
-    <div class="flight-card" >
-      <div class="flight-card-inner">
-        <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
-        <div class="flight-card-header">
-          <div class="airline-info">
-            <div class="airline-logo-container">
-              <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
-              <div v-else class="airline-logo-placeholder">
-                <span>{{ airlineName.charAt(0) }}</span>
+  <div class="flight-card-wrapper relative">
+    <router-link 
+      :to="{ name: 'FlightDetail', params: { id: flight.flight_id } }" 
+      class="flight-card-link" 
+      :class="{'flight-card-active': isActive}"
+      @click.prevent="selectFlight" 
+    >
+      <div class="flight-card" >
+        <div class="flight-card-inner">
+          <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
+          <div class="flight-card-header">
+            <div class="airline-info">
+              <div class="airline-logo-container">
+                <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
+                <div v-else class="airline-logo-placeholder">
+                  <span>{{ airlineName.charAt(0) }}</span>
+                </div>
+              </div>
+              <div class="airline-details">
+                <h3 class="airline-name">{{ airlineName }}</h3>
+                <p class="flight-number">{{ flightNumber }}</p>
               </div>
             </div>
-            <div class="airline-details">
-              <h3 class="airline-name">{{ airlineName }}</h3>
-              <p class="flight-number">{{ flightNumber }}</p>
+            <div class="flight-price">
+              <p class="price-amount">NT$ {{ displayPrice }}</p>
+              <p class="cabin-type">{{ flightClassType }}</p>
             </div>
           </div>
-          <div class="flight-price">
-            <p class="price-amount">NT$ {{ displayPrice }}</p>
-            <p class="cabin-type">{{ flightClassType }}</p>
-          </div>
-        </div>
-        
-        <!-- 行程視覺化 -->
-        <div class="journey-visualization">
-          <!-- 出發資訊 -->
-          <div class="departure-info">
-            <p class="time">{{ formattedDepartureTime }}</p>
-            <p class="airport-code">{{ getDepartureAirportCode }}</p>
-          </div>
+          
+          <!-- 行程視覺化 -->
+          <div class="journey-visualization">
+            <!-- 出發資訊 -->
+            <div class="departure-info">
+              <p class="time">{{ formattedDepartureTime }}</p>
+              <p class="airport-code">{{ getDepartureAirportCode }}</p>
+            </div>
 
-          <!-- 旅程線條與時長 -->
-          <div class="journey-line-container">
-            <p class="flight-duration">{{ flightDuration }}</p>
-            <div class="journey-line-wrapper">
-              <div class="journey-line" ref="journeyLine"></div>
-              <div class="airplane-icon" ref="airplaneIcon"></div>
-              <div class="departure-dot"></div>
-              <div class="arrival-dot"></div>
+            <!-- 旅程線條與時長 -->
+            <div class="journey-line-container">
+              <p class="flight-duration">{{ flightDuration }}</p>
+              <div class="journey-line-wrapper">
+                <div class="journey-line" ref="journeyLine"></div>
+                <div class="airplane-icon" ref="airplaneIcon"></div>
+                <div class="departure-dot"></div>
+                <div class="arrival-dot"></div>
+              </div>
+            </div>
+
+            <!-- 到達資訊 -->
+            <div class="arrival-info">
+              <p class="time">{{ formattedArrivalTime }}</p>
+              <p class="airport-code">{{ getArrivalAirportCode }}</p>
             </div>
           </div>
 
-          <!-- 到達資訊 -->
-          <div class="arrival-info">
-            <p class="time">{{ formattedArrivalTime }}</p>
-            <p class="airport-code">{{ getArrivalAirportCode }}</p>
+          <!-- 額外資訊 -->
+          <div class="flight-meta">
+            <span class="flight-date">{{ formattedDepartureDate }}</span>
+            <button 
+              @click.stop.prevent="toggleDetails"
+              class="details-button"
+              title="查看詳細資訊"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
           </div>
         </div>
-
-        <!-- 額外資訊 -->
-        <div class="flight-meta">
-          <span class="flight-date">{{ formattedDepartureDate }}</span>
-          <span class="flight-status" :class="statusClass">{{ flightStatusText }}</span>
-        </div>
-
       </div>
-    </div>
-  </router-link>
+    </router-link>
+
+    <!-- 詳細資訊小卡片 (疊加層) -->
+    <transition name="details-fade">
+      <div v-if="showDetails" class="details-overlay card">
+        <h5 class="details-title">航班資訊</h5>
+        <div class="details-content">
+          <p><span class="details-label">機型:</span> {{ flight.aircraft || 'N/A' }}</p>
+          <p><span class="details-label">出發航廈:</span> {{ flight.departure?.terminal || '--' }}</p>
+          <p><span class="details-label">抵達航廈:</span> {{ flight.arrival?.terminal || '--' }}</p>
+        </div>
+        <button @click="showDetails = false" class="details-close-button" title="關閉">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </transition>
+  </div>
 </template>
 
 <script>
 import { computed, ref, onMounted, onUnmounted } from 'vue';
-import { RouterLink } from 'vue-router';
+import { RouterLink, useRouter } from 'vue-router';
 
 // 定義後端基礎 URL
 const backendUrl = 'http://localhost:5000';
@@ -84,10 +111,12 @@ export default {
   },
   emits: ['select-flight'],
   setup(props, { emit }) {
+    const router = useRouter();
     const isActive = ref(props.active);
     const journeyLine = ref(null);
     const airplaneIcon = ref(null);
     let animationFrame = null;
+    const showDetails = ref(false);
     
     // --- 移除 Logo Mapping ---
     // const airlineLogos = {
@@ -157,19 +186,26 @@ export default {
       return '經濟艙';
     };
 
-    const formattedDepartureTime = computed(() => formatTime(props.flight.departure_time || props.flight.scheduled_departure));
-    const formattedArrivalTime = computed(() => formatTime(props.flight.arrival_time || props.flight.scheduled_arrival));
-    const formattedDepartureDate = computed(() => formatDate(props.flight.departure_time || props.flight.scheduled_departure));
+    const formattedDepartureTime = computed(() => formatTime(props.flight.departure?.time));
+    const formattedArrivalTime = computed(() => formatTime(props.flight.arrival?.time));
+    const formattedDepartureDate = computed(() => {
+        const dateStr = props.flight.departure?.time;
+        if (!dateStr) return '--/--';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+        } catch (e) { return '--/--'; }
+    });
 
-    const getDepartureAirportCode = computed(() => props.flight.departure_airport_code || props.flight.departure_airport || 'N/A');
-    const getArrivalAirportCode = computed(() => props.flight.arrival_airport_code || props.flight.arrival_airport || 'N/A');
+    const getDepartureAirportCode = computed(() => props.flight.departure?.code || props.flight.departure?.airport_id || 'N/A');
+    const getArrivalAirportCode = computed(() => props.flight.arrival?.code || props.flight.arrival?.airport_id || 'N/A');
 
-    const airlineName = computed(() => props.flight.airline_name || (props.flight.airline ? props.flight.airline.name : '未知航空'));
+    const airlineName = computed(() => props.flight.airline?.name || props.flight.airline?.name_zh || '未知航空');
     const flightNumber = computed(() => props.flight.flight_number || 'N/A');
 
     const displayPrice = computed(() => {
-      if (props.flight.price && typeof props.flight.price === 'number') {
-        return formatPrice(props.flight.price);
+      if (props.flight.price?.amount && typeof props.flight.price.amount === 'number') {
+        return formatPrice(props.flight.price.amount);
       }
       if (props.flight.ticket_price) {
           return formatPrice(props.flight.ticket_price);
@@ -177,16 +213,15 @@ export default {
       return '洽詢';
     });
 
-    const flightClassType = computed(() => formatClassType(props.flight.class_type));
+    const flightClassType = computed(() => formatClassType(props.flight.price?.cabin_class));
 
     const flightDuration = computed(() => {
-      // 優先使用已有的 duration 屬性 (假設是分鐘)
-      if (props.flight.duration && typeof props.flight.duration === 'number') {
-        return formatDuration(props.flight.duration);
+      if (props.flight.duration_minutes != null) {
+        return formatDuration(props.flight.duration_minutes);
       }
       // 其次嘗試計算時間差
-      const departure = props.flight.departure_time || props.flight.scheduled_departure;
-      const arrival = props.flight.arrival_time || props.flight.scheduled_arrival;
+      const departure = props.flight.departure?.time || props.flight.scheduled_departure;
+      const arrival = props.flight.arrival?.time || props.flight.scheduled_arrival;
       if (departure && arrival) {
         try {
           const diff = new Date(arrival) - new Date(departure);
@@ -198,27 +233,17 @@ export default {
       return '--時--分';
     });
 
-    // 航班狀態處理
-    const flightStatusText = computed(() => {
-        const status = props.flight.status ? props.flight.status.toLowerCase() : 'scheduled';
-        if (status.includes('delayed')) return '延遲';
-        if (status.includes('cancelled')) return '取消';
-        if (status.includes('landed') || status.includes('arrived')) return '已抵達';
-        if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return '飛行中';
-        return '準時'; // 默認
-    });
-
-    const statusClass = computed(() => {
-        const status = props.flight.status ? props.flight.status.toLowerCase() : 'scheduled';
-        if (status.includes('delayed')) return 'status-delayed';
-        if (status.includes('cancelled')) return 'status-cancelled';
-        if (status.includes('active') || status.includes('en-route') || status.includes('in air')) return 'status-in-air';
-        if (status.includes('landed') || status.includes('arrived')) return 'status-arrived';
-        return 'status-on-time'; // 準時或預定
-    });
-
     const selectFlight = () => {
+      if (props.flight.flight_id) {
+          router.push({ name: 'FlightDetail', params: { flight_id: props.flight.flight_id } });
+      } else {
+          console.error('Flight ID is missing, cannot navigate to details.');
+      }
       emit('select-flight', props.flight);
+    };
+    
+    const toggleDetails = () => {
+      showDetails.value = !showDetails.value;
     };
     
     // 旅程線條動畫
@@ -270,10 +295,10 @@ export default {
       displayPrice,
       flightClassType,
       flightDuration,
-      flightStatusText,
-      statusClass,
-      selectFlight,
       isActive,
+      showDetails,
+      toggleDetails,
+      selectFlight,
       journeyLine,
       airplaneIcon
     };
@@ -282,6 +307,10 @@ export default {
 </script>
 
 <style scoped>
+.flight-card-wrapper {
+  position: relative;
+}
+
 .flight-card-link {
   display: block;
   text-decoration: none;
@@ -486,6 +515,7 @@ export default {
 .flight-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.75rem;
   padding-top: 0.75rem;
   border-top: 1px solid #f0f0f0;
@@ -495,28 +525,85 @@ export default {
   color: var(--color-text-secondary);
 }
 
-.flight-status {
-  font-weight: 500;
-}
-
-.status-delayed {
-  color: var(--color-warning);
-}
-
-.status-cancelled {
-  color: var(--color-danger);
-}
-
-.status-in-air {
-  color: var(--color-info);
-}
-
-.status-arrived {
-  color: var(--color-success);
-}
-
-.status-on-time {
+/* 詳細資訊按鈕樣式 */
+.details-button {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
   color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
+}
+.details-button:hover {
+  color: var(--color-primary);
+}
+
+/* 詳細資訊疊加層樣式 */
+.details-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-top: 2px solid var(--color-primary);
+  padding: 0.75rem 1rem;
+  z-index: 10;
+  font-size: 0.8rem;
+  box-shadow: var(--shadow-lg);
+  border-radius: 0 0 0.5rem 0.5rem;
+  transform: translateY(100%);
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+  opacity: 0;
+}
+
+/* 過渡效果 */
+.details-fade-enter-active,
+.details-fade-leave-active {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+
+.details-fade-enter-from,
+.details-fade-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+.details-fade-enter-to,
+.details-fade-leave-from {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.details-title {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.details-content p {
+  margin-bottom: 0.3rem;
+  color: var(--color-text-primary);
+}
+
+.details-label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-right: 0.25rem;
+}
+
+.details-close-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.details-close-button:hover {
+  color: var(--color-danger);
 }
 
 /* 響應式 */

@@ -63,22 +63,13 @@
 
 ```bash
 # 測試API和資料庫連接狀態
-python backend/sync_flight_data.py test
-
-# 同步所有資料（航空公司、機場和台灣出發的航班）
-python backend/sync_flight_data.py all
-
-# 只同步航空公司資料
-python backend/sync_flight_data.py airlines
-
-# 只同步機場資料
-python backend/sync_flight_data.py airports
+python backend/scrips/sync_flight_data.py test
 
 # 同步特定航線的航班資料（例如：台北飛東京）
-python backend/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 2
+python backend/scrips/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 2
 
 # 同步所有從台灣出發的航班
-python backend/sync_flight_data.py taiwan --date 2025-04-01 --days 2
+python backend/scrips/sync_flight_data.py taiwan --date 2025-04-01 --days 2
 
 # 同步航班表而已
 python sync_flight_data.py flights-only --date 2025-04-07

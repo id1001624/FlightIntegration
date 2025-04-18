@@ -135,8 +135,10 @@ const flightService = {
     }
 
     try {
-      // 發送API請求
-      const response = await api.get(`/flights/taiwan-airports?date=${date}`);
+      // 發送API請求 - 修正端點 URL
+      const correctUrl = `/airports/taiwan${date ? `?date=${date}` : ''}`;
+      console.log(`請求正確的機場列表 URL: ${correctUrl}`);
+      const response = await api.get(correctUrl);
       console.log('獲取台灣機場API回應:', response);
       
       // 處理API回應

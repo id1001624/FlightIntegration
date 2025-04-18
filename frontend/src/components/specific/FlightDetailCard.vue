@@ -4,7 +4,7 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-gray-200">
       <div class="mb-3 sm:mb-0">
         <div class="flex items-center space-x-3 mb-2">
-          <img :src="flightData.airline?.logo_url || defaultLogo" alt="Airline Logo" class="h-8 w-8 object-contain rounded-full border border-gray-100" />
+          <img :src="airlineLogoUrl" :alt="flightData.airline?.name" class="h-8 w-8 object-contain rounded-full border border-gray-100" />
           <span class="text-xl font-semibold text-text-primary">{{ flightData.airline?.name }} {{ flightData.flight_number }}</span>
         </div>
         <span :class="statusClass" class="text-sm font-medium px-2.5 py-1 rounded-full inline-block">
@@ -41,8 +41,9 @@
             <div class="text-lg font-semibold text-text-primary">{{ flightData.departure?.code }}</div>
             <div class="text-xs text-text-secondary">{{ flightData.departure?.city }}</div>
         </div>
-        <div class="flex-grow mx-4 h-px bg-gray-200 relative">
-           <svg class="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <div class="route-line-container flex-grow mx-4 h-px bg-gray-200 relative overflow-hidden">
+           <div class="route-line-animated"></div>
+           <svg class="route-airplane-icon absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
             </svg>
         </div>
@@ -109,6 +110,9 @@ import { ref, computed, reactive, watch } from 'vue';
 import flightService from '@/api/services/flightService'; // 確保路徑正確
 import defaultLogo from '@/assets/images/default-airline.png'; // 確保你有預設圖片
 
+// 定義後端基礎 URL (與 FlightCard 一致)
+const backendUrl = 'http://localhost:5000';
+
 const props = defineProps({
   initialFlight: {
     type: Object,
@@ -132,6 +136,20 @@ const isRefreshing = ref(false);
 const refreshError = ref(null);
 const lastRefreshedAt = ref(null);
 const refreshSource = ref('');
+
+// --- 添加 Logo URL 處理 --- 
+const airlineLogoUrl = computed(() => {
+    const logoPath = flightData.airline?.logo_path;
+    if (logoPath && typeof logoPath === 'string' && logoPath.trim() !== '') {
+        if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) {
+            return logoPath;
+        }
+        const correctedPath = logoPath.startsWith('/') ? logoPath : `/${logoPath}`;
+        return `${backendUrl}${correctedPath}`;
+    }
+    return defaultLogo; // 如果沒有 logo_path，返回預設 Logo
+});
+// --- 結束 Logo URL 處理 ---
 
 // 監聽 initialFlight prop 的變化
 watch(() => props.initialFlight, (newFlight) => {
@@ -236,4 +254,50 @@ const statusClass = computed(() => {
 <style scoped>
 /* Structured Journey Minimalism: Primarily use Tailwind utilities. */
 /* Add minor custom styles only if absolutely necessary. */
+
+/* 路線動畫樣式 */
+.route-line-container {
+  position: relative;
+  overflow: hidden; /* 隱藏超出範圍的動畫 */
+}
+
+.route-line-animated {
+  position: absolute;
+  top: 0;
+  left: -100%; /* 初始位置在左側外部 */
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 95, 115, 0.2) 50%, /* 主強調色的半透明 */
+    transparent 100%
+  );
+  animation: route-flow 2.5s linear infinite;
+}
+
+@keyframes route-flow {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* 可以選擇性地為飛機圖標添加微動畫 */
+.route-airplane-icon {
+   animation: airplane-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes airplane-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 1;
+  }
+}
 </style>
