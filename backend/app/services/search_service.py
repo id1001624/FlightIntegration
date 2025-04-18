@@ -711,72 +711,64 @@ class SearchService:
             await release_db(db)
     
     @staticmethod
-    async def get_available_destinations(departure_iata, date_str=None):
+    async def get_available_destinations(departure_iata, date_str=None): # 保留 date_str 參數以兼容 API，但不再使用
         """
-        獲取從指定出發地可以到達的所有目的地
+        獲取從指定出發地可以到達的所有目的地機場 (查詢所有日期的航班記錄)
         
         Args:
-            departure_iata: 出發地機場IATA代碼
-            date_str: 可選，指定日期字符串 (YYYY-MM-DD)，如提供將只返回該日期有航班的目的地
+            departure_iata (str): 出發地機場的IATA代碼
+            date_str (str, optional): YYYY-MM-DD格式的日期。此參數被忽略，方法會查詢所有日期的記錄。
             
         Returns:
-            List[Dict[str, Any]]: 目的地列表
+            List[Dict[str, Any]]: 目的地機場列表
         """
-        db = await get_db()
+        db = None
         try:
-            params = [departure_iata]
-            date_filter = ""
+            db = await get_db()
             
-            if date_str:
-                try:
-                    flight_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                    date_filter = "AND DATE(f.scheduled_departure) = $2"
-                    params.append(flight_date)
-                except ValueError:
-                    logger.error(f"日期格式錯誤: {date_str}")
-            
-            query = f"""
+            # 基礎查詢，查找從指定出發地起飛的航班，並獲取它們的目的地機場
+            # 不再根據日期過濾
+            sql = """
             SELECT DISTINCT 
-                a.airport_id, 
-                a.airport_id as iata_code, 
-                a.name_zh, 
-                a.name_en, 
-                a.city, 
-                a.country,
-                COUNT(f.flight_id) as flight_count
+                a_arr.airport_id,
+                a_arr.iata_code, 
+                a_arr.icao_code,
+                a_arr.name_zh, 
+                a_arr.name_en, 
+                a_arr.city,
+                a_arr.city_name_zh,
+                a_arr.city_name_en,
+                a_arr.country,
+                a_arr.country_code,
+                a_arr.latitude,
+                a_arr.longitude
             FROM 
-                airports a
+                airports a_arr
             JOIN 
-                flights f ON a.airport_id = f.arrival_airport_id
-            JOIN 
-                airports dep ON f.departure_airport_id = dep.airport_id
+                flights f ON a_arr.airport_id = f.arrival_airport_id
+            JOIN
+                airports a_dep ON f.departure_airport_id = a_dep.airport_id
             WHERE 
-                dep.airport_id = $1
-                AND f.scheduled_departure >= CURRENT_DATE
-                {date_filter}
-            GROUP BY
-                a.airport_id, a.name_zh, a.name_en, a.city, a.country
-            ORDER BY 
-                a.country, a.city, a.name_zh
+                a_dep.iata_code = $1
             """
+            params = [departure_iata] # 只有一個參數了
             
-            destinations = await db.fetch(query, *params)
-            result = []
+            logger.info(f"執行目的地查詢 (所有日期): {sql} 參數: {params}")
             
-            for dest in destinations:
-                result.append({
-                    'airport_id': dest['airport_id'],
-                    'iata_code': dest['iata_code'],
-                    'name': dest['name_zh'],
-                    'name_en': dest['name_en'],
-                    'city': dest['city'],
-                    'country': dest['country'],
-                    'flight_count': dest['flight_count']
-                })
+            results = await db.fetch(sql, *params)
             
-            return result
+            # 將 asyncpg Row 轉換為字典列表
+            destinations = [dict(row) for row in results]
+            
+            logger.info(f"找到 {len(destinations)} 個從 {departure_iata} 出發的目的地 (所有日期)")
+            return destinations
+            
+        except Exception as e:
+            logger.error(f"獲取可用目的地時出錯: {e}", exc_info=True)
+            return [] # 返回空列表表示失敗
         finally:
-            await release_db(db)
+            if db:
+                await release_db(db) 
     
     @staticmethod
     async def get_flight_details_by_id(flight_id: str) -> Optional[Dict[str, Any]]:
