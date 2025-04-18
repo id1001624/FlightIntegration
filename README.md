@@ -63,13 +63,13 @@
 
 ```bash
 # 測試API和資料庫連接狀態
-python backend/scrips/sync_flight_data.py test
+python backend/app/scrips/sync_flight_data.py test
 
 # 同步特定航線的航班資料（例如：台北飛東京）
-python backend/scrips/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 2
+python backend/app/scrips/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 2
 
 # 同步所有從台灣出發的航班
-python backend/scrips/sync_flight_data.py taiwan --date 2025-04-01 --days 2
+python backend/app/scrips/sync_flight_data.py taiwan --date 2025-04-01 --days 2
 
 # 同步航班表而已
 python sync_flight_data.py flights-only --date 2025-04-07
@@ -107,7 +107,7 @@ python run.py
 
 1. **測試系統連接狀態**：
    ```bash
-   python backend/sync_flight_data.py test
+   python backend/app/scrips/sync_flight_data.py test
    ```
    此步驟會檢查API連接和資料庫連接是否正常。
 

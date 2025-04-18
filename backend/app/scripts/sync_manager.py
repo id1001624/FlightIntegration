@@ -372,7 +372,7 @@ class ApiSyncManager:
                     )
                     if fs_flights:
                         # 篩選目標航空公司
-                        filtered_flights = [f for f in fs_flights if f.get('airline_code') in TARGET_AIRLINES]
+                        filtered_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
                         if filtered_flights:
                             logger.info(f"已從 FlightStats 獲取並篩選出 {len(filtered_flights)} 個目標航空公司航班")
                             self._add_unique_flights(flights, filtered_flights, flight_keys)
@@ -436,17 +436,17 @@ class ApiSyncManager:
                 # Correct indentation for the conditional block
                 if fs_flights:
                     # 添加日誌，查看原始航班的航空公司代碼
-                    original_airlines = {f.get('airline_code') for f in fs_flights if f.get('airline_code')}
+                    original_airlines = {f.get('airline_id') for f in fs_flights if f.get('airline_id')}
                     logger.info(f"FlightStats 返回的原始航空公司代碼: {original_airlines}")
                         
                     # Correct indentation for list comprehensions
-                    all_target_flights = [f for f in fs_flights if f.get('airline_code') in TARGET_AIRLINES]
+                    all_target_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
                     # 添加日誌，查看第一次篩選後的結果
-                    filtered_airlines = {f.get('airline_code') for f in all_target_flights if f.get('airline_code')}
+                    filtered_airlines = {f.get('airline_id') for f in all_target_flights if f.get('airline_id')}
                     logger.info(f"篩選 TARGET_AIRLINES 後的航空公司代碼: {filtered_airlines}")
 
                     other_airlines_flights = [
-                        f for f in all_target_flights if f.get('airline_code') not in self.TDX_TARGET_AIRLINES
+                        f for f in all_target_flights if f.get('airline_id') not in self.TDX_TARGET_AIRLINES
                     ]
 
                     if other_airlines_flights:

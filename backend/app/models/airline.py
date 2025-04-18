@@ -13,6 +13,7 @@ class Airline(Base):
     website = db.Column(db.String)
     contact_phone = db.Column(db.String)
     is_domestic = db.Column(db.Boolean)
+    logo_path = db.Column(db.String, nullable=True)
     
     # 關聯
     flights = db.relationship('Flight', backref='airline', lazy='dynamic')

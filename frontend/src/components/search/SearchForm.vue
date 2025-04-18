@@ -107,10 +107,19 @@ export default {
     const loadingTaiwanAirports = ref(false);
     const loadingDestinations = ref(false);
 
+    // 輔助函數：獲取本地時區的 YYYY-MM-DD 日期
+    const getLocalDateString = () => {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     const formData = reactive({
         departureAirport: null,
         arrivalAirport: null,
-        departureDate: new Date().toISOString().split('T')[0],
+        departureDate: getLocalDateString(), // 使用本地日期
         returnDate: '',
         classType: 'economy'
     });
