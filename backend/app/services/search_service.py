@@ -775,13 +775,10 @@ class SearchService:
                 f.flight_number,
                 f.scheduled_departure,
                 f.scheduled_arrival,
-                f.actual_departure,
-                f.actual_arrival,
-                f.status,
-                al.is_domestic,
-                f.aircraft_type,
-                f.terminal,
-                f.gate,
+                al.is_domestic as airline_is_domestic,
+                f.aircraft,
+                f.departure_terminal as terminal,
+                f.arrival_terminal as arrival_terminal,
                 a_dep.airport_id as departure_id,
                 a_dep.name_zh as departure_name,
                 a_dep.city as departure_city,
@@ -793,7 +790,6 @@ class SearchService:
                 al.airline_id,
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
-                al.is_domestic as airline_is_domestic,
                 al.logo_path as airline_logo_path
             FROM
                 flights f
@@ -855,7 +851,7 @@ class SearchService:
             except Exception as dur_e:
                 logger.warning(f"計算航班 {flight_id} 飛行時間時出錯: {dur_e}")
 
-            # 格式化結果 - 使用真實的 logo_path
+            # 格式化結果 - 修正欄位使用並移除不存在的欄位對應
             result = {
                 'flight_id': flight_record['flight_id'],
                 'flight_number': flight_record['flight_number'],
@@ -872,9 +868,9 @@ class SearchService:
                     'city': flight_record['departure_city'],
                     'country': flight_record['departure_country'],
                     'scheduled_time': flight_record['scheduled_departure'].isoformat() if flight_record['scheduled_departure'] else None,
-                    'actual_time': flight_record['actual_departure'].isoformat() if flight_record['actual_departure'] else None,
+                    'actual_time': None, # 設為 None
                     'terminal': flight_record['terminal'],
-                    'gate': flight_record['gate']
+                    'gate': None # 設為 None
                 },
                 'arrival': {
                     'airport_id': flight_record['arrival_id'],
@@ -883,13 +879,13 @@ class SearchService:
                     'city': flight_record['arrival_city'],
                     'country': flight_record['arrival_country'],
                     'scheduled_time': flight_record['scheduled_arrival'].isoformat() if flight_record['scheduled_arrival'] else None,
-                    'actual_time': flight_record['actual_arrival'].isoformat() if flight_record['actual_arrival'] else None,
-                    'terminal': flight_record['terminal'],
-                    'gate': flight_record['gate']
+                    'actual_time': None, # 設為 None
+                    'terminal': flight_record['arrival_terminal'],
+                    'gate': None # 設為 None
                 },
-                'status': flight_record['status'],
+                'status': None,
                 'duration_minutes': duration_minutes,
-                'aircraft': flight_record['aircraft_type'],
+                'aircraft': flight_record['aircraft'],
                 'is_domestic': flight_record['airline_is_domestic'],
                 'prices': prices
             }
