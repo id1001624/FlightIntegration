@@ -72,7 +72,14 @@ except ImportError:
     try:
         from clients.tdx_client import TdxApiClient
         from clients.flightstats_client import FlightStatsApiClient
-        from scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES
+        # from scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES
+        # 改為導入所有需要的常量
+        from scripts.constants import (
+            TAIWAN_AIRPORTS,
+            TARGET_AIRLINES,
+            POPULAR_DOMESTIC_ROUTES_TUPLES,
+            POPULAR_INTERNATIONAL_ROUTES_TUPLES
+        )
     except ImportError:
         try:
             # 如果常量導入失敗，使用內部定義的常量
