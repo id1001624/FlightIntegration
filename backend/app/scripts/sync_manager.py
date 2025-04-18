@@ -497,10 +497,10 @@ class ApiSyncManager:
                     # 如果無法轉換為 UUID，生成新的 UUID
                     flight['flight_id'] = uuid.uuid4()
                 
-            # 移除可能不存在於資料庫中的欄位
+            # 移除可能不存在於資料庫中的欄位 (不再移除航廈和登機門)
             keys_to_remove = [
-                'status', 'departure_terminal', 'arrival_terminal', 
-                'departure_gate', 'arrival_gate', 'source'
+                'status', 
+                'departure_gate', 'arrival_gate', 'source' # 保留 departure_terminal, arrival_terminal
             ]
             for key in keys_to_remove:
                 if key in flight:

@@ -187,7 +187,9 @@ class TdxApiClient(BaseAPIClient):
                     'actual_departure': format_datetime(actual_departure) if actual_departure else None,
                     'actual_arrival': format_datetime(actual_arrival) if actual_arrival else None,
                     'status': status,
-                    'source': 'TDX'
+                    'source': 'TDX',
+                    'departure_terminal': item.get('DepartureTerminal') or None,
+                    'arrival_terminal': item.get('ArrivalTerminal') or None
                 }
                 parsed_and_filtered_flights.append(flight)
             except Exception as e:
