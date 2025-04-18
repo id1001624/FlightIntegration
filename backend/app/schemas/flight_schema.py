@@ -1,4 +1,5 @@
 from marshmallow import Schema, fields, validate, ValidationError, validates_schema
+from decimal import Decimal # 導入 Decimal
 from .airline_schema import AirlineBasicSchema # 注意導入路徑
 from .airport_schema import AirportBasicSchema # 注意導入路徑
 
@@ -45,6 +46,14 @@ class FlightSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
+# --- 新增 Price Schema ---
+class PriceSchema(Schema):
+    """用於序列化票價信息"""
+    amount = fields.Float(allow_none=True) # 使用 Float 輸出，或者 Decimal(as_string=True)
+    currency = fields.Str(load_default='TWD')
+    cabin_class = fields.Str()
+    available_seats = fields.Int(allow_none=True)
+
 class FlightSearchResultSchema(Schema):
     """用於序列化航班搜索結果列表中的單個航班"""
     flight_id = fields.UUID(dump_only=True)
@@ -53,14 +62,11 @@ class FlightSearchResultSchema(Schema):
     scheduled_arrival = fields.DateTime()
     departure_terminal = fields.Str(allow_none=True)
     arrival_terminal = fields.Str(allow_none=True)
-    # 嵌套基本信息即可 - 移除 attribute="airline_rel"
-    # airline = fields.Nested(AirlineBasicSchema, attribute="airline_rel", dump_only=True)
     airline = fields.Nested(AirlineBasicSchema, dump_only=True)
-    departure_airport = fields.Nested(AirportBasicSchema, attribute="departure_airport_rel", dump_only=True) # 保留，假設 airport 字段名不同
-    arrival_airport = fields.Nested(AirportBasicSchema, attribute="arrival_airport_rel", dump_only=True)   # 保留，假設 airport 字段名不同
-    # 可能需要最低票價
-    lowest_price = fields.Float(allow_none=True) # 假設服務層會計算
-    duration_minutes = fields.Int(allow_none=True) # 假設服務層會計算
+    departure_airport = fields.Nested(AirportBasicSchema, dump_only=True) # 移除 attribute，假設直接使用對象
+    arrival_airport = fields.Nested(AirportBasicSchema, dump_only=True)   # 移除 attribute，假設直接使用對象
+    duration_minutes = fields.Int(allow_none=True) # 移除了 lowest_price
+    price = fields.Nested(PriceSchema, allow_none=True) # 添加嵌套的 PriceSchema
 
 # --- 新增用於 /from_taiwan 端點的請求參數 Schema ---
 class FlightsFromTaiwanArgsSchema(Schema):

@@ -247,49 +247,67 @@ class SearchService:
     @staticmethod
     async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str) -> List[Dict[str, Any]]:
         """
-        格式化航班列表為API響應格式，並生成模擬票價數據
+        格式化航班列表為API響應格式，並從數據庫獲取票價數據
         
         Args:
-            flights: 航班列表 (應包含 airline_id, airline_name, logo_path)
+            flights: 航班列表 (包含 flight_id)
             cabin_class: 艙位類型
             
         Returns:
             List[Dict[str, Any]]: 格式化後的航班列表
         """
-        import random
+        import random # 保留 random 用於 status 和 terminal/gate
         formatted_flights = []
+        db = None
         
+        if not flights:
+            return []
+            
+        # --- 獲取所有相關航班的票價 --- 
+        flight_ids = [flight["flight_id"] for flight in flights]
+        prices_map = {}
+        try:
+            db = await get_db()
+            price_query = """
+            SELECT flight_id, base_price, available_seats
+            FROM ticket_prices
+            WHERE flight_id = ANY($1::uuid[]) AND class_type = $2
+            """
+            price_records = await db.fetch(price_query, flight_ids, cabin_class)
+            for record in price_records:
+                prices_map[record['flight_id']] = {
+                    'amount': float(record['base_price']) if record['base_price'] is not None else None,
+                    'available_seats': record['available_seats']
+                }
+            logger.info(f"為 {len(flights)} 個航班獲取了 {len(prices_map)} 條 '{cabin_class}' 艙位票價記錄")
+        except Exception as e:
+            logger.error(f"查詢票價時出錯: {e}", exc_info=True)
+            # 即使票價查詢失敗，也繼續格式化航班，只是價格信息會缺失
+        finally:
+            if db:
+                await release_db(db)
+        # --- 結束票價獲取 ---
+
         # 定義可能的航班狀態
         possible_statuses = [
-            'on_time',    # 準時
-            'scheduled',  # 已排程
-            'delayed',    # 延誤
-            'in_air',     # 已起飛
-            'arrived',    # 已抵達
-            'cancelled'   # 取消
+            'on_time', 'scheduled', 'delayed', 'in_air', 'arrived', 'cancelled'
         ]
-        # 加權分配，多數航班準時
         status_weights = [0.65, 0.15, 0.08, 0.05, 0.05, 0.02]
         
         for flight in flights:
-            # 生成模擬票價數據
-            base_price = None
-            if cabin_class == "經濟":
-                base_price = random.randint(8000, 15000)
-            elif cabin_class == "商務":
-                base_price = random.randint(20000, 30000)
-            elif cabin_class == "頭等":
-                base_price = random.randint(40000, 60000)
-            else:
-                base_price = random.randint(8000, 15000)
-                
+            # --- 從 map 中獲取票價信息 --- 
+            price_info = prices_map.get(flight["flight_id"])
+            flight_price_amount = price_info['amount'] if price_info else None
+            flight_available_seats = price_info['available_seats'] if price_info else None
+            # --- 結束票價獲取 ---
+
             # 計算飛行時間（分鐘）
             try:
                 dep_time = flight["scheduled_departure"]
                 arr_time = flight["scheduled_arrival"]
                 duration_minutes = int((arr_time - dep_time).total_seconds() / 60)
             except:
-                duration_minutes = random.randint(120, 360)  # 模擬2-6小時飛行時間
+                duration_minutes = random.randint(120, 360) # 保留備用邏輯
             
             # 如果沒有狀態或狀態為unknown，則生成隨機狀態
             status = flight.get("status", "unknown")
@@ -300,17 +318,16 @@ class SearchService:
             formatted_flight = {
                 "flight_id": flight["flight_id"],
                 "airline": {
-                    "code": flight["airline_id"], # 使用 airline_id 作為 code
+                    "code": flight["airline_id"],
                     "name_zh": flight.get("airline_name_zh"),
                     "name_en": flight.get("airline_name_en"),
                     "logo_path": flight.get("airline_logo_path"),
                     "is_domestic": flight.get("airline_is_domestic")
-                    # is_target 通常在控制器層面根據需求添加，這裡不包含
                 },
                 "flight_number": flight["flight_number"],
                 "departure": {
                     "airport_id": flight["departure_id"],
-                    "name": flight["departure_name"], # API Schema 可能期望 name
+                    "name": flight["departure_name"],
                     "city": flight["departure_city"],
                     "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
                     "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
@@ -318,7 +335,7 @@ class SearchService:
                 },
                 "arrival": {
                     "airport_id": flight["arrival_id"],
-                    "name": flight["arrival_name"], # API Schema 可能期望 name
+                    "name": flight["arrival_name"],
                     "city": flight["arrival_city"],
                     "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
                     "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
@@ -326,11 +343,11 @@ class SearchService:
                 },
                 "duration_minutes": duration_minutes,
                 "status": status,
-                "price": {
-                    "amount": base_price,
+                "price": { # 使用從數據庫獲取的數據
+                    "amount": flight_price_amount,
                     "currency": "TWD",
                     "cabin_class": cabin_class,
-                    "available_seats": random.randint(5, 50)
+                    "available_seats": flight_available_seats
                 }
             }
             
