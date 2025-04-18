@@ -270,7 +270,18 @@ export default {
       if (!validateForm() || props.isSearching || loadingTaiwanAirports.value || loadingDestinations.value) {
         return;
       }
-      emit('search', { ...formData });
+      // *** 構建符合 API 要求的參數對象 ***
+      const searchParams = {
+          departure: formData.departureAirport ? formData.departureAirport.code : null,
+          arrival: formData.arrivalAirport ? formData.arrivalAirport.code : null,
+          date: formData.departureDate,
+          return_date: formData.returnDate || null, // 如果為空字符串，設為 null
+          class_type: formData.classType
+          // 可以按需添加其他參數，例如 price_min, price_max 等
+      };
+      
+      // *** 傳遞構建好的參數對象 ***
+      emit('search', searchParams);
     };
 
     onMounted(() => {

@@ -717,31 +717,22 @@ class SearchService:
         
         Args:
             departure_iata (str): 出發地機場的IATA代碼
-            date_str (str, optional): YYYY-MM-DD格式的日期。此參數被忽略，方法會查詢所有日期的記錄。
+            date_str (str, optional): YYYY-MM-DD格式的日期。此參數被保留但不再使用。
             
         Returns:
-            List[Dict[str, Any]]: 目的地機場列表
+            List[Dict[str, Any]]: 目的地機場列表，每個機場包含 id, code, name, city 字段
         """
         db = None
         try:
             db = await get_db()
             
-            # 基礎查詢，查找從指定出發地起飛的航班，並獲取它們的目的地機場
-            # 不再根據日期過濾
+            # 優化查詢，只選擇 AirportBasicSchema 需要的欄位
             sql = """
             SELECT DISTINCT 
-                a_arr.airport_id,
-                a_arr.iata_code, 
-                a_arr.icao_code,
-                a_arr.name_zh, 
-                a_arr.name_en, 
-                a_arr.city,
-                a_arr.city_name_zh,
-                a_arr.city_name_en,
-                a_arr.country,
-                a_arr.country_code,
-                a_arr.latitude,
-                a_arr.longitude
+                a_arr.airport_id as id,
+                a_arr.iata_code as code, 
+                a_arr.name_zh as name,
+                a_arr.city
             FROM 
                 airports a_arr
             JOIN 
@@ -751,16 +742,16 @@ class SearchService:
             WHERE 
                 a_dep.iata_code = $1
             """
-            params = [departure_iata] # 只有一個參數了
+            params = [departure_iata]
             
-            logger.info(f"執行目的地查詢 (所有日期): {sql} 參數: {params}")
+            logger.info(f"執行目的地查詢 (所有日期): {departure_iata}")
             
             results = await db.fetch(sql, *params)
             
             # 將 asyncpg Row 轉換為字典列表
             destinations = [dict(row) for row in results]
             
-            logger.info(f"找到 {len(destinations)} 個從 {departure_iata} 出發的目的地 (所有日期)")
+            logger.info(f"找到 {len(destinations)} 個從 {departure_iata} 出發的目的地")
             return destinations
             
         except Exception as e:
@@ -768,7 +759,7 @@ class SearchService:
             return [] # 返回空列表表示失敗
         finally:
             if db:
-                await release_db(db) 
+                await release_db(db)
     
     @staticmethod
     async def get_flight_details_by_id(flight_id: str) -> Optional[Dict[str, Any]]:

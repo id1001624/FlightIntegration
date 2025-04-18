@@ -155,25 +155,37 @@ export default {
       loading.value = true;
       isSearching.value = true;
       hasSearched.value = true;
-      Object.assign(searchParams, params);
-      
+      // 更新本地狀態以顯示路線摘要 (可選，但保留原始結構)
+      // 注意：params 已經包含 code，不再是 airport object
+      searchParams.departureAirport = { code: params.departure };
+      searchParams.arrivalAirport = { code: params.arrival };
+      searchParams.departureDate = params.date;
+      searchParams.returnDate = params.return_date;
+      searchParams.classType = params.class_type;
+
       // 重置篩選條件
       filters.airlines = [];
 
       try {
-        const departureCode = params.departureAirport?.code;
-        const arrivalCode = params.arrivalAirport?.code;
+        // 直接使用傳入的 params 中的代碼
+        const departureCode = params.departure;
+        const arrivalCode = params.arrival;
         if (!departureCode || !arrivalCode) {
-          throw new Error('缺少必要的參數: 出發地或目的地');
+          // 可以添加更詳細的錯誤處理或日誌記錄
+          console.error('搜索參數錯誤:', params);
+          throw new Error('缺少必要的參數: 出發地或目的地代碼');
         }
 
+        // 構建符合後端 API 要求的參數對象
         const apiSearchParams = {
-          departureAirportCode: departureCode,
-          arrivalAirportCode: arrivalCode,
-          departureDate: params.departureDate,
-          returnDate: params.returnDate || undefined,
-          classType: params.classType || 'economy'
+          departure: departureCode,
+          arrival: arrivalCode,
+          date: params.date, // 使用正確的鍵名 'date'
+          return_date: params.return_date || null, // 使用正確的鍵名 'return_date'
+          class_type: params.class_type || 'economy' // 使用正確的鍵名 'class_type'
         };
+
+        console.log('發送搜索請求參數:', apiSearchParams); // 添加日誌記錄
 
         const response = await flightService.searchFlights(apiSearchParams);
         let flightsData = [];

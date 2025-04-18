@@ -62,16 +62,24 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 # -- 模塊導入更新 --
-# 使用相對導入
+# 優先使用絕對導入 (從 app 開始)，保留相對導入作為備用
 try:
-    logger.info("嘗試使用相對路徑導入...")
-    from .sync_manager import ApiSyncManager
-    from .db_manager import DbManager
-    logger.info("成功使用相對路徑導入客戶端")
-except ImportError as e:
-    logger.error(f"導入模塊失敗: {e}", exc_info=True)
-    logger.critical("無法導入必要模組，請檢查 sync_manager.py 和 db_manager.py 是否存在於 scripts 目錄下，程序退出")
-    sys.exit(1)
+    logger.info("嘗試使用絕對路徑導入 (app.scripts.*)...")
+    from app.scripts.sync_manager import ApiSyncManager
+    from app.scripts.db_manager import DbManager
+    from app.scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES
+    logger.info("成功使用絕對路徑導入模塊")
+except ImportError as e1:
+    logger.warning(f"絕對導入失敗: {e1}。嘗試使用相對路徑導入...")
+    try:
+        from .sync_manager import ApiSyncManager
+        from .db_manager import DbManager
+        from .constants import TAIWAN_AIRPORTS, TARGET_AIRLINES
+        logger.info("成功使用相對路徑導入客戶端")
+    except ImportError as e2:
+        logger.error(f"相對導入也失敗: {e2}", exc_info=True)
+        logger.critical("無法導入必要模組，請檢查 sync_manager.py 和 db_manager.py 是否存在於 scripts 目錄下，程序退出")
+        sys.exit(1)
 
 
 class FlightDataSyncTool:
@@ -336,7 +344,7 @@ class FlightDataSyncTool:
         # 調用 sync_manager 的 sync_popular_routes 來獲取航班數據
         all_flights_dict = {}
         try:
-            # sync_popular_routes 返回的是字典 {route_tuple: [flights]} 
+            # sync_popular_routes 返回的是字典 {route_tuple: [flights]}
             popular_routes_data = self.api_manager.sync_popular_routes(date_str, days)
             logger.info(f"已從 ApiSyncManager 的 sync_popular_routes 獲取 {len(popular_routes_data)} 條航線的數據")
 
@@ -345,7 +353,7 @@ class FlightDataSyncTool:
             for route, flights in popular_routes_data.items():
                 if flights:
                     all_flights.extend(flights)
-            
+
             logger.info(f"合併後共獲取 {len(all_flights)} 條航班數據")
 
         except Exception as e:
@@ -359,8 +367,68 @@ class FlightDataSyncTool:
         logger.info(f"準備將 {len(all_flights)} 條航班數據同步到數據庫")
         try:
             # 調用 db_manager 的 import_flights_to_database
-            self.db_manager.import_flights_to_database(all_flights)
-            logger.info(f"成功將 {len(all_flights)} 條航班數據同步到數據庫")
+            # *** 返回導入結果統計 ***
+            import_result = self.db_manager.import_flights_to_database(all_flights)
+            # logger.info(f"成功將 {len(all_flights)} 條航班數據同步到數據庫") # 舊日誌
+
+            # 使用返回的統計信息
+            inserted = import_result.get('inserted', 0)
+            updated = import_result.get('updated', 0)
+            skipped = import_result.get('skipped', 0)
+            errors = import_result.get('errors', 0)
+            total_processed = inserted + updated + skipped + errors
+
+            logger.info(f"航班數據同步完成: 總處理 {total_processed}, 新增 {inserted}, 更新 {updated}, 跳過 {skipped}, 錯誤 {errors}")
+
+            # --- 開始計算並輸出統計信息 ---
+            flights_per_airport = {airport: 0 for airport in TAIWAN_AIRPORTS}
+            flights_per_airline = {airline: 0 for airline in TARGET_AIRLINES}
+            
+            # *** 添加航空公司中文名稱的硬編碼映射 ***
+            airline_name_map = {
+                'AE': '華信航空',
+                'B7': '立榮航空',
+                'DA': '德安航空',
+                'BR': '長榮航空',
+                'CI': '中華航空',
+                'CX': '國泰航空',
+                'JX': '星宇航空',
+                'IT': '台灣虎航',
+                'JL': '日本航空',
+                'NH': '全日空航空',
+                'AK': '亞洲航空',
+                'KE': '大韓航空',
+                'OZ': '韓亞航空',
+                'MU': '中國東方航空',
+                'SQ': '新加坡航空',
+                # 如果 TARGET_AIRLINES 還有其他，請在此補充
+            }
+            
+            for flight in all_flights:
+                dep_airport = flight.get('departure_airport_id')
+                airline = flight.get('airline_id')
+                
+                if dep_airport in flights_per_airport:
+                    flights_per_airport[dep_airport] += 1
+                
+                if airline in flights_per_airline:
+                    flights_per_airline[airline] += 1
+            
+            print("\n--- 航班統計 ---") # 使用 print 輸出以區別於常規日誌
+            print("從台灣出發的機場:")
+            for airport, count in flights_per_airport.items():
+                if count > 0: # 只顯示有航班的機場
+                    print(f"  {airport}: {count} 個航班")
+            
+            print("\n指定航空公司:")
+            for airline, count in flights_per_airline.items():
+                if count > 0: # 只顯示有航班的航空公司
+                    # *** 直接從硬編碼映射獲取中文名 ***
+                    name_zh = f" ({airline_name_map.get(airline, '')})" # 使用 .get 提供備用空字符串
+                    print(f"  {airline}{name_zh}: {count} 個航班")
+            print("-----------------\n")
+            # --- 結束統計信息輸出 ---
+
             return all_flights # 返回成功同步的航班列表
         except Exception as e:
             logger.error(f"數據庫同步航班時出錯: {str(e)}", exc_info=True)

@@ -218,18 +218,25 @@ async def get_airlines():
 @flight_bp.route('/<string:departure_code>/destinations', methods=['GET'])
 @cache.cached(timeout=3600, query_string=True)  # 緩存1小時，考慮查詢參數
 async def get_available_destinations(departure_code):
-    """獲取從指定出發地可以到達的所有目的地（未來航班）"""
+    """獲取從指定出發地可以到達的所有目的地（所有航班記錄）
+    
+    Note:
+        日期參數現在是可選的，返回結果包含所有日期的航班目的地
+    """
     try:
-        # TODO: 添加日期參數驗證 (可以使用一個簡單的 Schema)
+        # 日期參數現在是可選的，但為了向後兼容，仍然處理它
         date_str = request.args.get('date')
-        if not date_str: # 日期是必須的，因為我們要查未來航班的目的地
-            raise BadRequest("必須提供日期參數 (date=YYYY-MM-DD)")
-        try:
-            datetime.strptime(date_str, '%Y-%m-%d')
-        except ValueError:
-            raise BadRequest('日期格式錯誤，請使用 YYYY-MM-DD')
+        
+        # 如果提供了日期，驗證格式
+        if date_str:
+            try:
+                datetime.strptime(date_str, '%Y-%m-%d')
+            except ValueError:
+                raise BadRequest('日期格式錯誤，請使用 YYYY-MM-DD')
 
+        # 調用服務獲取目的地，不再強制要求日期參數
         destinations_data = await SearchService.get_available_destinations(departure_code.upper(), date_str)
+        
         # 序列化結果
         serialized_data = airports_basic_schema.dump(destinations_data)
         return _success_response(serialized_data)

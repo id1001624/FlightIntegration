@@ -19,6 +19,32 @@ from ..utils.date_utils import parse_datetime, format_datetime
 from typing import Dict, List, Optional, Any, Union, Tuple
 import time
 
+# *** 將 logger 配置移到頂部 ***
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger('sync_manager') # 在模塊級別定義 logger
+
+# *** 新增導入 asyncpg 相關函數 ***
+try:
+    from app.database.db import get_db, release_db
+except ImportError:
+    # 如果直接導入失敗，嘗試從父目錄添加路徑
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    app_dir = os.path.dirname(current_dir)
+    backend_dir = os.path.dirname(app_dir)
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
+    try:
+        from app.database.db import get_db, release_db
+    except ImportError:
+        logger.error("無法導入資料庫輔助函數 get_db, release_db")
+        # 定義空的替代函數避免後續 NameError，但功能會失效
+        async def get_db(): return None
+        async def release_db(conn): pass
+
 # 獲取當前腳本所在的目錄
 script_dir = os.path.dirname(os.path.abspath(__file__))
 # 獲取 backend 目錄的路徑 (scripts 的上一級)
@@ -36,13 +62,6 @@ from ..utils.date_utils import parse_datetime, format_datetime
 from typing import Dict, List, Optional, Any, Union, Tuple
 import time
 
-# 配置日誌
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('sync_manager')
-
 # 導入常量和客戶端
 try:
     # 優先嘗試新的客戶端導入路徑
@@ -55,9 +74,9 @@ try:
         POPULAR_DOMESTIC_ROUTES_TUPLES,
         POPULAR_INTERNATIONAL_ROUTES_TUPLES,
     )
-    # 添加模型導入
-    from app.models.airline import Airline 
-    from app.models.airport import Airport
+    # 不再依賴這裡導入模型，get_airline 將直接查詢
+    # from app.models.airline import Airline
+    # from app.models.airport import Airport
 except ImportError:
     # 嘗試相對導入舊的客戶端
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -80,6 +99,9 @@ except ImportError:
             POPULAR_DOMESTIC_ROUTES_TUPLES,
             POPULAR_INTERNATIONAL_ROUTES_TUPLES
         )
+        # *** 在備用導入中也加入模型導入 ***
+        # from app.models.airline import Airline
+        # from app.models.airport import Airport
     except ImportError:
         try:
             # 如果常量導入失敗，使用內部定義的常量
@@ -87,9 +109,18 @@ except ImportError:
             from backend.app.deprecated.flightstats_sync import FlightStatsApiClient
             TAIWAN_AIRPORTS = ['TPE', 'TSA', 'RMQ', 'KHH', 'TNN', 'CYI', 'HUN', 'TTT', 'KNH', 'MZG', 'LZN', 'MFK', 'KYD', 'GNI', 'CMJ', 'WOT']
             TARGET_AIRLINES = ['AE', 'B7', 'BR', 'CI', 'CX', 'DA', 'IT', 'JL', 'JX', 'OZ']
+            # *** 如果連 app.models 都導入失敗，這裡需要處理 Airline 和 Airport 的定義 ***
+            # 這裡可以定義一個簡單的模擬類或設置為 None，並在後續代碼中處理
+            class MockModel:
+                @staticmethod
+                def get_by_iata(code):
+                    return None
+            Airline = MockModel
+            Airport = MockModel
+            logger.warning("無法導入資料庫模型，部分功能 (如獲取中文名) 將受限")
         except ImportError as e: # Inner try needs an except
             logger.error(f"無法導入任何版本的 API 客戶端: {str(e)}")
-        sys.exit(1)
+            sys.exit(1)
 
 # --- TDX 數據格式化輔助函數 ---
 def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
@@ -147,25 +178,25 @@ class ApiSyncManager:
     def __init__(self):
         """初始化同步管理器"""
         # 初始化 logger 屬性
-        self.logger = logging.getLogger('sync_manager')
+        # self.logger = logging.getLogger('sync_manager') # 可以移除，直接用全局 logger
         
         try:
             self.tdx_api = TdxApiClient()
-            self.logger.info("已初始化 TDX API 客戶端")
+            logger.info("已初始化 TDX API 客戶端") # 使用模塊級 logger
         except Exception as e:
             self.tdx_api = None
-            self.logger.error(f"初始化 TDX API 客戶端出錯: {str(e)}")
+            logger.error(f"初始化 TDX API 客戶端出錯: {str(e)}") # 使用模塊級 logger
         
         try:
             self.flightstats_api = FlightStatsApiClient()
-            self.logger.info("已初始化 FlightStats API 客戶端")
+            logger.info("已初始化 FlightStats API 客戶端") # 使用模塊級 logger
         except Exception as e:
             self.flightstats_api = None
-            self.logger.error(f"初始化 FlightStats API 客戶端出錯: {str(e)}")
+            logger.error(f"初始化 FlightStats API 客戶端出錯: {str(e)}") # 使用模塊級 logger
         
         # 檢查至少一個 API 客戶端可用
         if not self.tdx_api and not self.flightstats_api:
-            self.logger.error("無法初始化任何 API 客戶端，同步功能將無法使用")
+            logger.error("無法初始化任何 API 客戶端，同步功能將無法使用") # 使用模塊級 logger
         
         # 機場和航空公司緩存
         self.airports_cache = {}
@@ -251,7 +282,7 @@ class ApiSyncManager:
     
     def sync_airports(self):
         """同步機場數據"""
-        self.logger.info("開始同步機場數據...")
+        logger.info("開始同步機場數據...")
         added_count = 0
         updated_count = 0
 
@@ -259,13 +290,13 @@ class ApiSyncManager:
         # 如果完全依賴資料庫，這個同步方法可能不再需要，
         # 或者需要從其他來源（如文件、管理界面）獲取數據。
         # 暫時將其留空或只記錄一條信息。
-        self.logger.info("機場同步功能當前依賴資料庫數據，未執行外部API同步。")
+        logger.info("機場同步功能當前依賴資料庫數據，未執行外部API同步。")
 
         # 原有的合併和更新邏輯基於API數據，現已移除
         # all_airports_data = self._merge_airport_data(tdx_airports, flightstats_airports)
         # ... (原有的 database update/add logic)
 
-        self.logger.info(f"機場同步完成。新增: {added_count}, 更新: {updated_count}")
+        logger.info(f"機場同步完成。新增: {added_count}, 更新: {updated_count}")
         # 確保方法有返回值，即使是空的
         return []
     
@@ -275,13 +306,13 @@ class ApiSyncManager:
             return None
 
         iata_code = iata_code.strip().upper()
-        self.logger.debug(f"正在獲取機場資訊: {iata_code}")
+        logger.debug(f"正在獲取機場資訊: {iata_code}")
 
         # 1. 優先從資料庫查詢
         try:
             airport_db = Airport.get_by_iata(iata_code)
             if airport_db:
-                self.logger.debug(f"從資料庫找到機場 {iata_code}")
+                logger.debug(f"從資料庫找到機場 {iata_code}")
                 # 將模型對象轉換為字典以保持一致性
                 return {
                     'airport_id': airport_db.airport_id,
@@ -296,52 +327,63 @@ class ApiSyncManager:
                     'source': 'database'
                 }
         except Exception as e:
-            self.logger.error(f"從資料庫查詢機場 {iata_code} 時出錯: {e}")
+            logger.error(f"從資料庫查詢機場 {iata_code} 時出錯: {e}")
             return None
         
-        self.logger.warning(f"在資料庫中未找到機場資訊: {iata_code}")
+        logger.warning(f"在資料庫中未找到機場資訊: {iata_code}")
         return None
     
     def sync_airlines(self) -> List[Dict]:
         """同步航空公司數據 - 當前版本依賴資料庫數據，不執行外部同步"""
-        self.logger.info("開始同步航空公司數據...")
+        logger.info("開始同步航空公司數據...")
         
         
-        self.logger.info("航空公司同步功能當前依賴資料庫數據，未執行外部API同步。")
+        logger.info("航空公司同步功能當前依賴資料庫數據，未執行外部API同步。")
         
         # 始終返回空列表，因為此方法不再產生需要處理的外部數據
         return []
     
-    def get_airline(self, iata_code: str) -> Optional[Dict]:
-        """直接從資料庫獲取航空公司資料"""
+    async def get_airline(self, iata_code: str) -> Optional[Dict]:
+        """直接從資料庫獲取航空公司資料 (使用 asyncpg)"""
         if not iata_code:
             return None
-            
+
         iata_code = iata_code.strip().upper()
-        self.logger.debug(f"正在從資料庫獲取航空公司資訊: {iata_code}")
-        
-        # 直接查詢資料庫
+        logger.debug(f"正在從資料庫獲取航空公司資訊: {iata_code}") # 使用模塊 logger
+
+        conn = None
         try:
-            airline_db = Airline.get_by_iata(iata_code)
-            if airline_db:
-                self.logger.debug(f"從資料庫找到航空公司 {iata_code}")
-                # 將模型對象轉換為字典
+            conn = await get_db() # 獲取 asyncpg 連接
+            if conn is None:
+                logger.error("無法獲取資料庫連接")
+                return None
+
+            # 執行 SQL 查詢
+            # 假設 airlines 表有 airline_id (主鍵), name_zh, name_en 等欄位
+            query = "SELECT airline_id, name_zh, name_en, website, contact_phone, is_domestic FROM airlines WHERE airline_id = $1"
+            row = await conn.fetchrow(query, iata_code)
+
+            if row:
+                logger.debug(f"從資料庫找到航空公司 {iata_code}")
+                # 將查詢結果轉換為字典
                 return {
-                    'airline_id': airline_db.airline_id,
-                    'name_zh': airline_db.name_zh,
-                    'name_en': airline_db.name_en,
-                    'website': airline_db.website,
-                    'contact_phone': airline_db.contact_phone,
-                    'is_domestic': airline_db.is_domestic,
+                    'airline_id': row['airline_id'],
+                    'name_zh': row['name_zh'],
+                    'name_en': row['name_en'],
+                    'website': row['website'],
+                    'contact_phone': row['contact_phone'],
+                    'is_domestic': row['is_domestic'],
                     'source': 'database'
                 }
             else:
-                # 如果資料庫沒有找到，明確記錄並返回 None
-                self.logger.warning(f"在資料庫中未找到航空公司: {iata_code}")
+                logger.warning(f"在資料庫中未找到航空公司: {iata_code}")
                 return None
         except Exception as e:
-            self.logger.error(f"從資料庫查詢航空公司 {iata_code} 時出錯: {e}")
+            logger.error(f"從資料庫查詢航空公司 {iata_code} 時出錯: {e}")
             return None
+        finally:
+            if conn:
+                await release_db(conn) # 釋放連接
     
     def sync_flights(self, departure: str, arrival: str, date: Union[dt_datetime, str], days: int = 1) -> List[Dict]:
         """
@@ -357,12 +399,17 @@ class ApiSyncManager:
             航班數據列表
         """
         if isinstance(date, str):
-            date = dt_datetime.strptime(date, "%Y-%m-%d")
+            try:
+                date = dt_datetime.strptime(date, "%Y-%m-%d")
+            except ValueError:
+                logger.error(f"提供的日期字串格式錯誤: {date}")
+                return [] # 返回空列表如果日期無效
         
         flights = []
         flight_keys = set()  # 用於去重的集合，存儲flight_number+departure_date
+        tdx_processed_flights = [] # 用於存儲從 TDX 獲取並格式化後的航班
         
-        # 檢查起飛機場是否為台灣機場
+        # 檢查起飛機場是否為台灣機場 (如果不是台灣出發，只用 FlightStats)
         if departure not in TAIWAN_AIRPORTS:
             logger.warning(f"出發機場 {departure} 不在台灣機場列表中，僅使用FlightStats API獲取數據")
             if self.flightstats_api:
@@ -375,89 +422,106 @@ class ApiSyncManager:
                         filtered_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
                         if filtered_flights:
                             logger.info(f"已從 FlightStats 獲取並篩選出 {len(filtered_flights)} 個目標航空公司航班")
+                            # 假設 FlightStats 返回的是內部格式或兼容格式
                             self._add_unique_flights(flights, filtered_flights, flight_keys)
                         else:
                             logger.warning(f"從 FlightStats 獲取航班後未找到目標航空公司航班")
                 except Exception as e:
-                    logger.error(f"從 FlightStats 獲取航班數據失敗: {str(e)}")
+                    logger.error(f"從 FlightStats 獲取非台灣出發航班數據失敗: {str(e)}")
             return flights
         
-        # 判斷航線類型（國內或國際）和機場是否為問題機場
+        # --- 以下為台灣出發的處理邏輯 ---
         is_domestic = self.is_domestic_route(departure, arrival)
-        
-        # 使用新的判斷邏輯決定是否使用TDX API
         use_tdx = self.should_use_tdx_for_airport(departure, date)
+        date_str = date.strftime('%Y-%m-%d')
         
-        # 標記是否已從 TDX 獲取過航班數據
-        tdx_flights_fetched = False
-        
-        # 先嘗試使用 TDX API 獲取 AE、B7、DA 航空公司的航班
+        # --- TDX API 邏輯 --- 
         if self.tdx_api and use_tdx:
+            tdx_raw_flights_filtered = [] # 存放篩選後的原始TDX航班
             try:
-                # 獲取日期字串
-                date_str = date.strftime('%Y-%m-%d')
-                logger.info(f"嘗試從 TDX 獲取 {departure}->{arrival} 的 AE、B7、DA 航班")
+                logger.info(f"嘗試從 TDX FIDS 獲取 {departure} 在 {date_str} 的所有航班")
+                # 統一調用 FIDS 接口
+                raw_data = self.tdx_api.get_domestic_flight_schedules(departure, date_str)
                 
-                # 先嘗試獲取國內航班時刻表
-                tdx_raw_flights = self.tdx_api.get_domestic_flight_schedules(departure, date_str)
-                if isinstance(tdx_raw_flights, list):
-                    # --- 篩選邏輯在此 ---
-                    tdx_domestic_flights = [
-                        f for f in tdx_raw_flights 
-                        if f.get('DepartureAirportID') == departure and  # <-- 使用 DepartureAirportID
-                           self.is_tdx_target_airline(f.get('AirlineID')) # <-- 使用 AirlineID
-                    ]
-                    # --- 結束篩選 ---
-                    # logger.info(f"TDX API 為 {departure} on {date_str} 返回 {len(tdx_raw_flights)} 原始記錄, 篩選後得到 {len(tdx_domestic_flights)} 個 AE/B7/DA 航班")
-                    # 修改日誌輸出格式
-                    logger.info(f"--- TDX API 數據 ({departure} -> {arrival} on {date_str}) ---")
-                    logger.info(f"  - 為機場 {departure} 獲取 {len(tdx_raw_flights)} 筆原始航班記錄")
-                    logger.info(f"  - 篩選指定航空公司 ({', '.join(self.TDX_TARGET_AIRLINES)}) 後，找到 {len(tdx_domestic_flights)} 個航班")
-                    if tdx_domestic_flights:
-                        self._add_unique_flights(flights, tdx_domestic_flights, flight_keys)
-                        tdx_flights_fetched = True
+                if isinstance(raw_data, list):
+                    logger.info(f"TDX FIDS 返回 {len(raw_data)} 筆 {departure} 的原始記錄，開始篩選...")
+                    # 根據國內/國際進行篩選
+                    if is_domestic:
+                        tdx_raw_flights_filtered = [
+                            f for f in raw_data
+                            if f.get('DepartureAirportID') == departure and
+                               f.get('ArrivalAirportID') == arrival and # 國內也需匹配到達機場
+                               self.is_tdx_target_airline(f.get('AirlineID')) # 只篩選 AE, B7, DA
+                        ]
+                        logger.info(f"篩選國內航線 {departure}->{arrival} (AE, B7, DA) 結果: {len(tdx_raw_flights_filtered)} 個航班")
+                    else: # 國際航線
+                        tdx_raw_flights_filtered = [
+                            f for f in raw_data
+                            if f.get('DepartureAirportID') == departure and
+                               f.get('ArrivalAirportID') == arrival and # 國際需匹配到達機場
+                               f.get('AirlineID') in TARGET_AIRLINES # 篩選目標國際航空公司
+                        ]
+                        logger.info(f"篩選國際航線 {departure}->{arrival} (TARGET_AIRLINES) 結果: {len(tdx_raw_flights_filtered)} 個航班")
+                else:
+                    logger.warning(f"TDX FIDS 未返回列表: {type(raw_data)}")
                 
-                if not tdx_flights_fetched:
-                    logger.warning(f"從 TDX API 獲取 {departure}->{arrival} 的 AE、B7、DA 航班返回空結果")
-            except Exception as e: # Correctly indented except block for TDX
-                logger.error(f"從 TDX 獲取 {departure}->{arrival} 的 AE、B7、DA 航班數據失敗: {str(e)}")
-            
-        # 使用 FlightStats API 獲取其他航空公司的航班
-        if self.flightstats_api: # Correct indentation for this block
-            try: # Try block for flightstats starts here
-                time.sleep(self.request_delay)
-                logger.info(f"從 FlightStats 獲取 {departure}->{arrival} 的非 AE、B7、DA 航班")
-
-                # Correct indentation for the API call
-                fs_flights = self.flightstats_api.get_flights(
-                    departure, arrival, date.strftime('%Y-%m-%d')
-                )
-
-                # Correct indentation for the conditional block
-                if fs_flights:
-                    # 添加日誌，查看原始航班的航空公司代碼
-                    original_airlines = {f.get('airline_id') for f in fs_flights if f.get('airline_id')}
-                    logger.info(f"FlightStats 返回的原始航空公司代碼: {original_airlines}")
+                # 格式化篩選後的 TDX 航班
+                for raw_flight in tdx_raw_flights_filtered:
+                    formatted = format_tdx_flight(raw_flight)
+                    if formatted:
+                        tdx_processed_flights.append(formatted)
                         
-                    # Correct indentation for list comprehensions
-                    all_target_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
-                    # 添加日誌，查看第一次篩選後的結果
-                    filtered_airlines = {f.get('airline_id') for f in all_target_flights if f.get('airline_id')}
-                    logger.info(f"篩選 TARGET_AIRLINES 後的航空公司代碼: {filtered_airlines}")
+                if tdx_processed_flights:
+                    logger.info(f"已格式化 {len(tdx_processed_flights)} 個來自 TDX 的航班")
+                    # 將格式化後的 TDX 航班添加到主列表 (去重)
+                    self._add_unique_flights(flights, tdx_processed_flights, flight_keys)
+                else:
+                    logger.warning(f"從 TDX API 獲取 {departure}->{arrival} 的航班篩選/格式化後為空")
 
-                    other_airlines_flights = [
-                        f for f in all_target_flights if f.get('airline_id') not in self.TDX_TARGET_AIRLINES
-                    ]
-
-                    if other_airlines_flights:
-                        logger.info(f"從 FlightStats 獲取 {len(other_airlines_flights)} 個非 AE、B7、DA 的目標航空公司航班")
-                        self._add_unique_flights(flights, other_airlines_flights, flight_keys)
-                else: # Correct indentation for the else block
-                    # Correct indentation for the logger warning
-                    logger.warning(f"從 FlightStats 獲取 {departure}->{arrival} 航班返回空結果")
-            except Exception as e: # Correctly indented except block for FlightStats
-                logger.error(f"從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
+            except Exception as e:
+                logger.error(f"處理 TDX 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
+        # --- 結束 TDX API 邏輯 ---
         
+        # --- FlightStats API 邏輯 (補充或作為主要來源) ---
+        if self.flightstats_api:
+            try:
+                time.sleep(self.request_delay)
+                logger.info(f"嘗試從 FlightStats 獲取 {departure}->{arrival} 的航班 (日期: {date_str})")
+                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, date_str)
+                
+                fs_processed_flights = [] # 存放格式化後的 FlightStats 航班
+                if fs_flights_raw:
+                    logger.info(f"FlightStats 返回 {len(fs_flights_raw)} 筆原始記錄，開始篩選...")
+                    # 篩選目標航空公司，並排除已從 TDX 獲取的航班 (基於 flight_key)
+                    for flight in fs_flights_raw:
+                        airline_id = flight.get('airline_id')
+                        if airline_id in TARGET_AIRLINES:
+                            # 生成 flight_key 以檢查是否已從 TDX 添加
+                            flight_number = flight.get('flight_number', '')
+                            dep_dt_str = flight.get('scheduled_departure') # FlightStats 應返回內部格式
+                            dep_date = dep_dt_str[:10] if isinstance(dep_dt_str, str) and len(dep_dt_str) >= 10 else ''
+                            
+                            flight_key = f"{flight_number}_{dep_date}" if flight_number and dep_date else None
+                            
+                            if flight_key and flight_key in flight_keys:
+                                # logger.debug(f"FlightStats 航班 {flight_key} 已從 TDX 添加，跳過")
+                                continue # 如果 TDX 已經添加過，則跳過
+                            else:
+                                # 假設 fs_flights_raw 已经是内部格式或兼容格式
+                                fs_processed_flights.append(flight)
+                                
+                    if fs_processed_flights:
+                        logger.info(f"從 FlightStats 篩選出 {len(fs_processed_flights)} 個新的目標航班")
+                        # 將格式化後的 FlightStats 航班添加到主列表 (去重)
+                        self._add_unique_flights(flights, fs_processed_flights, flight_keys)
+                    else:
+                        logger.info(f"從 FlightStats 未篩選出需要補充的新航班")
+                else:
+                    logger.warning(f"從 FlightStats 獲取 {departure}->{arrival} 航班返回空結果")
+            except Exception as e:
+                logger.error(f"從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
+        # --- 結束 FlightStats API 邏輯 ---
+                
         return flights
     
     def _add_unique_flights(self, target_list: List[Dict], source_flights: List[Dict], flight_keys: set):
