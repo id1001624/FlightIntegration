@@ -14,7 +14,7 @@ from flask_caching import Cache
 from .models.base import db
 
 # 導入配置類
-from ..config import DevelopmentConfig, ProductionConfig # <-- 改為相對導入
+from backend.config import DevelopmentConfig, ProductionConfig # <-- 改為絕對導入
 
 # 初始化緩存
 cache = Cache()
