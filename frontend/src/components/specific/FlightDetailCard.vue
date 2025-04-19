@@ -108,7 +108,7 @@
 <script setup>
 import { ref, computed, reactive, watch } from 'vue';
 import flightService from '@/api/services/flightService'; // 確保路徑正確
-import defaultLogo from '@/assets/images/default-airline.png'; // 確保你有預設圖片
+import defaultLogo from '@/assets/images/origin-airline.png'; // 確保你有預設圖片
 
 // 定義後端基礎 URL (與 FlightCard 一致)
 const backendUrl = 'http://localhost:5000';
