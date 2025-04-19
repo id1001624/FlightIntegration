@@ -2,6 +2,7 @@
 import os
 import sys
 import logging
+import requests  # <-- 添加 requests 庫
 from linebot.v3.messaging import (
     Configuration,
     ApiClient,
@@ -16,12 +17,16 @@ from linebot.v3.messaging import (
 from linebot.v3.messaging.models import ErrorResponse
 from linebot.v3.messaging.exceptions import ApiException
 from dotenv import load_dotenv
+from pathlib import Path
+from flask import Blueprint, current_app
+from linebot import LineBotApi
+from linebot.models import RichMenu
 
 # 加載環境變數
 # load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env')) # <-- 註釋掉，由 run.py 統一加載
 
 # 配置日誌
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # --- 配置區 --- 
@@ -54,48 +59,70 @@ def create_rich_menu():
     configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 
     # 定義 Rich Menu 結構
-    rich_menu_to_create = RichMenuRequest(
-        size=RichMenuSize(width=2500, height=843), # <--- 這裡的尺寸需要匹配您的圖片！
-        selected=False, # 預設是否展開
-        name=RICH_MENU_NAME,
-        chat_bar_text=CHAT_BAR_TEXT,
+    rich_menu_to_create = RichMenu(
+        size=RichMenuSize(width=2500, height=1686),
+        selected=True,
+        name="Alpha Vision Rich Menu",
+        chat_bar_text="選單",
         areas=[
             RichMenuArea(
-                # 整個區域都是一個按鈕
-                bounds=RichMenuBounds(x=0, y=0, width=2500, height=843), # <--- 這裡的尺寸需要匹配您的圖片！
-                # 點擊後打開前端網站
-                action=URIAction(uri=FRONTEND_URL, label="開啟航班查詢網站") 
+                bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
+                action=URIAction(label='首頁', uri=f'{FRONTEND_URL}')
+            ),
+            RichMenuArea(
+                bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
+                action=URIAction(label='航班搜尋', uri=f'{FRONTEND_URL}/flights/search')
+            ),
+            RichMenuArea(
+                bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
+                action=URIAction(label='熱門航班', uri=f'{FRONTEND_URL}/flights/popular')
+            ),
+            RichMenuArea(
+                bounds=RichMenuBounds(x=0, y=843, width=833, height=843),
+                action=URIAction(label='台灣出發', uri=f'{FRONTEND_URL}/flights/from-taiwan')
+            ),
+            RichMenuArea(
+                bounds=RichMenuBounds(x=833, y=843, width=834, height=843),
+                action=URIAction(label='常見問題', uri=f'{FRONTEND_URL}/faq')
+            ),
+            RichMenuArea(
+                bounds=RichMenuBounds(x=1667, y=843, width=833, height=843),
+                action=URIAction(label='關於我們', uri=f'{FRONTEND_URL}/about')
             )
         ]
     )
 
     try:
-        with ApiClient(configuration) as api_client:
-            # 1. 創建 Rich Menu 物件
-            line_bot_api = MessagingApi(api_client)
-            rich_menu_response = line_bot_api.create_rich_menu(rich_menu_request=rich_menu_to_create)
-            rich_menu_id = rich_menu_response.rich_menu_id
-            logger.info(f"成功創建 Rich Menu 物件，ID: {rich_menu_id}")
-
-            # 2. 上傳 Rich Menu 圖片 (使用 MessagingApiBlob)
-            line_bot_blob_api = MessagingApiBlob(api_client)
-            with open(image_absolute_path, 'rb') as image_file:
-                # 讀取文件內容 (bytes)
-                image_content = image_file.read()
-                # 調用 set_rich_menu_image，並明確指定 Content-Type
-                set_rich_menu_image_response = line_bot_blob_api.set_rich_menu_image(
-                    rich_menu_id=rich_menu_id,
-                    body=image_content,    # <-- 傳遞讀取到的 bytes
-                    _content_type='image/png' # <-- 明確指定 Content-Type
-                )
-            logger.info(f"成功上傳 Rich Menu 圖片 ({image_absolute_path}) 到 ID: {rich_menu_id} (響應: {set_rich_menu_image_response})")
-
-            # 3. 設置為預設 Rich Menu
-            set_default_rich_menu_response = line_bot_api.set_default_rich_menu(rich_menu_id=rich_menu_id)
-            logger.info(f"成功將 Rich Menu (ID: {rich_menu_id}) 設置為預設選單。")
-
-            print(f"\nRich Menu 設置完成！預設選單 ID: {rich_menu_id}")
-            print(f"請重新進入與 Bot 的聊天視窗查看效果。")
+        line_bot_api = LineBotApi(CHANNEL_ACCESS_TOKEN)
+        # 創建 Rich Menu
+        rich_menu_id = line_bot_api.create_rich_menu(rich_menu=rich_menu_to_create)
+        logger.info(f"Rich Menu 已創建，ID: {rich_menu_id}")
+        
+        # 讀取文件內容 (bytes)
+        with open(image_absolute_path, 'rb') as f:
+            image_data = f.read()
+        
+        # 使用 requests 直接調用 LINE API 上傳圖片，而不是使用 SDK
+        upload_url = f"https://api.line.me/v2/bot/richmenu/{rich_menu_id}/content"
+        headers = {
+            "Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}",
+            "Content-Type": "image/png"  # 根據您的圖片類型調整
+        }
+        
+        try:
+            response = requests.post(upload_url, headers=headers, data=image_data)
+            response.raise_for_status()  # 如果響應狀態碼不是 2xx，則引發異常
+            logger.info(f"Rich Menu 圖片上傳成功，響應碼：{response.status_code}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"上傳 Rich Menu 圖片時發生錯誤: {e}")
+            return
+        
+        # 將 Rich Menu 設為默認
+        line_bot_api.set_default_rich_menu(rich_menu_id)
+        logger.info("Rich Menu 已設為默認")
+        
+        print(f"\nRich Menu 設置完成！預設選單 ID: {rich_menu_id}")
+        print(f"請重新進入與 Bot 的聊天視窗查看效果。")
 
     except ApiException as e:
         logger.error(f"調用 LINE API 時發生錯誤 (狀態碼: {e.status})：")
@@ -107,6 +134,8 @@ def create_rich_menu():
                     logger.error(f"  - {detail.property}: {detail.message}")
         except Exception as parse_error:
             logger.error(f"  無法解析錯誤響應體: {e.body}, 解析錯誤: {parse_error}")
+    except requests.RequestException as e:
+        logger.error(f"使用 requests 發送 HTTP 請求時發生錯誤: {e}")
     except FileNotFoundError:
         logger.error(f"錯誤：找不到指定的圖片文件 '{image_absolute_path}'")
     except Exception as e:
