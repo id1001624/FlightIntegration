@@ -8,6 +8,7 @@ from ..models.base import db
 from sqlalchemy import func, desc, exc as sqlalchemy_exc
 from flask import current_app
 import logging
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class PriceService:
     """
     
     @staticmethod
-    def get_price_by_flight(flight_id, class_type=None):
+    async def get_price_by_flight(flight_id, class_type=None):
         """
         獲取航班的票價信息
         
@@ -29,19 +30,93 @@ class PriceService:
         Returns:
             list: 票價列表
         """
-        query = TicketPrice.query.filter_by(flight_id=flight_id)
-        
-        if class_type:
-            query = query.filter_by(class_type=class_type)
+        db = None  # Initialize db to None
+        try:
+            from ..database.db import get_db, release_db
+            db = await get_db()
+            query = text("""
+                SELECT class_type, base_price, available_seats, price_updated_at
+                FROM ticket_prices
+                WHERE flight_id = :flight_id
+                """ + (" AND class_type = :class_type" if class_type else ""))
+
+            params = {"flight_id": flight_id}
+            if class_type:
+                params["class_type"] = class_type
+
+            results = await db.fetch(query, params)
+            prices = results
+
+            return [{
+                'class_type': price['class_type'],
+                'price': float(price['base_price']) if price['base_price'] is not None else None,
+                'available_seats': price['available_seats'],
+                'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
+            } for price in prices]
+        except Exception as e:
+            logger.error(f"Error fetching price for flight {flight_id}: {e}", exc_info=True)
+            return []
+        finally:
+            if db:
+                await release_db(db)
+    
+    @staticmethod
+    async def get_prices_for_flights_batch(flight_ids: list[str]) -> dict[str, dict[str, dict]]:
+        """
+        批量獲取多個航班的所有艙位價格信息。
+
+        Args:
+            flight_ids: 航班 ID 列表。
+
+        Returns:
+            一個字典，鍵是航班 ID (str)，值是另一個字典，
+            其鍵是艙位類型 (str)，值是包含價格信息的字典。
+            例如: {'flight_id1': {'經濟': {'amount': 100.0, ...}, '商務': {...}}, ...}
+        """
+        if not flight_ids:
+            return {}
+
+        db = None
+        prices_map = {}
+        try:
+            from ..database.db import get_db, release_db
+            db = await get_db()
+
+            # 確保 flight_ids 中的 ID 是 UUID 對象或兼容的字符串格式
+            # 如果 flight_ids 是字符串列表，且確定它們是有效的 UUID 格式，可以直接使用
+
+            # 修改：移除 currency 欄位
+            price_query = text("""
+            SELECT flight_id, class_type, base_price, available_seats, price_updated_at 
+            FROM ticket_prices
+            WHERE flight_id = ANY($1)  -- 使用 $1
+            """)
             
-        prices = query.all()
+            # 修改：直接傳遞 flight_ids 列表作為參數
+            price_records = await db.fetch(str(price_query), flight_ids)
+            
+            for record in price_records:
+                flight_id_str = str(record['flight_id'])
+                cabin_class = record['class_type']
+                if flight_id_str not in prices_map:
+                    prices_map[flight_id_str] = {}
+                
+                prices_map[flight_id_str][cabin_class] = {
+                    'amount': float(record['base_price']) if record['base_price'] is not None else None,
+                    'available_seats': record['available_seats'],
+                    'cabin_class': cabin_class,
+                    'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
+                }
+            logger.info(f"批量獲取了 {len(flight_ids)} 個航班的 {len(price_records)} 條票價記錄")
+
+        except Exception as e:
+            logger.error(f"批量查詢票價時出錯: {e}", exc_info=True)
+            # 即使出錯，也可能返回部分獲取的數據
+        finally:
+            if db:
+                await release_db(db)
         
-        return [{
-            'class_type': price.class_type,
-            'price': float(price.base_price),
-            'available_seats': price.available_seats,
-            'updated_at': price.price_updated_at.isoformat() if price.price_updated_at else None
-        } for price in prices]
+        return prices_map
     
     @staticmethod
     def get_lowest_prices(departure_iata, arrival_iata, start_date, end_date=None):

@@ -186,9 +186,11 @@ class SearchService:
             a_dep.airport_id as departure_id, 
             a_dep.name_zh as departure_name,
             a_dep.city as departure_city,
+            a_dep.country as departure_country,
             a_arr.airport_id as arrival_id, 
             a_arr.name_zh as arrival_name,
             a_arr.city as arrival_city,
+            a_arr.country as arrival_country,
             al.airline_id, 
             al.name_zh as airline_name_zh,
             al.name_en as airline_name_en,
@@ -250,110 +252,81 @@ class SearchService:
         格式化航班列表為API響應格式，並從數據庫獲取票價數據
         
         Args:
-            flights: 航班列表 (包含 flight_id)
-            cabin_class: 艙位類型
-            
-        Returns:
-            List[Dict[str, Any]]: 格式化後的航班列表
-        """
-        import random # 保留 random 用於 status 和 terminal/gate
-        formatted_flights = []
-        db = None
+            flights: 從數據庫獲取的航班列表
+            cabin_class: 目標艙位等級
         
+        Returns:
+            List[Dict[str, Any]]: 格式化後的航班列表，包含票價
+        """
+        formatted = []
         if not flights:
             return []
-            
-        # --- 獲取所有相關航班的票價 --- 
-        flight_ids = [flight["flight_id"] for flight in flights]
-        prices_map = {}
-        try:
-            db = await get_db()
-            price_query = """
-            SELECT flight_id, base_price, available_seats
-            FROM ticket_prices
-            WHERE flight_id = ANY($1::uuid[]) AND class_type = $2
-            """
-            price_records = await db.fetch(price_query, flight_ids, cabin_class)
-            for record in price_records:
-                prices_map[record['flight_id']] = {
-                    'amount': float(record['base_price']) if record['base_price'] is not None else None,
-                    'available_seats': record['available_seats']
-                }
-            logger.info(f"為 {len(flights)} 個航班獲取了 {len(prices_map)} 條 '{cabin_class}' 艙位票價記錄")
-        except Exception as e:
-            logger.error(f"查詢票價時出錯: {e}", exc_info=True)
-            # 即使票價查詢失敗，也繼續格式化航班，只是價格信息會缺失
-        finally:
-            if db:
-                await release_db(db)
-        # --- 結束票價獲取 ---
-
-        # 定義可能的航班狀態
-        possible_statuses = [
-            'on_time', 'scheduled', 'delayed', 'in_air', 'arrived', 'cancelled'
-        ]
-        status_weights = [0.65, 0.15, 0.08, 0.05, 0.05, 0.02]
+        
+        # 一次性獲取所有相關航班的票價
+        flight_ids = [f['flight_id'] for f in flights]
+        # 假設有異步方法可以獲取票價
+        from app.services.price_service import PriceService
+        # 修改：調用新的批量方法
+        prices = await PriceService.get_prices_for_flights_batch(flight_ids)
         
         for flight in flights:
-            # --- 從 map 中獲取票價信息 --- 
-            price_info = prices_map.get(flight["flight_id"])
-            flight_price_amount = price_info['amount'] if price_info else None
-            flight_available_seats = price_info['available_seats'] if price_info else None
-            # --- 結束票價獲取 ---
-
-            # 計算飛行時間（分鐘）
-            try:
-                dep_time = flight["scheduled_departure"]
-                arr_time = flight["scheduled_arrival"]
-                duration_minutes = int((arr_time - dep_time).total_seconds() / 60)
-            except:
-                duration_minutes = random.randint(120, 360) # 保留備用邏輯
+            # 查找此航班和艙位的價格 - 使用批量獲取的結果
+            flight_price_info = prices.get(str(flight['flight_id']), {}).get(cabin_class)
             
-            # 如果沒有狀態或狀態為unknown，則生成隨機狀態
-            status = flight.get("status", "unknown")
-            if status is None or status.lower() == "unknown" or status == "":
-                status = random.choices(possible_statuses, weights=status_weights, k=1)[0]
+            # 如果找不到指定艙位價格，則跳過此航班（或設置為None，取決於需求）
+            if not flight_price_info:
+                # logger.debug(f"航班 {flight['flight_number']} ({flight['flight_id']}) 找不到艙位 '{cabin_class}' 的價格信息，跳過。")
+                continue
+                
+            # 計算飛行時長（如果數據庫查詢未提供）
+            # 假設 scheduled_departure 和 scheduled_arrival 已經在 flight 字典中
+            duration_minutes = None
+            dep_time = flight.get('scheduled_departure')
+            arr_time = flight.get('scheduled_arrival')
+            if dep_time and arr_time:
+                try:
+                    duration = arr_time - dep_time
+                    duration_minutes = int(duration.total_seconds() / 60)
+                except TypeError as e:
+                    logger.warning(f"無法計算航班 {flight['flight_number']} ({flight['flight_id']}) 的時長: {e}")
             
-            # 格式化航班數據 - 匹配 AirlineBasicSchema
             formatted_flight = {
-                "flight_id": flight["flight_id"],
-                "airline": {
-                    "code": flight["airline_id"],
-                    "name_zh": flight.get("airline_name_zh"),
-                    "name_en": flight.get("airline_name_en"),
-                    "logo_path": flight.get("airline_logo_path"),
-                    "is_domestic": flight.get("airline_is_domestic")
+                'flight_id': str(flight['flight_id']), # 確保是字符串
+                'flight_number': flight['flight_number'],
+                # --- 添加時間日期欄位 --- 
+                'scheduled_departure': flight.get('scheduled_departure'), 
+                'scheduled_arrival': flight.get('scheduled_arrival'),
+                # -----------------------
+                'duration_minutes': duration_minutes,
+                'airline': {
+                    'code': flight['airline_id'],
+                    'name_zh': flight['airline_name_zh'],
+                    'name_en': flight['airline_name_en'],
+                    'is_domestic': flight['airline_is_domestic'],
+                    'logo_path': flight['airline_logo_path']
                 },
-                "flight_number": flight["flight_number"],
-                "departure": {
-                    "airport_id": flight["departure_id"],
-                    "name": flight["departure_name"],
-                    "city": flight["departure_city"],
-                    "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
-                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
-                    "time": flight["scheduled_departure"].isoformat()
+                'departure_airport': {
+                    'airport_id': flight.get('departure_id'),
+                    'name_zh': flight.get('departure_name'),
+                    'city': flight.get('departure_city'),
+                    'country': flight.get('departure_country')
                 },
-                "arrival": {
-                    "airport_id": flight["arrival_id"],
-                    "name": flight["arrival_name"],
-                    "city": flight["arrival_city"],
-                    "terminal": random.choice(["1", "2", "3"]), # 保留隨機生成
-                    "gate": f"{random.choice('ABCDE')}{random.randint(1, 20)}", # 保留隨機生成
-                    "time": flight["scheduled_arrival"].isoformat()
+                'arrival_airport': {
+                    'airport_id': flight.get('arrival_id'),
+                    'name_zh': flight.get('arrival_name'),
+                    'city': flight.get('arrival_city'),
+                    'country': flight.get('arrival_country')
                 },
-                "duration_minutes": duration_minutes,
-                "status": status,
-                "price": { # 使用從數據庫獲取的數據
-                    "amount": flight_price_amount,
-                    "currency": "TWD",
-                    "cabin_class": cabin_class,
-                    "available_seats": flight_available_seats
+                'price': { # 使用從 PriceService 獲取的價格信息
+                    'amount': flight_price_info['amount'],
+                    'cabin_class': flight_price_info['cabin_class'],
+                    'available_seats': flight_price_info['available_seats']
                 }
+                # 可以在這裡添加其他需要的字段
             }
+            formatted.append(formatted_flight)
             
-            formatted_flights.append(formatted_flight)
-        
-        return formatted_flights
+        return formatted
     
     @staticmethod
     async def get_low_fare_calendar(

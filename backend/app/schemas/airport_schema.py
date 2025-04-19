@@ -13,13 +13,12 @@ class AirportSchema(Schema):
     # dump_only=True 表示這些欄位只在序列化（輸出）時使用
 
 class AirportBasicSchema(Schema):
-    """用於下拉選單等簡化場景"""
-    # id = fields.Str(attribute="airport_id") # 不再需要 id，用 code
-    code = fields.Str(attribute="airport_id") # 使用 airport_id 作為 code
-    name = fields.Str(attribute="name_zh")    # 使用 name_zh 作為 name
-    city = fields.Str()                       # 保留 city
-    # 可以選擇性添加 country
-    country = fields.Str()
+    """用於下拉選單等簡化場景，以及嵌套在 FlightSearchResult 中"""
+    # 恢復 attribute 映射
+    code = fields.Str(attribute="airport_id") # 映射回 airport_id
+    name = fields.Str(attribute="name_zh")    # 映射回 name_zh
+    city = fields.Str() # 保留 city
+    country = fields.Str(allow_none=True) # 保留 country，允許為空
 
 airport_schema = AirportSchema()
 airports_schema = AirportSchema(many=True)

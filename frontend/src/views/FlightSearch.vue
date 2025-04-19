@@ -193,35 +193,56 @@ export default {
 
         console.log('發送搜索請求參數:', apiSearchParams);
 
-        const response = await flightService.searchFlights(apiSearchParams);
-        // 確保打印原始 API 響應
-        console.log('Raw API response from flightService:', JSON.stringify(response)); 
-
-        let flightsData = [];
-
-        if (typeof response === 'string') {
-          try {
-            const parsed = JSON.parse(response);
-            if (parsed && Array.isArray(parsed)) {
-              flightsData = parsed;
-            } else if (parsed && parsed.outbound) {
-              flightsData = parsed.outbound;
-            } else if (parsed && parsed.outbound_flights) {
-              flightsData = parsed.outbound_flights;
-            } else {
-              flightsData = flightService._handleResponse(parsed);
-            }
-          } catch (e) {
-            console.error('無法解析 JSON 響應:', e);
-            flightsData = [];
-          }
-        } else if (response && response.outbound) {
-          flightsData = response.outbound;
-        } else if (response && response.outbound_flights) {
-          flightsData = response.outbound_flights;
-        } else {
-          flightsData = flightService._handleResponse(response);
+        // --- API 呼叫 ---
+        let response;
+        try {
+          response = await flightService.searchFlights(apiSearchParams);
+          // **直接打印 response 看看它到底是什麼**
+          console.log('<<< DEBUGGING: Raw response from service >>>', response);
+          // **修改：移動到這裡立即打印**
+          console.log('Raw API response received. Type:', typeof response, 'Content snippet:', String(response).substring(0, 500)); // 增加片段長度
+        } catch (apiError) {
+          console.error('[FlightSearch] API call to searchFlights failed:', apiError);
+          // 將錯誤重新拋出，讓外層的 catch 處理 UI 更新
+          throw apiError; 
         }
+        // --- End API 呼叫 ---
+
+        // --- 數據提取 ---
+        console.log('[FlightSearch] Starting data extraction from response.');
+        let flightsData = [];
+        try { // **修改：將整個提取邏輯包在一個 try-catch 中**
+            // **修改：直接檢查 response 是否為陣列**
+            if (Array.isArray(response)) {
+                flightsData = response; // <<-- 直接賦值！
+                console.log('[FlightSearch] Extracted directly from response Array');
+            }
+            // 可以保留對舊格式的檢查作為備用
+            else if (response && response.data && Array.isArray(response.data.outbound_flights)) { // **修改：檢查後端標準格式**
+                flightsData = response.data.outbound_flights;
+                console.log('[FlightSearch] Extracted from response.data.outbound_flights');
+            } else if (response && response.outbound) { // 保留舊的檢查
+                flightsData = response.outbound;
+                console.log('[FlightSearch] Extracted from response.outbound (legacy?)');
+            } else {
+                console.warn('[FlightSearch] Unexpected response structure:', response);
+                // 不再調用 _handleResponse，因為 API 直接返回了數組
+                flightsData = []; 
+                // // **修改：為 _handleResponse 添加 try-catch**
+                // try {
+                //     console.log('[FlightSearch] Calling _handleResponse for direct response object...');
+                //     flightsData = flightService._handleResponse(response);
+                //     console.log('[FlightSearch] Extracted via _handleResponse for direct response object');
+                // } catch (handleResponseError) {
+                //     console.error('[FlightSearch] Error calling _handleResponse for direct response object:', handleResponseError);
+                //     flightsData = [];
+                // }
+            }
+        } catch (extractionError) {
+            console.error('[FlightSearch] Error during data extraction logic:', extractionError);
+            flightsData = []; // 確保出錯時清空
+        }
+        // --- End 數據提取 ---
 
         // 添加日誌：打印提取出的 flightsData
         console.log('[FlightSearch] Extracted flightsData:', JSON.stringify(flightsData));
@@ -253,14 +274,16 @@ export default {
               logo_path: flight.airline_logo_path || null // 確保 logo_path 傳遞
             },
             departure: {
-              code: flight.departure_airport_code || flight.departure_airport_id || 'N/A', // 從 API 獲取
-              time: flight.scheduled_departure || null, // 從 API 獲取
-              terminal: flight.departure_terminal || null // 從 API 獲取
+              code: flight.departure_airport?.code || 'N/A', // 主要使用 API 返回的 code
+              airport_id: flight.departure_airport?.code || null, // 將 code 也存為 airport_id 作為備用
+              time: flight.scheduled_departure || null, // scheduled_departure 在頂層
+              terminal: flight.departure_terminal || null // departure_terminal 在頂層（需要確認API響應）
             },
             arrival: {
-              code: flight.arrival_airport_code || flight.arrival_airport_id || 'N/A', // 從 API 獲取
-              time: flight.scheduled_arrival || null, // 從 API 獲取
-              terminal: flight.arrival_terminal || null // 從 API 獲取
+              code: flight.arrival_airport?.code || 'N/A',   // 主要使用 API 返回的 code
+              airport_id: flight.arrival_airport?.code || null,   // 將 code 也存為 airport_id 作為備用
+              time: flight.scheduled_arrival || null,   // scheduled_arrival 在頂層
+              terminal: flight.arrival_terminal || null   // arrival_terminal 在頂層（需要確認API響應）
             },
             price: { // 保持 price 為嵌套對象
               amount: priceObject.amount,
