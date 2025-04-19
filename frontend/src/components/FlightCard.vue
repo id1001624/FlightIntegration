@@ -153,11 +153,17 @@ export default {
     // --- End Logo Path Logic ---
 
     const formatTime = (dateTimeString) => {
+      console.log(`[FlightCard] formatTime called with: ${dateTimeString}`);
       if (!dateTimeString) return '--:--';
       try {
         const date = new Date(dateTimeString);
+        if (isNaN(date.getTime())) {
+          console.warn(`[FlightCard] Invalid date string for time: ${dateTimeString}`);
+          return '--:--';
+        }
         return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false });
       } catch (e) {
+        console.error(`[FlightCard] Error formatting time: ${dateTimeString}`, e);
         return '--:--';
       }
     };
@@ -196,11 +202,19 @@ export default {
     const formattedArrivalTime = computed(() => formatTime(props.flight.arrival?.time));
     const formattedDepartureDate = computed(() => {
         const dateStr = props.flight.departure?.time;
+        console.log(`[FlightCard] formattedDepartureDate computed with: ${dateStr}`);
         if (!dateStr) return '--/--';
         try {
             const date = new Date(dateStr);
+            if (isNaN(date.getTime())) {
+              console.warn(`[FlightCard] Invalid date string for date: ${dateStr}`);
+              return '--/--';
+            }
             return date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-        } catch (e) { return '--/--'; }
+        } catch (e) { 
+            console.error(`[FlightCard] Error formatting date: ${dateStr}`, e);
+            return '--/--'; 
+        }
     });
 
     const getDepartureAirportCode = computed(() => props.flight.departure?.code || props.flight.departure?.airport_id || 'N/A');

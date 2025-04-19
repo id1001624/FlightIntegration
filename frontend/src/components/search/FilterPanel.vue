@@ -57,7 +57,8 @@ export default {
       let max = 0;
       
       props.flights.forEach(flight => {
-        const price = parseFloat(flight.price) || parseFloat(flight.ticket_price) || 0;
+        const price = flight.price?.amount ? parseFloat(flight.price.amount) : 0;
+        
         if (price > 0) {
           min = Math.min(min, price);
           max = Math.max(max, price);
@@ -72,6 +73,12 @@ export default {
       // 為最大值添加一點緩衝
       max = Math.ceil(max / 1000) * 1000;
       
+      // 確保最小值不大於最大值 (如果 max 緩衝後仍為 0)
+      if (min > max) {
+        min = 0; // 或者設置為 max? 取決於業務邏輯，這裡設為0
+      }
+      
+      console.log(`[FilterPanel] Calculated minMaxPrices: min=${min}, max=${max}`);
       return { min, max };
     });
     

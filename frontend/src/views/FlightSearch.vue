@@ -155,6 +155,9 @@ export default {
     };
 
     const handleSearch = async (params) => {
+      // 添加日誌：確認函數被調用
+      console.log('[FlightSearch] handleSearch called with params:', params);
+      
       loading.value = true;
       isSearching.value = true;
       hasSearched.value = true;
@@ -191,7 +194,8 @@ export default {
         console.log('發送搜索請求參數:', apiSearchParams);
 
         const response = await flightService.searchFlights(apiSearchParams);
-        console.log('SearchForm: Raw API response from searchFlights:', JSON.parse(JSON.stringify(response)));
+        // 確保打印原始 API 響應
+        console.log('Raw API response from flightService:', JSON.stringify(response)); 
 
         let flightsData = [];
 
@@ -219,14 +223,21 @@ export default {
           flightsData = flightService._handleResponse(response);
         }
 
-        if (!flightsData || flightsData.length === 0) {
-          flights.value = [];
-          console.log('handleSearch: No flights found, returning.');
+        // 添加日誌：打印提取出的 flightsData
+        console.log('[FlightSearch] Extracted flightsData:', JSON.stringify(flightsData));
+
+        if (!flightsData || flightsData.length === 0) { 
+          flights.value = []; // 確保清空
+          filteredFlights.value = []; // 確保清空
+          console.log('handleSearch: No flights data extracted, returning.');
           return;
         }
 
         const processedFlights = flightsData.map((flight, index) => {
-          console.log(`Processing flight ${index}:`, JSON.parse(JSON.stringify(flight)));
+          // 添加日誌：打印每個原始 flight 對象
+          console.log(`[FlightSearch] Processing original flight ${index}:`, JSON.stringify(flight));
+          console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
+          console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
 
           // 直接使用 API 返回的 price 對象 (如果存在)
           const priceObject = flight.price || { amount: null, available_seats: null, cabin_class: '經濟', currency: 'TWD' };
@@ -283,7 +294,8 @@ export default {
         filteredFlights.value = [...flights.value];
 
       } catch (error) {
-        console.error('搜索航班時捕捉到錯誤 (FlightSearch.vue):', error);
+        // 添加錯誤日誌
+        console.error('[FlightSearch] Error in handleSearch:', error);
         alert('搜索航班時發生錯誤。請檢查後端連接和伺服器日誌。');
         flights.value = [];
         filteredFlights.value = [];
