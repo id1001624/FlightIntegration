@@ -1,6 +1,6 @@
 {
     "version": 2,
-    "buildCommand": "npm install --force && vite build",
+    "buildCommand": "npm ci && vite build",
     "outputDirectory": "dist",
     "rewrites": [
       {
