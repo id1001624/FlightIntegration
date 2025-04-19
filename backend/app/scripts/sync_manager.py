@@ -120,7 +120,7 @@ except ImportError:
             logger.warning("無法導入資料庫模型，部分功能 (如獲取中文名) 將受限")
         except ImportError as e: # Inner try needs an except
             logger.error(f"無法導入任何版本的 API 客戶端: {str(e)}")
-            sys.exit(1)
+        sys.exit(1)
 
 # --- TDX 數據格式化輔助函數 ---
 def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
@@ -349,7 +349,7 @@ class ApiSyncManager:
         """直接從資料庫獲取航空公司資料 (使用 asyncpg)"""
         if not iata_code:
             return None
-
+            
         iata_code = iata_code.strip().upper()
         logger.debug(f"正在從資料庫獲取航空公司資訊: {iata_code}") # 使用模塊 logger
 
@@ -402,7 +402,7 @@ class ApiSyncManager:
         """
         if isinstance(date, str):
             try:
-                date = dt_datetime.strptime(date, "%Y-%m-%d")
+            date = dt_datetime.strptime(date, "%Y-%m-%d")
             except ValueError:
                 logger.error(f"提供的日期字串格式錯誤: {date}")
                 return [] # 返回空列表如果日期無效
@@ -523,7 +523,7 @@ class ApiSyncManager:
             except Exception as e:
                 logger.error(f"從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
         # --- 結束 FlightStats API 邏輯 ---
-                
+        
         return flights
     
     def _add_unique_flights(self, target_list: List[Dict], source_flights: List[Dict], flight_keys: set):
@@ -619,21 +619,21 @@ class ApiSyncManager:
         for departure, arrival in all_popular_routes:
             route_key = (departure, arrival)
             logger.info(f"處理熱門航線: {departure} -> {arrival}")
-
+            
             # 調用 sync_flights 獲取數據 (內部已處理 TDX 和 FlightStats 的策略)
-            try:
-                flights = self.sync_flights(departure, arrival, date, days)
-                results[route_key] = flights
+                try:
+                    flights = self.sync_flights(departure, arrival, date, days)
+                    results[route_key] = flights
                 synced_count = len(flights)
                 total_synced_flights += synced_count
                 logger.info(f"完成 {departure}->{arrival} 同步，獲取 {synced_count} 個航班")
-            except Exception as e:
+                except Exception as e:
                 logger.error(f"同步熱門航線 {departure}->{arrival} 時出錯: {e}", exc_info=True)
-                results[route_key] = [] # 出錯時也存儲空列表
+                    results[route_key] = [] # 出錯時也存儲空列表   
 
             # 添加延遲避免請求過於頻繁
-            time.sleep(self.request_delay)
-
+                        time.sleep(self.request_delay)
+                        
         logger.info(f"熱門航線同步完成，共處理 {len(all_popular_routes)} 條航線，獲取 {total_synced_flights} 個航班。")
         return results
 
