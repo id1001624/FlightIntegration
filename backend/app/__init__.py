@@ -38,9 +38,15 @@ def create_app(config_name=None):
         config_name = os.environ.get('FLASK_ENV', 'development')
     
     if config_name == 'production':
-        app.config.from_object('config.production')
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+        app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+        app.config['LOG_LEVEL'] = 'INFO'
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     else:
-        app.config.from_object('config.base')
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+        app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_default_dev_secret_key')
+        app.config['LOG_LEVEL'] = 'DEBUG'
+        app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
     
     # 設置跨域 - 允許所有來源訪問
     CORS(app, resources={r"/api/*": {"origins": "*", 

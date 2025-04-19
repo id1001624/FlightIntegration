@@ -1,155 +1,125 @@
 # 台灣航班整合系統 (Flight Integration System)
 
-**WOT、CMJ航班資訊考慮用爬蟲**
-這個系統整合了台灣交通資料平台(TDX)和FlightStats的API，提供台灣航班資料的查詢和同步功能。
+這是一個整合性的航班查詢系統，結合了 Flask 後端、Vue.js 3 前端，並部署在 Render 和 Vercel 上，同時包含基礎的 LINE Bot 整合。
 
 ## 系統特點
 
-- 整合TDX和FlightStats兩種航班API資料來源
-- 自動同步航空公司、機場和航班資料到本地資料庫
-- 支援台灣出發的國內和國際航線資料查詢
-- 自動翻譯航班相關資訊（如機場和航空公司名稱）
-- 提供簡單的資料同步和查詢介面
+- **全端架構**: 使用 Flask (Python) 作為後端 API，Vue.js 3 (Vite + Tailwind CSS) 作為前端介面。
+- **數據整合**: 使用 SQLAlchemy ORM 與 PostgreSQL (Neon) 資料庫交互。
+- **異步處理**: 後端部分採用 async/await 提高性能。
+- **API 驅動**: 前後端通過 RESTful API 進行通信。
+- **雲端部署**: 後端部署於 Render，前端部署於 Vercel (均使用免費方案)。
+- **LINE Bot 整合**: 提供基礎 Webhook 處理和 Rich Menu 重定向至前端。
 
-## 安裝與設定
+## 技術棧
+
+- **後端**: Python 3, Flask, SQLAlchemy, Flask-Migrate, Flask-CORS, Gunicorn, asyncpg, psycopg2, line-bot-sdk
+- **前端**: Node.js, Vue.js 3 (Composition API), Vite, Tailwind CSS, Axios, Pinia (如果使用), Vue Router
+- **資料庫**: PostgreSQL (Neon)
+- **部署**: Render (後端), Vercel (前端)
+
+## 安裝與設定 (本地開發)
 
 ### 系統需求
 
-- Python 3.8+
-- PostgreSQL資料庫
-- 必要的Python套件（詳見下方設定步驟）
+- Python 3.8+ (建議 3.10+)
+- Node.js (包含 npm)
+- PostgreSQL 客戶端工具 (可選，用於直接操作資料庫)
 
-### 設定步驟
+### 後端設定
 
-1. 克隆此專案到本地：
-   ```
-   git clone [專案網址]
-   cd FlightIntegration
-   ```
+1.  **進入後端目錄**: `cd backend`
+2.  **創建並激活虛擬環境**:
+    ```bash
+    # Windows
+    python -m venv venv
+    venv\Scripts\activate
+    
+    # macOS / Linux
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+3.  **安裝依賴**: `pip install -r requirements.txt`
+4.  **設定環境變數**: 複製 `.env.example` 為 `.env`，並填寫必要的值:
+    ```dotenv
+    DATABASE_URL="postgresql://user:password@host:port/dbname" # 您的 Neon DB 連接字串
+    FLASK_ENV=development
+    # 填寫從 LINE Developers Console 獲取的憑證
+    LINE_CHANNEL_ACCESS_TOKEN="YOUR_CHANNEL_ACCESS_TOKEN"
+    LINE_CHANNEL_SECRET="YOUR_CHANNEL_SECRET"
+    ```
+5.  **資料庫遷移**: (如果這是首次設定或模型有變更)
+    ```bash
+    flask db init # 只需要第一次
+    flask db migrate -m "Initial migration" # 或描述性訊息
+    flask db upgrade
+    ```
+6.  **填充初始/航班真資料、票價假資料**: 
+    
+    航班真資料調用 TDX、FlightStats API 導入資料庫
+    ```bash
+    python app/scripts/generate_fake_prices.py
+    ```
 
-2. 啟動虛擬環境:
-   ```
-   venv\Scripts\activate
-   ```
+    目前還沒有票價資料，先用腳本模擬資料
+    ```bash
+    python app/scripts/generate_fake_prices.py
+    ```
 
-3. 安裝所需的Python套件：
-   ```
-   pip install -r requirements.txt
-   ```
+### 前端設定
 
-4. 確認或修改`.env`檔案中的設定，包括資料庫連接和API金鑰：
-   ```
-   # 資料庫設定
-   DB_USER=neondb_owner
-   DB_PASSWORD=你的密碼
-   DB_HOST=你的資料庫主機
-   DB_PORT=5432
-   DB_NAME=flight_integration
-   
-   # TDX API設定
-   TDX_CLIENT_ID=你的TDX客戶端ID
-   TDX_CLIENT_SECRET=你的TDX客戶端密鑰
-   
-   # FlightStats API設定
-   FLIGHTSTATS_APP_ID=你的FlightStats應用ID
-   FLIGHTSTATS_APP_KEY=你的FlightStats應用金鑰
-   ```
+1.  **進入前端目錄**: `cd ../frontend` (假設您在 backend 目錄)
+2.  **安裝依賴**: `npm install`
+3.  **設定環境變數**: 創建 `.env` 文件，並添加後端 API 地址:
+    ```dotenv
+    # 指向本地運行的後端服務
+    VITE_API_BASE_URL=http://127.0.0.1:5000
+    ```
 
-## 執行流程
+## 本地運行
 
-### 1. 資料同步與更新
+1.  **啟動後端服務**:
+    *   確保在 `backend` 目錄下，且虛擬環境已激活。
+    *   運行: `python run.py`
+    *   服務預設在 `http://127.0.0.1:5000` 運行。
+2.  **啟動前端開發伺服器**:
+    *   確保在 `frontend` 目錄下。
+    *   運行: `npm run dev`
+    *   前端通常在 `http://localhost:8080` 可訪問。
 
-使用`sync_flight_data.py`腳本可以一次完成API調用和資料庫更新。
+## 主要 API 端點
 
-```bash
-# 測試API和資料庫連接狀態
-python backend/app/scrips/sync_flight_data.py test
+- `GET /api/flights/search`: 搜索航班 (主要端點)
+  - 參數: `departure`, `arrival`, `date`, `class_type`, `return_date` (可選)
+- `GET /api/flights/<flight_id>`: 獲取單一航班詳情
+- `GET /api/airports/taiwan`: 獲取台灣機場列表
+- `GET /api/flights/{departure}/destinations`: 獲取從指定機場出發的可達目的地
+- `GET /api/airlines`: 獲取航空公司列表 (包含 logo_path)
 
-# 同步特定航線的航班資料（例如：台北飛東京）
-python backend/app/scrips/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 2
+## 部署
 
-# 同步所有從台灣出發的航班
-python backend/app/scrips/sync_flight_data.py taiwan --date 2025-04-01 --days 2
+### 後端 (Render - Free Tier)
 
-# 同步航班表而已
-python sync_flight_data.py flights-only --date 2025-04-07
+1.  連接 GitHub 倉庫。
+2.  創建 Web Service，選擇 Python 3 Runtime。
+3.  **Root Directory**: `backend`
+4.  **Build Command**: `pip install -r requirements.txt`
+5.  **Start Command**: `gunicorn run:app`
+6.  **環境變數**: 添加 `DATABASE_URL`, `FLASK_ENV=production`, `PYTHONUNBUFFERED=1`, `LINE_CHANNEL_ACCESS_TOKEN`, `LINE_CHANNEL_SECRET`。
 
-```
+### 前端 (Vercel - Free Tier)
 
+1.  連接 GitHub 倉庫。
+2.  **Framework Preset**: Vite
+3.  **Root Directory**: `frontend`
+4.  **環境變數**: 添加 `VITE_API_BASE_URL`，值為部署後 Render 後端的 URL (例如 `https://your-backend-name.onrender.com`)。
 
+## LINE Bot 整合
 
-### 2. 啟動後端服務
-
-同步資料後，可以啟動Flask後端服務：
-
-```bash
-# 切換到backend目錄
-cd backend
-
-# 啟動Flask應用
-python run.py
-```
-
-服務預設會在 http://localhost:5000 運行。
-
-### 3. 前端查詢
-
-前端可以通過API查詢航班資料，例如：
-
-- 取得航空公司列表：`GET /api/airlines`
-- 取得機場列表：`GET /api/airports`
-- 查詢航班詳情API：`/api/flights/{flightId}`
-- 查詢機場出發的航班：`GET /api/airports/TPE/departures`
-- 查詢機場到達的航班：`GET /api/airports/TPE/arrivals`
-- 航線：`GET /api/flights/search?departure=TPE&arrival=KHH&date=2025-04-07`
-
-## 演示步驟（適合向老師展示）
-
-1. **測試系統連接狀態**：
-   ```bash
-   python backend/app/scrips/sync_flight_data.py test
-   ```
-   此步驟會檢查API連接和資料庫連接是否正常。
-
-2. **同步基礎資料**：
-   ```bash
-   python backend/sync_flight_data.py airlines
-   python backend/sync_flight_data.py airports
-   ```
-   此步驟會從API獲取航空公司和機場資料，並同步到資料庫。
-
-3. **同步航班資料**：
-   ```bash
-   # 同步台北飛東京的航班
-   python backend/sync_flight_data.py flights --departure TPE --arrival NRT --date 2025-04-01 --days 1
-   ```
-   此步驟會同步特定航線的航班資料到資料庫。
-
-4. **啟動後端服務**：
-   ```bash
-   cd backend
-   python run.py
-   ```
-   此步驟會啟動後端服務，使前端可以查詢資料。
-
-5. **前端查詢演示**：
-   訪問 http://localhost:5000/debug/flights 可以查看已同步的航班資料。
-
-## 常見問題解答
-
-1. **為什麼需要同時使用TDX和FlightStats API？**
-   
-   TDX API提供的是台灣本地航班資料，而FlightStats提供全球航班資料。TDX的資料更新較及時但國際航線資料較少，FlightStats的國際航線資料較完整但收費較高，兩者互補可提供更完整的航班資訊。
-
-2. **資料庫中的航班資料多久更新一次？**
-   
-   建議每天更新一次資料，可以設定自動排程每天執行`sync_flight_data.py all`命令。
-
-3. **如何獲取TDX和FlightStats的API金鑰？**
-   
-   - TDX API：前往[台灣交通資料平台](https://tdx.transportdata.tw/)註冊會員並申請API金鑰。
-   - FlightStats API：前往[FlightStats Developer Center](https://developer.flightstats.com/)註冊開發者帳號並申請API金鑰。
+- 後端包含一個基礎的 Webhook Handler (`/api/line/webhook`)，用於驗證 LINE 簽名並響應。
+- 在 LINE Developers Console 中設置 Webhook URL 指向部署後的後端地址。
+- 創建了一個簡單的 Rich Menu，其按鈕動作類型為 `uri`，指向部署後的前端網站 URL。
 
 ## 授權資訊
 
-本專案僅供教育目的使用。使用TDX和FlightStats API時，請遵守各自的使用條款和授權規定。
+本專案僅供教育目的使用。使用外部 API 時，請遵守各自的使用條款和授權規定。
