@@ -1,10 +1,10 @@
 <template>
   <div class="min-h-[200px]">
-    <!-- 搜索結果數量和提示 -->
-    <div class="flex justify-between items-center mb-6 flex-col md:flex-row gap-4 md:gap-0" v-if="flights && flights.length > 0">
+    <!-- 只有在搜索過且有結果時才顯示標題和排序 -->
+    <div class="flex justify-between items-center mb-6 flex-col md:flex-row gap-4 md:gap-0" v-if="searched && sortedFlights.length > 0">
       <div>
         <h2 class="text-xl font-semibold m-0 mb-1">搜索結果</h2>
-        <p class="m-0 text-text-secondary text-sm">{{ flights.length }} 個航班</p>
+        <p class="m-0 text-text-secondary text-sm">{{ sortedFlights.length }} 個航班</p>
       </div>
       <div class="flex items-center gap-2 w-full md:w-auto">
         <label for="sort-select" class="text-sm text-text-secondary">排序：</label>
@@ -23,13 +23,13 @@
       </div>
     </div>
 
-    <!-- 航班列表 -->
-    <div v-if="flights && flights.length > 0">
+    <!-- 只有在搜索過且有結果時才顯示航班列表 -->
+    <div v-if="searched && sortedFlights.length > 0">
       <FlightList :flights="sortedFlights" />
     </div>
 
-    <!-- 無搜索結果時顯示 -->
-    <div class="flex justify-center items-center p-12 text-center bg-white shadow-sm" v-else-if="searched && (!flights || flights.length === 0)">
+    <!-- 只有在搜索過但無結果時才顯示提示 -->
+    <div class="flex justify-center items-center p-12 text-center bg-white shadow-sm" v-else-if="searched && sortedFlights.length === 0">
       <div class="max-w-md flex flex-col items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mb-6">
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
@@ -66,7 +66,7 @@
       </div>
     </div>
 
-    <!-- 尚未搜索時顯示 -->
+    <!-- 只有在尚未搜索時才顯示提示 -->
     <div class="flex justify-center items-center p-12 text-center bg-white shadow-sm" v-else-if="!searched">
       <div class="max-w-md flex flex-col items-center">
         <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mb-6">

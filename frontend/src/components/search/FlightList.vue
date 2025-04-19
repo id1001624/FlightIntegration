@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-4">
     <div 
       v-for="(flight, index) in flights" 
-      :key="flight.id || index" 
+      :key="flight.flight_id || index"  
       class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
     >
       <FlightCard :flight="flight" />

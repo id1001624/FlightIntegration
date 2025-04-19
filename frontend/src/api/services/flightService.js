@@ -63,58 +63,58 @@ const flightService = {
    * @returns {Array} - 處理後的數據數組
    */
   _handleResponse(response) {
-    // 如果響應為null或undefined，返回空數組
+    console.log('[flightService] _handleResponse input:', JSON.parse(JSON.stringify(response)));
+    let result = []; // 確保只在這裡宣告一次
+
     if (response === null || response === undefined) {
       console.warn('API回應為null或undefined');
-      return [];
-    }
-    
-    // 如果響應是字符串，嘗試解析JSON
-    if (typeof response === 'string') {
+      // result 已初始化為 []
+    } else if (typeof response === 'string') {
       try {
-        response = JSON.parse(response);
+          response = JSON.parse(response);
+          // 再次檢查解析後的對象
+          if (response && response.data && response.data.outbound_flights && Array.isArray(response.data.outbound_flights)) {
+              console.log('找到 response.data.outbound_flights 數組 (from string)');
+              result = response.data.outbound_flights; // 賦值，不重新宣告
+          } else if (response && response.data && Array.isArray(response.data)) {
+             console.log('找到 response.data 作為數組 (from string)');
+             result = response.data; // 賦值，不重新宣告
+          } else {
+             console.warn('Parsed string response format not recognized:', response);
+             // result 已初始化為 []
+          }
       } catch (e) {
-        console.error('無法解析JSON響應:', e);
-        return [];
+          console.error('無法解析JSON響應:', e);
+          // result 已初始化為 []
       }
-    }
-    
-    // 處理outbound結構 (後端API返回格式)
-    if (response && response.outbound) {
-      console.log('找到outbound屬性，返回航班列表');
-      // 確保返回數組
-      return Array.isArray(response.outbound) ? response.outbound : [];
-    }
-    
-    // 處理outbound_flights結構 (舊版API返回格式)
-    if (response && response.outbound_flights) {
-      // 確保返回數組
-      return Array.isArray(response.outbound_flights) ? response.outbound_flights : [];
-    }
-    
-    // 如果回應是數組，直接返回
-    if (Array.isArray(response)) {
-      return response;
-    }
-    
-    // 如果回應有 data 屬性並且是數組，返回 data
-    if (response && response.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    
-    // 如果響應是對象，嘗試以數組形式返回
-    if (response && typeof response === 'object') {
+    } else if (response && response.data && response.data.outbound_flights && Array.isArray(response.data.outbound_flights)) {
+        console.log('找到 response.data.outbound_flights 數組');
+        result = response.data.outbound_flights; // 賦值，不重新宣告
+    } else if (response && response.outbound && Array.isArray(response.outbound)) {
+      console.log('找到 outbound 屬性，返回航班列表');
+      result = response.outbound; // 賦值，不重新宣告
+    } else if (response && response.outbound_flights && Array.isArray(response.outbound_flights)) {
+      result = response.outbound_flights; // 賦值，不重新宣告
+    } else if (Array.isArray(response)) {
+      result = response; // 賦值，不重新宣告
+    } else if (response && response.data && Array.isArray(response.data)) {
+       console.log('找到 response.data 作為數組');
+       result = response.data; // 賦值，不重新宣告
+    } else if (response && typeof response === 'object') {
       console.warn('API回應是對象，嘗試轉換為數組:', response);
       try {
-        return Object.values(response);
+        result = Object.values(response); // 賦值，不重新宣告
       } catch (e) {
         console.error('無法將對象轉換為數組:', e);
+        // result 已初始化為 []
       }
+    } else {
+      console.warn('API回應格式不符合預期:', response);
+      // result 已初始化為 []
     }
-    
-    // 其他情況返回空數組
-    console.warn('API回應格式不符合預期:', response);
-    return [];
+
+    console.log('[flightService] _handleResponse output:', JSON.parse(JSON.stringify(result)));
+    return result;
   },
 
   /**
@@ -137,13 +137,13 @@ const flightService = {
     try {
       // 發送API請求 - 修正端點 URL
       const correctUrl = `/airports/taiwan${date ? `?date=${date}` : ''}`;
-      console.log(`請求正確的機場列表 URL: ${correctUrl}`);
+      console.log(`[flightService] Requesting Taiwan airports: ${correctUrl}`); // <-- 更新日誌標識
       const response = await api.get(correctUrl);
-      console.log('獲取台灣機場API回應:', response);
+      console.log('[flightService] Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
       
       // 處理API回應
       const data = this._handleResponse(response);
-      console.log('處理後的機場數據:', data);
+      console.log('[flightService] Processed airport data:', JSON.parse(JSON.stringify(data))); // <-- 更新日誌標識
       
       // 如果數據為空，丟出錯誤
       if (!data || !Array.isArray(data)) {
@@ -192,9 +192,11 @@ const flightService = {
       if (date) {
         params.date = date;
       }
-      
+      console.log(`[flightService] Requesting destinations for ${departureCode} with params:`, params); // <-- 添加日誌
       const response = await api.get(`/flights/${departureCode}/destinations`, { params });
+      console.log('[flightService] Raw API response for destinations:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
       const data = this._handleResponse(response);
+      console.log('[flightService] Processed destination data:', JSON.parse(JSON.stringify(data))); // <-- 添加日誌
       
       // 機場按國家和地區進行分類
       const regionMap = {
@@ -318,19 +320,22 @@ const flightService = {
     try {
       // 轉換參數格式以符合後端API
       const apiParams = {
-        departure: params.departureAirportCode,
-        arrival: params.arrivalAirportCode,
-        date: params.departureDate,
-        return_date: params.returnDate,
-        airlines: params.airlineCodes,
-        price_min: params.minPrice,
-        price_max: params.maxPrice,
-        class_type: this._mapClassTypeToAPI(params.classType)
+        departure: params.departure,
+        arrival: params.arrival,
+        date: params.date,
+        return_date: params.return_date,
+        airlines: params.airlines,
+        price_min: params.price_min,
+        price_max: params.price_max,
+        class_type: this._mapClassTypeToAPI(params.class_type)
       };
       
-      console.log('正在搜索航班，參數:', apiParams);
+      console.log('[flightService] Requesting flight search with params:', apiParams); // <-- 添加日誌
       const response = await api.get('/flights/search', { params: apiParams });
+      console.log('[flightService] Raw API response for flight search:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
+      
       const data = this._handleResponse(response);
+      console.log('[flightService] Processed flight search data:', JSON.parse(JSON.stringify(data))); // <-- 添加日誌
       
       // 更新緩存
       if (!cache.flights.data) cache.flights.data = {};

@@ -336,8 +336,20 @@ export default {
         event.stopPropagation();
       }
       
-      emit('update:modelValue', airport);
-      emit('change', airport);
+      // *** 創建一個普通對象副本 ***
+      const plainAirport = { ...airport };
+      // const airportCode = plainAirport.code; // No longer needed here
+      
+      console.log('AirportSelector: 即將 emit 的 airport (原始):', JSON.parse(JSON.stringify(airport)));
+      console.log('AirportSelector: 即將 emit 的 airport (複製後, restored):', plainAirport); 
+      // console.log('AirportSelector: 即將 emit 的 code:', airportCode); // No longer needed here
+      
+      // Emit the plain object for v-model compatibility
+      emit('update:modelValue', plainAirport); 
+
+      // *** Emit the plain object again for the change event ***
+      emit('change', plainAirport); 
+      
       isOpen.value = false;
       selectedRegion.value = null;
       searchQuery.value = '';

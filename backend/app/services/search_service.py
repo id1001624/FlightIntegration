@@ -726,23 +726,25 @@ class SearchService:
         try:
             db = await get_db()
             
-            # 優化查詢，只選擇 AirportBasicSchema 需要的欄位
+            # **注意這裡的SQL語句**
             sql = """
             SELECT DISTINCT 
-                a_arr.airport_id as id,
-                a_arr.iata_code as code, 
-                a_arr.name_zh as name,
-                a_arr.city
+                a.airport_id, 
+                a.name_zh, 
+                a.name_en, 
+                a.city, 
+                a.country 
+                -- 確保只選擇存在的列，移除任何對 iata_code 的潛在引用
             FROM 
-                airports a_arr
+                airports a
             JOIN 
-                flights f ON a_arr.airport_id = f.arrival_airport_id
-            JOIN
-                airports a_dep ON f.departure_airport_id = a_dep.airport_id
+                flights f ON a.airport_id = f.arrival_airport_id 
             WHERE 
-                a_dep.iata_code = $1
+                f.departure_airport_id = $1
             """
             params = [departure_iata]
+            
+            # **原本用於過濾日期的部分已被移除或註釋掉**
             
             logger.info(f"執行目的地查詢 (所有日期): {departure_iata}")
             

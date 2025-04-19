@@ -1,9 +1,15 @@
 <template>
   <div class="flight-card-wrapper relative">
     <router-link 
-      :to="{ name: 'FlightDetail', params: { id: flight.flight_id } }" 
+      v-if="flight && flight.flight_id" 
+      :to="detailLinkTarget"             
+      :event="detailLinkTarget ? 'click' : ''" 
+      :class="{
+        'flight-card-active': isActive,
+        'cursor-default': !detailLinkTarget,
+        'pointer-events-none': !detailLinkTarget
+      }"
       class="flight-card-link" 
-      :class="{'flight-card-active': isActive}"
       @click.prevent="selectFlight" 
     >
       <div class="flight-card" >
@@ -233,11 +239,19 @@ export default {
       return '--時--分';
     });
 
+    const detailLinkTarget = computed(() => {
+      if (props.flight && props.flight.flight_id) {
+        return { name: 'FlightDetail', params: { id: props.flight.flight_id } };
+      }
+      // 如果 flight_id 無效，返回 null，阻止 router-link 生成有效 href
+      return null; 
+    });
+
     const selectFlight = () => {
-      if (props.flight.flight_id) {
+      if (props.flight && props.flight.flight_id) {
           router.push({ name: 'FlightDetail', params: { flight_id: props.flight.flight_id } });
       } else {
-          console.error('Flight ID is missing, cannot navigate to details.');
+          console.error('Flight ID is missing, cannot navigate to details.', props.flight);
       }
       emit('select-flight', props.flight);
     };
@@ -300,7 +314,8 @@ export default {
       toggleDetails,
       selectFlight,
       journeyLine,
-      airplaneIcon
+      airplaneIcon,
+      detailLinkTarget
     };
   }
 }

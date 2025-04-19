@@ -137,15 +137,17 @@ export default {
       errors.departureAirport = '';
       try {
         const airports = await flightService.getTaiwanAirports(formData.departureDate);
+        console.log('SearchForm: Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(airports)));
         if (airports && airports.length > 0) {
           taiwanAirports.value = airports.map(airport => ({
             id: airport.airport_id || airport.id,
-            code: airport.iata_code || airport.code,
-            name: airport.name || airport.name_zh || airport.name_en,
+            code: airport.iata_code || airport.code || airport.airport_id || airport.id || 'N/A',
+            name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
             city: airport.city,
             country: airport.country || 'Taiwan',
             region: '台灣'
           }));
+          console.log('SearchForm: Mapped Taiwan airports:', JSON.parse(JSON.stringify(taiwanAirports.value)));
         } else {
           taiwanAirports.value = [];
           console.error('API 未返回有效台灣機場資料');
@@ -161,30 +163,38 @@ export default {
     };
 
     const onDepartureChange = async (selectedAirport) => {
-      formData.arrivalAirport = null;
-      destinationAirports.value = [];
-      if (!selectedAirport || !selectedAirport.code) {
+      console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
+      console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
+
+      const airportCode = selectedAirport?.code;
+
+      if (!airportCode) {
+        console.log('無效或缺失的 airport code，提前退出 onDepartureChange');
         return;
       }
+
       loadingDestinations.value = true;
       errors.arrivalAirport = '';
       try {
-        const destinations = await flightService.getDestinations(selectedAirport.code, formData.departureDate);
+        console.log(`獲取目的地: 出發=${airportCode}, 日期=${formData.departureDate}`);
+        const destinations = await flightService.getDestinations(airportCode, formData.departureDate);
+        console.log('原始目的地數據:', destinations);
+
         if (destinations && destinations.length > 0) {
-          destinationAirports.value = destinations.map(airport => {
+          const mappedDestinations = destinations.map(airport => {
             const country = airport.country || '';
-            
+            const code = airport.airport_id || airport.id || airport.iata_code || airport.code || 'N/A';
             let region = '其他';
             
-            if (['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF'].includes(airport.iata_code || airport.code) || country === 'Taiwan') {
+            if (['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF'].includes(code) || country === 'Taiwan') {
               region = '台灣';
-            } else if (country === 'China' || ['PEK', 'SHA', 'PVG', 'CAN', 'CTU', 'SZX', 'XIY', 'KMG', 'HGH', 'CSX', 'TAO', 'NKG', 'DLC', 'TSN'].some(code => (airport.iata_code || airport.code).includes(code))) {
+            } else if (country === 'China' || ['PEK', 'SHA', 'PVG', 'CAN', 'CTU', 'SZX', 'XIY', 'KMG', 'HGH', 'CSX', 'TAO', 'NKG', 'DLC', 'TSN'].some(c => code.includes(c))) {
               region = '中國';
-            } else if (country === 'Japan' || ['NRT', 'HND', 'KIX', 'ITM', 'FUK', 'CTS', 'NGO', 'OKA'].some(code => (airport.iata_code || airport.code).includes(code))) {
+            } else if (country === 'Japan' || ['NRT', 'HND', 'KIX', 'ITM', 'FUK', 'CTS', 'NGO', 'OKA'].some(c => code.includes(c))) {
               region = '東北亞';
-            } else if (country === 'South Korea' || ['ICN', 'GMP', 'PUS', 'CJU'].some(code => (airport.iata_code || airport.code).includes(code))) {
+            } else if (country === 'South Korea' || ['ICN', 'GMP', 'PUS', 'CJU'].some(c => code.includes(c))) {
               region = '東北亞';
-            } else if (['HKG', 'MFM'].includes(airport.iata_code || airport.code) || country === 'Hong Kong' || country === 'Macau') {
+            } else if (['HKG', 'MFM'].includes(code) || country === 'Hong Kong' || country === 'Macau') {
               region = '香港/澳門';
             } else if (['Thailand', 'Vietnam', 'Singapore', 'Malaysia', 'Philippines', 'Indonesia', 'Cambodia', 'Myanmar', 'Laos', 'Brunei'].includes(country)) {
               region = '東南亞';
@@ -196,27 +206,30 @@ export default {
               region = '大洋洲';
             }
             
+            const name = airport.name_zh || airport.name_en || airport.name || '未知名稱';
+            
             return {
-            id: airport.airport_id || airport.id,
-            code: airport.iata_code || airport.code,
-            name: airport.name || airport.name_zh || airport.name_en,
-            city: airport.city,
+              id: airport.airport_id || airport.id,
+              code: code,
+              name: name,
+              city: airport.city,
               country: country,
               region: region
             };
           });
+          console.log('處理後目的地數據:', mappedDestinations);
+          destinationAirports.value = mappedDestinations;
           
-          const popularCities = ['東京', '大阪', '首爾', '香港', '曼谷', '新加坡', '上海', '北京', '倫敦', '紐約'];
-          const popularAirports = ['NRT', 'HND', 'KIX', 'ICN', 'HKG', 'BKK', 'SIN', 'PVG', 'SHA', 'PEK', 'LHR', 'JFK'];
+          const regionOrder = ['台灣', '東北亞', '香港/澳門', '中國', '東南亞', '美洲', '歐洲', '大洋洲', '其他'];
+          destinationAirports.value.sort((a, b) => {
+            const regionAIndex = regionOrder.indexOf(a.region);
+            const regionBIndex = regionOrder.indexOf(b.region);
+            if (regionAIndex !== regionBIndex) {
+              return regionAIndex - regionBIndex;
+            }
+            return (a.name || '').localeCompare(b.name || '');
+          });
           
-          const popularDestinations = destinationAirports.value.filter(airport => 
-            popularAirports.includes(airport.code) || 
-            popularCities.some(city => airport.name.includes(city) || (airport.city && airport.city.includes(city)))
-          );
-          
-          if (popularDestinations.length > 0) {
-            destinationAirports.value = [...popularDestinations, ...destinationAirports.value.filter(airport => !popularDestinations.includes(airport))];
-          }
         } else {
           destinationAirports.value = [];
           errors.arrivalAirport = '此出發地無可用目的地';
@@ -232,7 +245,9 @@ export default {
 
     const onDepartureDateChange = () => {
       fetchTaiwanAirports();
-      onDepartureChange(formData.departureAirport);
+      if (formData.departureAirport) {
+        onDepartureChange(formData.departureAirport);
+      }
     };
 
     const validateForm = () => {

@@ -14,10 +14,12 @@ class AirportSchema(Schema):
 
 class AirportBasicSchema(Schema):
     """用於下拉選單等簡化場景"""
-    id = fields.Str(attribute="airport_id")
-    code = fields.Str() # 移除屬性映射，讓它直接使用同名字段
-    name = fields.Str() # 可能由 name_zh 或 name_en 組合
-    city = fields.Str()
+    # id = fields.Str(attribute="airport_id") # 不再需要 id，用 code
+    code = fields.Str(attribute="airport_id") # 使用 airport_id 作為 code
+    name = fields.Str(attribute="name_zh")    # 使用 name_zh 作為 name
+    city = fields.Str()                       # 保留 city
+    # 可以選擇性添加 country
+    country = fields.Str()
 
 airport_schema = AirportSchema()
 airports_schema = AirportSchema(many=True)

@@ -70,6 +70,9 @@
           <p class="empty-message">請輸入出發地、目的地和日期開始搜尋航班</p>
         </div>
       </div>
+
+      <!-- <MinimalParent /> -->
+
     </div>
   </div>
 </template>
@@ -185,9 +188,11 @@ export default {
           class_type: params.class_type || 'economy' // 使用正確的鍵名 'class_type'
         };
 
-        console.log('發送搜索請求參數:', apiSearchParams); // 添加日誌記錄
+        console.log('發送搜索請求參數:', apiSearchParams);
 
         const response = await flightService.searchFlights(apiSearchParams);
+        console.log('SearchForm: Raw API response from searchFlights:', JSON.parse(JSON.stringify(response)));
+
         let flightsData = [];
 
         if (typeof response === 'string') {
@@ -216,23 +221,51 @@ export default {
 
         if (!flightsData || flightsData.length === 0) {
           flights.value = [];
-          alert(`沒有找到從 ${params.departureAirport.name} 到 ${params.arrivalAirport.name} 的航班，請選擇其他日期或目的地。`);
+          console.log('handleSearch: No flights found, returning.');
           return;
         }
 
-        const processedFlights = flightsData.map(flight => {
-          if (flight.price && typeof flight.price === 'string') {
-            flight.price = parseFloat(flight.price);
-          } else if (flight.price == null) {
-            flight.price = 0;
+        const processedFlights = flightsData.map((flight, index) => {
+          console.log(`Processing flight ${index}:`, JSON.parse(JSON.stringify(flight))); // 深度複製以防被修改
+
+          let processedPrice = 0;
+          // 優先檢查嵌套結構
+          if (flight.price && typeof flight.price.amount === 'number') {
+            processedPrice = flight.price.amount;
+          // 其次檢查頂層 price (可能是字串或數字)
+          } else if (typeof flight.price === 'string') {
+            processedPrice = parseFloat(flight.price) || 0;
+          } else if (typeof flight.price === 'number') {
+            processedPrice = flight.price;
           }
-          return flight;
+
+          // 創建新的對象，確保包含必要字段
+          const newFlight = {
+            ...flight, // 複製原始數據
+            flight_id: flight.flight_id, // 直接使用 API 返回的值，不再添加 missing_id
+            price: processedPrice, // 使用處理後的價格
+            // 確保 airline 結構存在 (FlightCard 需要)
+            airline: flight.airline || { code: flight.airline_code, name: '未知航空公司' },
+            // 確保 departure/arrival 結構存在 (FlightCard 需要)
+            departure: flight.departure || {},
+            arrival: flight.arrival || {}
+          };
+
+          return newFlight;
         });
 
-        flights.value = processedFlights;
+        // 過濾掉 flight_id 無效的航班
+        const validFlights = processedFlights.filter(f => f.flight_id && String(f.flight_id).trim() !== '');
+
+        if (validFlights.length !== processedFlights.length) {
+          console.warn('Some flights were filtered out due to missing or invalid flight_id.');
+        }
+
+        console.log('Valid flights:', JSON.parse(JSON.stringify(validFlights)));
+        flights.value = validFlights; // 使用過濾後的列表
 
         // 搜索後動態設定價格範圍最大值
-        const maxPrice = Math.max(...processedFlights.map(f => f.price), 0);
+        const maxPrice = Math.max(...validFlights.map(f => f.price), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
         filters.priceRange.min = 0;
 
@@ -240,7 +273,7 @@ export default {
         filteredFlights.value = [...flights.value];
 
       } catch (error) {
-        console.error('搜索航班時出錯:', error);
+        console.error('搜索航班時捕捉到錯誤 (FlightSearch.vue):', error);
         alert('搜索航班時發生錯誤。請檢查後端連接和伺服器日誌。');
         flights.value = [];
         filteredFlights.value = [];
