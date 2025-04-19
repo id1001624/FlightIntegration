@@ -18,6 +18,9 @@ from datetime import timedelta as dt_timedelta
 from ..utils.date_utils import parse_datetime, format_datetime
 from typing import Dict, List, Optional, Any, Union, Tuple
 import time
+import pytz
+import asyncio
+import re
 
 # *** 將 logger 配置移到頂部 ***
 import logging
@@ -120,6 +123,10 @@ except ImportError:
             logger.warning("無法導入資料庫模型，部分功能 (如獲取中文名) 將受限")
         except ImportError as e: # Inner try needs an except
             logger.error(f"無法導入任何版本的 API 客戶端: {str(e)}")
+            # 這裡應該退出或拋出異常，因為缺少核心依賴
+            sys.exit(1)
+        except Exception as e: # Outer try/except for other potential errors during import
+            logger.error(f"初始化導入過程中發生意外錯誤: {str(e)}")
         sys.exit(1)
 
 # --- TDX 數據格式化輔助函數 ---
@@ -402,7 +409,7 @@ class ApiSyncManager:
         """
         if isinstance(date, str):
             try:
-            date = dt_datetime.strptime(date, "%Y-%m-%d")
+                date = dt_datetime.strptime(date, "%Y-%m-%d")
             except ValueError:
                 logger.error(f"提供的日期字串格式錯誤: {date}")
                 return [] # 返回空列表如果日期無效
@@ -595,47 +602,57 @@ class ApiSyncManager:
     
     def sync_popular_routes(self, date: Union[dt_datetime, str] = None, days: int = 1) -> Dict[Tuple[str, str], List[Dict]]:
         """
-        同步所有預定義的熱門航線數據 (包含國內與國際)
+        同步熱門航線的航班數據（例如：TPE-NRT, TSA-HND 等）
         
         Args:
-            date: 起始日期，可以是 datetime 對象或 "YYYY-MM-DD" 格式的字符串，默認為今天
-            days: 查詢天數
+            date: 起始日期，默認為今天
+            days: 從起始日期開始，連續查詢的天數
             
         Returns:
-            以航線為鍵，航班列表為值的字典
+            一個字典，鍵是 (departure, arrival) 的元組，值是該航線的航班列表
         """
         if date is None:
-            date = dt_datetime.now()
+            date = dt_datetime.now().date()
         elif isinstance(date, str):
-            date = dt_datetime.strptime(date, "%Y-%m-%d")
-        
-        results = {}
-        total_synced_flights = 0
-        
-        # 遍歷所有熱門航線 (國內 + 國際)
-        all_popular_routes = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
-        logger.info(f"開始同步 {len(all_popular_routes)} 條熱門航線...")
-        
-        for departure, arrival in all_popular_routes:
-            route_key = (departure, arrival)
-            logger.info(f"處理熱門航線: {departure} -> {arrival}")
-            
-            # 調用 sync_flights 獲取數據 (內部已處理 TDX 和 FlightStats 的策略)
-                try:
-                    flights = self.sync_flights(departure, arrival, date, days)
-                    results[route_key] = flights
-                synced_count = len(flights)
-                total_synced_flights += synced_count
-                logger.info(f"完成 {departure}->{arrival} 同步，獲取 {synced_count} 個航班")
-                except Exception as e:
-                logger.error(f"同步熱門航線 {departure}->{arrival} 時出錯: {e}", exc_info=True)
-                    results[route_key] = [] # 出錯時也存儲空列表   
+            try:
+                date = dt_datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                logger.error(f"提供的日期字串格式錯誤: {date}")
+                return {}
 
-            # 添加延遲避免請求過於頻繁
-                        time.sleep(self.request_delay)
-                        
-        logger.info(f"熱門航線同步完成，共處理 {len(all_popular_routes)} 條航線，獲取 {total_synced_flights} 個航班。")
-        return results
+        all_flights = {}
+        popular_routes = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
+
+        logger.info(f"開始同步 {len(popular_routes)} 條熱門航線，從 {date} 開始，共 {days} 天")
+
+        for dep, arr in popular_routes:
+            logger.info(f"正在處理熱門航線: {dep} -> {arr}")
+            route_flights = []
+            for i in range(days):
+                current_date = date + dt_timedelta(days=i)
+                try:
+                    logger.debug(f"同步航班數據 {dep}->{arr} 日期: {current_date.strftime('%Y-%m-%d')}")
+                    flights_for_day = self.sync_flights(dep, arr, current_date)
+                    if flights_for_day:
+                        logger.info(f"為 {dep}->{arr} 在 {current_date.strftime('%Y-%m-%d')} 找到 {len(flights_for_day)} 個航班")
+                        route_flights.extend(flights_for_day)
+                    else:
+                        logger.warning(f"為 {dep}->{arr} 在 {current_date.strftime('%Y-%m-%d')} 未找到航班")
+                    # 避免過於頻繁的請求
+                    time.sleep(self.request_delay)
+                except Exception as e:
+                    logger.error(f"同步航線 {dep}->{arr} 日期 {current_date.strftime('%Y-%m-%d')} 時發生錯誤: {e}")
+                    # 即使某一天出錯，也繼續處理下一天或下一航線
+                    continue
+
+            if route_flights:
+                logger.info(f"航線 {dep}->{arr} 共找到 {len(route_flights)} 個航班 (共 {days} 天)")
+                all_flights[(dep, arr)] = route_flights
+            else:
+                 logger.warning(f"航線 {dep}->{arr} 在指定的 {days} 天內未找到任何航班")
+
+        logger.info(f"熱門航線同步完成，共處理 {len(all_flights)} 條有效航線")
+        return all_flights
 
 
 def main():
