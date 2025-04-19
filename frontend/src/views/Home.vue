@@ -602,15 +602,18 @@ export default {
 }
 
 .taipei {
-  background-image: url('@/assets/images/cities/tokyo.jpg');
+  /* 使用顏色漸變代替缺失的背景圖片 */
+  background-image: linear-gradient(135deg, #005F73, #0A9396);
 }
 
 .kaohsiung {
-  background-image: url('@/assets/images/cities/hongkong.jpg');
+  /* 使用顏色漸變代替缺失的背景圖片 */
+  background-image: linear-gradient(135deg, #EE9B00, #F4A261);
 }
 
 .taichung {
-  background-image: url('@/assets/images/cities/macau.jpg');
+  /* 使用顏色漸變代替缺失的背景圖片 */
+  background-image: linear-gradient(135deg, #94D2BD, #E9D8A6);
 }
 
 .destination-info {
