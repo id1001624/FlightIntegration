@@ -1,8 +1,0 @@
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- 主體飛機 -->
-  <path d="M40 16L24 8L8 16L24 24L40 16Z" fill="#005F73"/>
-  <!-- 機翼 -->
-  <path d="M36 20L24 24L12 20L24 32L36 20Z" fill="#005F73"/>
-  <!-- 機尾 -->
-  <path d="M28 28L24 32L20 28L24 40L28 28Z" fill="#005F73"/>
-</svg>

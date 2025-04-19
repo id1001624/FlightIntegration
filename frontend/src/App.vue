@@ -9,7 +9,7 @@
       <header class="header">
         <div class="logo-container">
           <router-link to="/" class="logo">
-            <img src="@/assets/images/logo/logo.svg" alt="Logo" class="logo-image">
+            <img src="@/assets/images/logo/logo.png" alt="Logo" class="logo-image">
             <span class="logo-text">Flight Integration</span>
           </router-link>
         </div>
