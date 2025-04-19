@@ -35,7 +35,7 @@ CHANNEL_ACCESS_TOKEN = os.environ.get('LINE_CHANNEL_ACCESS_TOKEN')
 # Vercel 前端部署的 URL (請確保這是正確的)
 FRONTEND_URL = "https://flight-integration.vercel.app" 
 # 您準備好的 Rich Menu 圖片路徑 (相對於項目根目錄)
-RICH_MENU_IMAGE_PATH = "backend/app/static/images/flight-search.png" # <--- 路徑相對於專案根目錄
+RICH_MENU_IMAGE_PATH = "backend/app/static/images/flight-search.jpg" # <--- 路徑相對於專案根目錄
 # Rich Menu 的名稱和聊天欄文字
 RICH_MENU_NAME = "主選單"
 CHAT_BAR_TEXT = "點此開啟網站"
