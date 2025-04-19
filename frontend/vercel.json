@@ -3,10 +3,7 @@
     "builds": [
       {
         "src": "frontend/package.json",
-        "use": "@vercel/node",
-        "config": {
-          "nodeVersion": "20"
-        }
+        "use": "@vercel/static-build" 
       }
     ],
     "rewrites": [
