@@ -161,9 +161,8 @@ class FlightStatsApiClient(BaseAPIClient):
                     except Exception as e:
                         self.logger.warning(f"解析日期時間出錯: {str(e)}")
                     # 創建航班信息字典，只包含資料庫中存在的欄位
-                    # 並使用UUID為flight_id生成真正的UUID
+                    # 並移除 UUID 的生成
                     flight = {
-                        'flight_id': uuid.uuid4(),  # 生成真正的UUID
                         'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
                         'airline_id': item.get('carrierFsCode', ''),
                         'departure_airport_id': dep_airport,

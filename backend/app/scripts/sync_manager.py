@@ -140,21 +140,23 @@ def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
         actual_dep = raw_flight.get('ActualDepartureTime') # 可能為 None
         actual_arr = raw_flight.get('ActualArrivalTime') # 可能為 None
         
-        # 生成UUID
-        flight_uuid = uuid.uuid4()
+        # --- 移除 UUID 生成 ---
+        # flight_uuid = uuid.uuid4() 
 
         # 只保留資料庫表中存在的欄位
         return {
-            'flight_id': flight_uuid,
+            # --- 移除 flight_id ---
+            # 'flight_id': flight_uuid, 
             'flight_number': airline_id + flight_number,
             'airline_id': airline_id,
             'departure_airport_id': raw_flight.get('DepartureAirportID', ''),
             'arrival_airport_id': raw_flight.get('ArrivalAirportID', ''),
             'scheduled_departure': format_datetime(parse_datetime(scheduled_dep)) if scheduled_dep else None,
             'scheduled_arrival': format_datetime(parse_datetime(scheduled_arr)) if scheduled_arr else None,
-            'actual_departure': format_datetime(parse_datetime(actual_dep)) if actual_dep else None,
-            'actual_arrival': format_datetime(parse_datetime(actual_arr)) if actual_arr else None,
-            'aircraft': '' # TDX FIDS 不提供飛機型號，但資料庫需要此欄位
+            'actual_departure': format_datetime(parse_datetime(actual_dep)) if actual_dep else None, # 保留，可能有用
+            'actual_arrival': format_datetime(parse_datetime(actual_arr)) if actual_arr else None, # 保留，可能有用
+            # 確保 aircraft 字段存在，即使為空
+            'aircraft': raw_flight.get('AircraftType', '') # 嘗試從 TDX 獲取，如果沒有則為空字符串
             # 移除了資料庫表格中不存在的欄位
             # 'status', 'departure_terminal', 'departure_gate', 'arrival_terminal', 'arrival_gate', 'source'
         }
