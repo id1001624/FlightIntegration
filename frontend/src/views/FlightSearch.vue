@@ -226,31 +226,41 @@ export default {
         }
 
         const processedFlights = flightsData.map((flight, index) => {
-          console.log(`Processing flight ${index}:`, JSON.parse(JSON.stringify(flight))); // 深度複製以防被修改
+          console.log(`Processing flight ${index}:`, JSON.parse(JSON.stringify(flight)));
 
-          let processedPrice = 0;
-          // 優先檢查嵌套結構
-          if (flight.price && typeof flight.price.amount === 'number') {
-            processedPrice = flight.price.amount;
-          // 其次檢查頂層 price (可能是字串或數字)
-          } else if (typeof flight.price === 'string') {
-            processedPrice = parseFloat(flight.price) || 0;
-          } else if (typeof flight.price === 'number') {
-            processedPrice = flight.price;
-          }
+          // 直接使用 API 返回的 price 對象 (如果存在)
+          const priceObject = flight.price || { amount: null, available_seats: null, cabin_class: '經濟', currency: 'TWD' };
 
-          // 創建新的對象，確保包含必要字段
+          // 構建 FlightCard 需要的嵌套結構
           const newFlight = {
-            ...flight, // 複製原始數據
-            flight_id: flight.flight_id, // 直接使用 API 返回的值，不再添加 missing_id
-            price: processedPrice, // 使用處理後的價格
-            // 確保 airline 結構存在 (FlightCard 需要)
-            airline: flight.airline || { code: flight.airline_code, name: '未知航空公司' },
-            // 確保 departure/arrival 結構存在 (FlightCard 需要)
-            departure: flight.departure || {},
-            arrival: flight.arrival || {}
+            flight_id: flight.flight_id, // 確保 flight_id 在頂層
+            flight_number: flight.flight_number,
+            duration_minutes: flight.duration_minutes,
+            airline: flight.airline || { 
+              code: flight.airline_code || 'N/A', 
+              name_zh: flight.airline_name_zh || '未知航空',
+              logo_path: flight.airline_logo_path || null // 確保 logo_path 傳遞
+            },
+            departure: {
+              code: flight.departure_airport_code || flight.departure_airport_id || 'N/A', // 從 API 獲取
+              time: flight.scheduled_departure || null, // 從 API 獲取
+              terminal: flight.departure_terminal || null // 從 API 獲取
+            },
+            arrival: {
+              code: flight.arrival_airport_code || flight.arrival_airport_id || 'N/A', // 從 API 獲取
+              time: flight.scheduled_arrival || null, // 從 API 獲取
+              terminal: flight.arrival_terminal || null // 從 API 獲取
+            },
+            price: { // 保持 price 為嵌套對象
+              amount: priceObject.amount,
+              available_seats: priceObject.available_seats,
+              cabin_class: priceObject.cabin_class,
+              currency: priceObject.currency
+            }
+            // 可以添加其他需要的頂層屬性
           };
 
+          console.log(`Mapped flight ${index}:`, JSON.parse(JSON.stringify(newFlight)));
           return newFlight;
         });
 
@@ -265,7 +275,7 @@ export default {
         flights.value = validFlights; // 使用過濾後的列表
 
         // 搜索後動態設定價格範圍最大值
-        const maxPrice = Math.max(...validFlights.map(f => f.price), 0);
+        const maxPrice = Math.max(...validFlights.map(f => f.price.amount), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
         filters.priceRange.min = 0;
 
@@ -287,14 +297,14 @@ export default {
       filteredFlights.value = flights.value.filter(flight => {
         // 航空公司篩選
         if (filters.airlines.length > 0) {
-          const airlineCode = flight.airline_code || (flight.airline ? flight.airline.code : '');
+          const airlineCode = flight.airline.code || '';
           if (!airlineCode || !filters.airlines.includes(airlineCode)) {
             return false;
           }
         }
 
         // 價格篩選
-        const flightPrice = flight.price || 0;
+        const flightPrice = flight.price.amount || 0;
         if (flightPrice < filters.priceRange.min || flightPrice > filters.priceRange.max) {
           return false;
         }
@@ -318,7 +328,7 @@ export default {
     // 監聽原始航班數據變化，以更新篩選器（例如價格範圍）
     watch(flights, (newFlights) => {
       if (newFlights && newFlights.length > 0) {
-        const maxPrice = Math.max(...newFlights.map(f => f.price || 0), 0);
+        const maxPrice = Math.max(...newFlights.map(f => f.price.amount), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
       } else {
         // 如果沒有航班，重置價格範圍

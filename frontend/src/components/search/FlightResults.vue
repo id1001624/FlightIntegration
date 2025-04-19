@@ -113,46 +113,30 @@ export default {
       
       switch (sortOption.value) {
         case 'price-asc':
-          return sorted.sort((a, b) => parseFloat(a.price || a.ticket_price || 0) - parseFloat(b.price || b.ticket_price || 0));
+          return sorted.sort((a, b) => (a.price?.amount || 0) - (b.price?.amount || 0));
         
         case 'price-desc':
-          return sorted.sort((a, b) => parseFloat(b.price || b.ticket_price || 0) - parseFloat(a.price || a.ticket_price || 0));
+          return sorted.sort((a, b) => (b.price?.amount || 0) - (a.price?.amount || 0));
         
         case 'departure-asc':
           return sorted.sort((a, b) => {
-            const dateA = new Date(a.departure_time || a.scheduled_departure);
-            const dateB = new Date(b.departure_time || b.scheduled_departure);
+            const dateA = new Date(a.departure?.time || 0);
+            const dateB = new Date(b.departure?.time || 0);
             return dateA - dateB;
           });
         
         case 'departure-desc':
           return sorted.sort((a, b) => {
-            const dateA = new Date(a.departure_time || a.scheduled_departure);
-            const dateB = new Date(b.departure_time || b.scheduled_departure);
+            const dateA = new Date(a.departure?.time || 0);
+            const dateB = new Date(b.departure?.time || 0);
             return dateB - dateA;
           });
         
         case 'duration-asc':
           return sorted.sort((a, b) => {
-            // 優先使用已有的 duration 屬性 (假設是分鐘)
-            if (a.duration && b.duration && typeof a.duration === 'number' && typeof b.duration === 'number') {
-              return a.duration - b.duration;
-            }
-            
-            // 如果沒有分鐘形式，則嘗試解析時間字符串
-            const getDuration = (flight) => {
-              if (!flight.flight_time) return 0;
-              
-              const parts = flight.flight_time.split('h');
-              if (parts.length < 2) return 0;
-              
-              const hours = parseInt(parts[0].trim(), 10) || 0;
-              const minutes = parseInt(parts[1].replace('m', '').trim(), 10) || 0;
-              
-              return hours * 60 + minutes;
-            };
-            
-            return getDuration(a) - getDuration(b);
+            const durationA = a.duration_minutes || 0;
+            const durationB = b.duration_minutes || 0;
+            return durationA - durationB;
           });
         
         default:

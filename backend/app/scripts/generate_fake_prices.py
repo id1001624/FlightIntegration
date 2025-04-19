@@ -53,62 +53,90 @@ async def release_db_connection(conn):
 
 # --- 主要邏輯 ---
 async def find_flights_without_prices(conn, limit=BATCH_SIZE):
-    """查找缺少票價記錄的航班"""
+    """查找票價記錄中缺少新價格欄位 (以 economy_price 為標誌) 的航班"""
     query = """
-    SELECT f.flight_id
-    FROM flights f
-    LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-    WHERE tp.price_id IS NULL
+    SELECT DISTINCT flight_id
+    FROM ticket_prices
+    WHERE economy_price IS NULL
     LIMIT $1;
     """
     try:
         rows = await conn.fetch(query, limit)
-        return [row['flight_id'] for row in rows]
+        flight_ids = [row['flight_id'] for row in rows]
+        logger.info(f"找到 {len(flight_ids)} 個航班其票價記錄缺少 economy_price")
+        return flight_ids
     except Exception as e:
-        logger.error(f"查找缺少票價的航班時出錯: {e}")
+        logger.error(f"查找缺少新價格欄位的航班時出錯: {e}")
         return []
 
 def generate_fake_price_data(flight_id):
     """為單個航班生成所有艙位的模擬票價數據"""
-    prices_data = []
+    prices = []
     now = datetime.now() # 使用本地時間或 UTC 取決於你的需求
 
+    # 為基礎的經濟艙生成價格
+    min_eco_price, max_eco_price = PRICE_RANGES["經濟"]
+    economy_price = round(random.uniform(min_eco_price, max_eco_price), 2)
+    base_price = economy_price # 為了兼容性，讓 base_price 等於 economy_price
+
+    # 生成其他艙等價格，可能為 None
+    business_price = round(economy_price * random.uniform(1.5, 3.0), 2) if random.random() > 0.2 else None
+    first_price = round(economy_price * random.uniform(3.0, 5.0), 2) if random.random() > 0.5 else None
+
+    # 對於每個艙位類型，生成一個記錄（因為當前模型仍依賴 class_type）
     for cabin in CABIN_CLASSES:
-        min_price, max_price = PRICE_RANGES[cabin]
-        base_price = round(random.uniform(min_price, max_price), 2)
+        # 生成可用座位數
         available_seats = random.randint(SEAT_RANGE[0], SEAT_RANGE[1])
-        
-        prices_data.append({
-            'price_id': uuid.uuid4(),
+        # 票價更新時間
+        price_updated_at = now
+
+        prices.append({
+            'price_id': str(uuid.uuid4()),
             'flight_id': flight_id,
-            'class_type': cabin,
-            'base_price': base_price,
+            'class_type': cabin, # 保留 class_type 以匹配當前模型
+            'base_price': base_price, # 插入基礎價格（等於經濟艙）
+            'economy_price': economy_price, # 插入經濟艙價格
+            'business_price': business_price, # 插入商務艙價格 (可能為 None)
+            'first_price': first_price, # 插入頭等艙價格 (可能為 None)
             'available_seats': available_seats,
-            'price_updated_at': now
+            'price_updated_at': price_updated_at
         })
-    return prices_data
+    return prices
 
 async def insert_prices_batch(conn, prices_list):
     """批量插入票價數據"""
     if not prices_list:
         return 0
-        
+
+    # 修改 SQL 以包含所有價格欄位
     query = """
-    INSERT INTO ticket_prices (price_id, flight_id, class_type, base_price, available_seats, price_updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (flight_id, class_type) DO NOTHING; 
+    INSERT INTO ticket_prices (
+        price_id, flight_id, class_type, base_price,
+        economy_price, business_price, first_price,
+        available_seats, price_updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) -- 使用 $1, $2... 佔位符
+    ON CONFLICT (flight_id, class_type) DO UPDATE SET
+        base_price = EXCLUDED.base_price,
+        economy_price = EXCLUDED.economy_price,
+        business_price = EXCLUDED.business_price,
+        first_price = EXCLUDED.first_price,
+        available_seats = EXCLUDED.available_seats,
+        price_updated_at = EXCLUDED.price_updated_at;
     """
-    # ON CONFLICT 確保如果特定航班和艙位的價格已存在，則跳過插入，避免錯誤
-    
+
     try:
         # 將字典列表轉換為元組列表以供 executemany 使用
         data_tuples = [
             (
-                p['price_id'], 
-                p['flight_id'], 
-                p['class_type'], 
-                p['base_price'], 
-                p['available_seats'], 
+                p['price_id'],
+                p['flight_id'],
+                p['class_type'],
+                p['base_price'],
+                p['economy_price'],
+                p['business_price'],
+                p['first_price'],
+                p['available_seats'],
                 p['price_updated_at']
             ) for p in prices_list
         ]

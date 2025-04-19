@@ -241,7 +241,7 @@ export default {
 
     const detailLinkTarget = computed(() => {
       if (props.flight && props.flight.flight_id) {
-        return { name: 'FlightDetail', params: { id: props.flight.flight_id } };
+        return { name: 'FlightDetail', params: { flight_id: props.flight.flight_id } };
       }
       // 如果 flight_id 無效，返回 null，阻止 router-link 生成有效 href
       return null; 
