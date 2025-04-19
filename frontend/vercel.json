@@ -5,8 +5,14 @@
         "src": "frontend/package.json",
         "use": "@vercel/node",
         "config": {
-          "nodeVersion": "20" 
+          "nodeVersion": "20"
         }
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "/(.*)",
+        "destination": "/index.html"
       }
     ]
   }
