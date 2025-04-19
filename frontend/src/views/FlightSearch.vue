@@ -275,7 +275,7 @@ export default {
         flights.value = validFlights; // 使用過濾後的列表
 
         // 搜索後動態設定價格範圍最大值
-        const maxPrice = Math.max(...validFlights.map(f => f.price.amount), 0);
+        const maxPrice = Math.max(...validFlights.map(f => f.price.amount || 0), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
         filters.priceRange.min = 0;
 
@@ -328,16 +328,15 @@ export default {
     // 監聽原始航班數據變化，以更新篩選器（例如價格範圍）
     watch(flights, (newFlights) => {
       if (newFlights && newFlights.length > 0) {
-        const maxPrice = Math.max(...newFlights.map(f => f.price.amount), 0);
+        const maxPrice = Math.max(...newFlights.map(f => f.price.amount || 0), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
+        filters.priceRange.min = 0;
       } else {
         // 如果沒有航班，重置價格範圍
         filters.priceRange.min = 0;
         filters.priceRange.max = 50000;
       }
-      // 重新應用篩選，確保UI同步
-      applyFilters();
-    });
+    }, { deep: true });
 
     fetchTaiwanAirports();
 

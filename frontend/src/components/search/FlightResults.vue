@@ -82,7 +82,7 @@
 
 <script>
 import FlightList from './FlightList.vue';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 export default {
   name: 'FlightResults',
@@ -104,45 +104,66 @@ export default {
     const sortOption = ref('price-asc');
     
     const sortedFlights = computed(() => {
+      console.log('[FlightResults] Computing sortedFlights. Input flights:', props.flights.length);
       if (!props.flights || props.flights.length === 0) {
         return [];
       }
       
-      // 創建一個新的數組來進行排序，不修改原數組
       const sorted = [...props.flights];
-      
-      switch (sortOption.value) {
-        case 'price-asc':
-          return sorted.sort((a, b) => (a.price?.amount || 0) - (b.price?.amount || 0));
-        
-        case 'price-desc':
-          return sorted.sort((a, b) => (b.price?.amount || 0) - (a.price?.amount || 0));
-        
-        case 'departure-asc':
-          return sorted.sort((a, b) => {
-            const dateA = new Date(a.departure?.time || 0);
-            const dateB = new Date(b.departure?.time || 0);
-            return dateA - dateB;
-          });
-        
-        case 'departure-desc':
-          return sorted.sort((a, b) => {
-            const dateA = new Date(a.departure?.time || 0);
-            const dateB = new Date(b.departure?.time || 0);
-            return dateB - dateA;
-          });
-        
-        case 'duration-asc':
-          return sorted.sort((a, b) => {
-            const durationA = a.duration_minutes || 0;
-            const durationB = b.duration_minutes || 0;
-            return durationA - durationB;
-          });
-        
-        default:
-          return sorted;
+      const option = sortOption.value;
+      console.log(`[FlightResults] Sorting by: ${option}`);
+
+      try {
+        sorted.sort((a, b) => {
+          let comparison = 0;
+          switch (option) {
+            case 'price-asc':
+            case 'price-desc':
+              const priceA = a.price?.amount;
+              const priceB = b.price?.amount;
+              // 更安全的比較，處理 null/undefined
+              const valA = (typeof priceA === 'number') ? priceA : Infinity; 
+              const valB = (typeof priceB === 'number') ? priceB : Infinity;
+              comparison = valA - valB;
+              if (option === 'price-desc') comparison = -comparison;
+              // console.log(`[Sort Price] A: ${priceA}, B: ${priceB}, Comp: ${comparison}`);
+              break;
+            case 'departure-asc':
+            case 'departure-desc':
+              const timeA = a.departure?.time;
+              const timeB = b.departure?.time;
+              // 嘗試轉換為 Date 對象，無效則視為 0 或最大值
+              const dateA = timeA ? new Date(timeA).getTime() : (option === 'departure-asc' ? Infinity : 0); 
+              const dateB = timeB ? new Date(timeB).getTime() : (option === 'departure-asc' ? Infinity : 0);
+              comparison = (isNaN(dateA) ? (option === 'departure-asc' ? Infinity : 0) : dateA) - (isNaN(dateB) ? (option === 'departure-asc' ? Infinity : 0) : dateB);
+              if (option === 'departure-desc') comparison = -comparison;
+              // console.log(`[Sort DepTime] A: ${timeA}, B: ${timeB}, dA: ${dateA}, dB: ${dateB}, Comp: ${comparison}`);
+              break;
+            case 'duration-asc':
+              const durationA = a.duration_minutes;
+              const durationB = b.duration_minutes;
+              const durA = (typeof durationA === 'number') ? durationA : Infinity;
+              const durB = (typeof durationB === 'number') ? durationB : Infinity;
+              comparison = durA - durB;
+              // console.log(`[Sort Duration] A: ${durationA}, B: ${durationB}, Comp: ${comparison}`);
+              break;
+          }
+          // console.log(`Comparing ${a.flight_number} and ${b.flight_number}: ${comparison}`);
+          return comparison;
+        });
+      } catch (error) {
+        console.error('[FlightResults] Error during sorting:', error, sorted);
+        return []; // 出錯時返回空數組
       }
+
+      console.log('[FlightResults] Sorting finished. Result length:', sorted.length);
+      return sorted;
     });
+
+    // 添加 watch 來監控 sortedFlights 的變化
+    watch(sortedFlights, (newValue) => {
+      console.log('[FlightResults] sortedFlights updated:', newValue.length, newValue);
+    }, { immediate: true }); // immediate: true 確保初始值也被記錄
 
     const sortFlights = () => {
       // 觸發通知外部組件排序已經變更
