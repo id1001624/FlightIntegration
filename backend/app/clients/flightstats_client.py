@@ -9,9 +9,9 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 import uuid
 
-from app.clients.base_client import BaseAPIClient
-from app.utils.date_utils import parse_datetime, format_datetime, get_date_range
-from app.utils.cache_utils import cached
+from .base_client import BaseAPIClient
+from ..utils.date_utils import parse_datetime, format_datetime, get_date_range
+from ..utils.cache_utils import cached
 
 # --- Define module-level logger ---
 logger = logging.getLogger(__name__)
@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 # --- 新增導入 constants --- 
 try:
-    from app.scripts.constants import TARGET_AIRLINES
+    from ..scripts.constants import TARGET_AIRLINES
 except ImportError:
     # Fallback if constants cannot be imported from the primary location
-    logger.warning("無法從 app.scripts.constants 導入 TARGET_AIRLINES，使用預設列表")
+    logger.warning("無法從相對路徑導入 TARGET_AIRLINES，使用預設列表")
     # 定義一個預設值，以防導入失敗，但最好確保導入成功
     TARGET_AIRLINES = ['BR', 'CI', 'CX', 'IT', 'JL', 'JX', 'OZ']
 # --- 結束導入 ---

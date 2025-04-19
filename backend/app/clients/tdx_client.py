@@ -8,9 +8,9 @@ from typing import Dict, List, Optional, Any
 import time
 from datetime import datetime, timedelta
 
-from app.clients.base_client import BaseAPIClient
-from app.utils.date_utils import parse_datetime, format_datetime
-from app.utils.cache_utils import cached
+from .base_client import BaseAPIClient
+from ..utils.date_utils import parse_datetime, format_datetime
+from ..utils.cache_utils import cached
 
 class TdxApiClient(BaseAPIClient):
     """TDX API客戶端，處理與台灣運輸資料服務平台的API交互"""

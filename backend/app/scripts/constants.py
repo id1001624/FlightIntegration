@@ -22,6 +22,9 @@ TAIWAN_AIRPORTS = [
     'CMJ',  # 七美機場
 ]
 
+# 台北機場IATA代碼 (新增)
+TAIPEI_AIRPORTS = ['TPE', 'TSA']
+
 # 目標航空公司IATA代碼
 TARGET_AIRLINES = [
     'AE',  # 華信航空 (Mandarin Airlines)

@@ -10,12 +10,14 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 from sqlalchemy.sql import text, func
 
 # 移除 SQLAlchemy 相關導入
-from app.database.db import get_db, release_db
+from ..database.db import get_db, release_db
 # 這些模型現在僅用於類型提示
-from app.models.airline import Airline
-from app.models.airport import Airport
-from app.models.flight import Flight
-from app.models.ticket_price import TicketPrice
+from ..models import Airline, Airport, Flight, TicketPrice
+from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema
+from ..schemas.airline_schema import AirlineBasicSchema
+from ..schemas.airport_schema import AirportBasicSchema
+from ..utils.api_client import ApiClient
+from ..utils.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 

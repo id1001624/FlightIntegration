@@ -17,13 +17,9 @@ from fastapi import Depends
 # 導入 SQLAlchemy 錯誤類型
 from sqlalchemy.exc import SQLAlchemyError
 
-# 使用新的數據庫模組
-from app.database.db import get_db, db
-
-from app.models.airline import Airline
-from app.models.airport import Airport
-from app.models.flight import Flight
-from app.models.weather import Weather
+from ..database.db import get_db, db
+from ..models import Airline, Airport, Flight, TicketPrice, Weather # <-- 使用 ..models 導入所有
+from ..utils.api_client import ApiClient
 
 # 配置日誌
 logging.basicConfig(
@@ -34,10 +30,10 @@ logger = logging.getLogger('data_sync_service')
 
 # 導入API同步管理器
 try:
-    from app.scripts.sync_manager import ApiSyncManager
-    from app.scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES # 從 constants 導入
+    from ..scripts.sync_manager import ApiSyncManager
+    from ..scripts.constants import TAIWAN_AIRPORTS, TARGET_AIRLINES # <-- 假設 scripts 在 app 目錄下
 except ImportError:
-    logger.warning("無法直接導入ApiSyncManager，可能需要手動導入腳本路徑")
+    logger.warning("無法相對導入 ApiSyncManager，可能需要檢查 scripts 目錄結構")
     import sys
     import os
     # 嘗試導入腳本目錄
@@ -83,7 +79,7 @@ class DataSyncService:
         """獲取或創建連接池，優先使用傳入的連接池"""
         if self.pool is None:
             # 使用 db.py 中的方法初始化連接池
-            from app.database.db import init_asyncpg_pool
+            from ..database.db import init_asyncpg_pool # <-- 確保是相對導入
             self.pool = await init_asyncpg_pool()
         return self.pool
     

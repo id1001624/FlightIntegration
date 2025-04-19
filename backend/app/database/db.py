@@ -10,9 +10,12 @@ import logging
 from typing import AsyncGenerator, Optional
 import urllib.parse
 
-# 從 models/base.py 導入 SQLAlchemy 實例
-# 注意：這裡不直接初始化 SQLAlchemy，而是使用已經在 base.py 中初始化的實例
-from app.models.base import db as sqlalchemy_db
+# 使用 DATABASE_URL 環境變數
+DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URI")
+
+# 從模型基礎導入 SQLAlchemy db 對象
+# from app.models.base import db as sqlalchemy_db # <-- 舊的絕對導入
+from ..models.base import db as sqlalchemy_db # <-- 改為相對導入
 
 # 用於 FastAPI 異步支持
 import asyncpg
@@ -22,7 +25,7 @@ from asyncpg.pool import Pool
 logger = logging.getLogger("database")
 
 # 數據庫連接設置
-DB_URL = os.getenv("DATABASE_URL", "postgresql://postgres@localhost:5432/flight_integration")
+DB_URL = DATABASE_URL or "postgresql://postgres@localhost:5432/flight_integration"
 
 # 解析數據庫 URL
 parsed_url = urllib.parse.urlparse(DB_URL)

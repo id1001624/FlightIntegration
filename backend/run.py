@@ -4,20 +4,17 @@ Flask應用啟動腳本
 import os
 import asyncio
 import logging
+# import click # <-- 移除 click 導入
 from flask import Flask, jsonify
 from flask_migrate import Migrate
 from flask_cors import CORS
 from flask_caching import Cache
 from dotenv import load_dotenv
 
-# 加載環境變量（必須在其他導入前完成）
-from dotenv import load_dotenv
-# 查找並加載 .env 文件
+# 加載環境變量
 load_dotenv()
 
-# ！！！注意：由於 create_app 現在在 app/__init__.py 中，run.py 只需要導入和運行它
-# from app import create_app
-from app import create_app # <--- 確保從 app 目錄導入
+from app import create_app
 from flask import jsonify
 from asgiref.wsgi import WsgiToAsgi
 from hypercorn.asyncio import serve
@@ -27,7 +24,27 @@ from hypercorn.config import Config as HyperConfig
 print(f"Database URL: {os.getenv('DATABASE_URL', '未設置')}")
 
 # 創建Flask應用
-app = create_app() # <--- 使用導入的工廠函數
+app = create_app()
+
+# --- 移除頂層導入 CLI 相關模塊的嘗試 ---
+# _crm_module = None
+# try:
+#     # ... (移除 try-except 塊)
+# except Exception as e:
+#     print(f"[run.py top level] 導入 create_rich_menu 模塊時發生其他錯誤: {e}")
+
+# --- 移除 Flask CLI 命令註冊 --- 
+# @app.cli.group()
+# def scripts():
+#     pass
+# 
+# @scripts.command("setup-rich-menu")
+# @click.option(...)
+# @click.option(...)
+# def setup_rich_menu_command(image_path, frontend_url):
+#     # ... (移除整個函數)
+
+# --- 結束移除 CLI 命令註冊 ---
 
 # 添加測試路由檢查可用航班
 @app.route('/api/debug/flights', methods=['GET'])

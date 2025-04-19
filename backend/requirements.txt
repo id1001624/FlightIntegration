@@ -31,4 +31,31 @@ aiohttp >= 3.8.6
 line-bot-sdk >= 3.9.0
 
 # 定時任務
+apscheduler == 3.11.0
+
+# 時區處理
+pytz >= 2023.3
+
+# 資料庫驅動
+pymysql == 1.1.1
+SQLAlchemy == 2.0.36
+psycopg2 == 2.9.10
+asyncpg == 0.30.0
+
+# 環境變量
+python-dotenv >= 1.0.0
+
+# HTTP 客戶端
+requests == 2.31.0
+httpx == 0.28.1
+
+# 異步支持
+asgiref >= 3.7.0
+hypercorn >= 0.14.4
+aiohttp >= 3.8.6
+
+# LINE Bot
+line-bot-sdk >= 3.9.0
+
+# 定時任務
 apscheduler == 3.11.0 
