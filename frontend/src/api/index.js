@@ -1,8 +1,13 @@
 import axios from 'axios';
 
+// 使用環境變數或默認值作為baseURL
+// 在開發環境中默認使用本地服務器
+// 在生產環境中將使用Vercel環境變數中配置的API URL
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
+
 // 創建axios實例
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:5000/api',
+  baseURL: baseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

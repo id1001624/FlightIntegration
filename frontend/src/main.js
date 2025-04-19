@@ -9,8 +9,8 @@ import './assets/styles/main.css'
 // 引入設計系統變量
 import './assets/styles/variables.css'
 
-// 配置 axios
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+// 配置 axios - 移除重複配置，已在 api/index.js 中設置
+// axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 // 創建 Vue 應用實例
 const app = createApp(App)
