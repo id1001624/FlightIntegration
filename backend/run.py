@@ -3,13 +3,21 @@ Flask應用啟動腳本
 """
 import os
 import asyncio
+import logging
+from flask import Flask, jsonify
+from flask_migrate import Migrate
+from flask_cors import CORS
+from flask_caching import Cache
+from dotenv import load_dotenv
 
 # 加載環境變量（必須在其他導入前完成）
 from dotenv import load_dotenv
 # 查找並加載 .env 文件
 load_dotenv()
 
-from app import create_app
+# ！！！注意：由於 create_app 現在在 app/__init__.py 中，run.py 只需要導入和運行它
+# from app import create_app
+from app import create_app # <--- 確保從 app 目錄導入
 from flask import jsonify
 from asgiref.wsgi import WsgiToAsgi
 from hypercorn.asyncio import serve
@@ -19,7 +27,7 @@ from hypercorn.config import Config as HyperConfig
 print(f"Database URL: {os.getenv('DATABASE_URL', '未設置')}")
 
 # 創建Flask應用
-app = create_app()
+app = create_app() # <--- 使用導入的工廠函數
 
 # 添加測試路由檢查可用航班
 @app.route('/api/debug/flights', methods=['GET'])
@@ -152,5 +160,7 @@ if __name__ == '__main__':
     else:
         # 運行同步應用
         print(f"啟動同步 Flask 應用，端口: {port}")
-        app.run(host='0.0.0.0', port=port, debug=True)
+        # 注意：直接運行 app.run 在生產環境中不推薦，應使用 Gunicorn/Hypercorn
+        # 但對於本地開發和 Render (通常會接管啟動過程) 是可以的
+        app.run(host='0.0.0.0', port=port, debug=(os.environ.get('FLASK_ENV', 'development') == 'development'))
 

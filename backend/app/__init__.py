@@ -152,12 +152,14 @@ def register_blueprints(app):
     from .controllers.airport_controller import airport_bp
     from .controllers.flight_controller import flight_bp
     from .controllers.price_controller import ticket_price_bp
+    from .controllers.line_webhook_controller import line_webhook_bp
     
     # 註冊藍圖
     app.register_blueprint(airline_bp, url_prefix='/api/airlines')
     app.register_blueprint(airport_bp, url_prefix='/api/airports')
     app.register_blueprint(flight_bp, url_prefix='/api/flights')
     app.register_blueprint(ticket_price_bp, url_prefix='/api/ticket-prices')
+    app.register_blueprint(line_webhook_bp)
 
 def register_error_handlers(app):
     """註冊錯誤處理器"""
