@@ -8,6 +8,7 @@
 import os
 import logging
 from typing import AsyncGenerator, Optional
+import asyncio  # 添加 asyncio 導入
 # import urllib.parse # 不再需要解析
 
 # --- 移除頂層環境變數讀取 ---
@@ -36,6 +37,7 @@ logger = logging.getLogger("database")
 
 # 異步數據庫連接池
 _asyncpg_pool: Optional[Pool] = None
+_pool_lock = asyncio.Lock()  # 添加鎖來保護連接池初始化
 
 def get_db_url():
     """動態獲取資料庫URL"""
@@ -65,33 +67,36 @@ async def init_asyncpg_pool() -> Pool:
     """初始化 asyncpg 連接池 (動態讀取 URL)"""
     global _asyncpg_pool
     
-    if _asyncpg_pool is None:
-        # --- 在函數內部動態讀取環境變數 ---
-        db_connection_url = get_db_url() # 使用輔助函數獲取 URL
-        if not db_connection_url:
-             # 如果沒有獲取到 URL，則無法創建連接池
-             error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
-             logger.error(error_msg)
-             raise RuntimeError(error_msg)
-        # ------------------------------------
-             
-        try:
-            # 直接使用獲取到的完整連接字串
-            _asyncpg_pool = await asyncpg.create_pool(
-                dsn=db_connection_url, # 將獲取的 URL 傳遞給 dsn 參數
-                min_size=5,
-                max_size=20
-            )
-            logger.info("asyncpg 數據庫連接池初始化成功")
-        except Exception as e:
-            logger.error(f"asyncpg 數據庫連接池初始化失敗: {str(e)}")
-            raise
+    # 使用鎖確保同時只有一個操作在創建連接池
+    async with _pool_lock:
+        if _asyncpg_pool is None:
+            # --- 在函數內部動態讀取環境變數 ---
+            db_connection_url = get_db_url() # 使用輔助函數獲取 URL
+            if not db_connection_url:
+                 # 如果沒有獲取到 URL，則無法創建連接池
+                 error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
+                 logger.error(error_msg)
+                 raise RuntimeError(error_msg)
+            # ------------------------------------
+                 
+            try:
+                # 直接使用獲取到的完整連接字串
+                _asyncpg_pool = await asyncpg.create_pool(
+                    dsn=db_connection_url, # 將獲取的 URL 傳遞給 dsn 參數
+                    min_size=10,  # 增加最小連接數
+                    max_size=30,  # 增加最大連接數
+                    max_inactive_connection_lifetime=300.0  # 設置非活動連接的最大生命週期（秒）
+                )
+                logger.info("asyncpg 數據庫連接池初始化成功")
+            except Exception as e:
+                logger.error(f"asyncpg 數據庫連接池初始化失敗: {str(e)}")
+                raise
     
     return _asyncpg_pool
 
 async def get_pool() -> Pool:
     """獲取初始化的 asyncpg 連接池"""
-    # Ensures pool is initialized and returns it
+    # 確保連接池已初始化並返回
     return await init_asyncpg_pool()
 
 async def close_asyncpg_pool():

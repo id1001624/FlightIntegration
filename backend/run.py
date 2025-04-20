@@ -19,6 +19,7 @@ from flask import jsonify
 from asgiref.wsgi import WsgiToAsgi
 from hypercorn.asyncio import serve
 from hypercorn.config import Config as HyperConfig
+import traceback  # 導入 traceback 用於獲取詳細錯誤信息
 
 # 打印環境變量進行檢查
 print(f"Database URL: {os.getenv('DATABASE_URL', '未設置')}")
@@ -110,7 +111,13 @@ async def debug_flights():
             
             return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_traceback = traceback.format_exc()
+        print(f"Debug flights 錯誤: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'error': str(e),
+            'type': type(e).__name__,
+            'trace': error_traceback
+        }), 500
 
 @app.route('/api/debug/airports', methods=['GET'])
 async def debug_airports():
@@ -149,7 +156,13 @@ async def debug_airports():
             
             return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_traceback = traceback.format_exc()
+        print(f"Debug airports 錯誤: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'error': str(e),
+            'type': type(e).__name__,
+            'trace': error_traceback
+        }), 500
 
 async def run_async_app():
     """運行異步 Flask 應用"""
