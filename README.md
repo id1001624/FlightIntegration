@@ -58,7 +58,7 @@
     
     只導入某路線測試
     ```bash
-    python backend/app/scripts/sync_flight_data.py flights -d TPE -a NRT --limit 5
+    python -m backend.app.scripts.sync_flight_data flights -d TPE -a NRT --limit 5
     ```
     
     航班真資料調用 TDX、FlightStats API 導入資料庫
