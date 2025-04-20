@@ -202,7 +202,7 @@ class SearchService:
                 tp.economy_price,
                 tp.business_price,
                 tp.first_price,
-                tp.last_updated as price_last_updated,
+                tp.price_updated_at as price_last_updated,
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
                 COALESCE(tp.economy_price, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
@@ -210,7 +210,7 @@ class SearchService:
                 EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算時間差（秒）用於排序
                 ROW_NUMBER() OVER (
                     PARTITION BY f.flight_number, f.scheduled_departure::date -- 按航班號和日期分區
-                    ORDER BY tp.last_updated DESC -- 每個分區內按價格更新時間排序，取最新的
+                    ORDER BY tp.price_updated_at DESC -- 修正：欄位名稱是 price_updated_at 而非 last_updated
                 ) as rn
             FROM flights f
             JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
@@ -1034,9 +1034,8 @@ class SearchService:
                     al.name_zh as airline_name_zh,
                     al.iata_code as airline_iata,
                     EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes,
-                    tp.available_seats_economy,
-                    tp.available_seats_business,
-                    tp.available_seats_first 
+                    tp.available_seats,
+                    tp.class_type
                 FROM flights f
                 JOIN airports a1 ON f.departure_airport_id = a1.airport_id
                 JOIN airports a2 ON f.arrival_airport_id = a2.airport_id
@@ -1053,11 +1052,27 @@ class SearchService:
                 logger.info(f"成功獲取航班ID {flight_id} 的詳細信息")
                 # 轉換為字典並返回
                 flight_details = dict(row)
-                # 添加可用座位信息
+                # 添加可用座位信息 - 由於資料庫中只有一個 available_seats 欄位
+                # 所以我們把同一個值用於所有艙位，但保持原有的嵌套結構格式
+                available_seats = flight_details.pop('available_seats', None)
+                class_type = flight_details.pop('class_type', '經濟') # 獲取艙位類型，預設為經濟艙
+                
+                # 根據艙位類型設置對應的座位數
+                economy_seats = None
+                business_seats = None
+                first_seats = None
+                
+                if class_type == '經濟':
+                    economy_seats = available_seats
+                elif class_type == '商務':
+                    business_seats = available_seats
+                elif class_type == '頭等':
+                    first_seats = available_seats
+                
                 flight_details['available_seats'] = {
-                    'economy': flight_details.pop('available_seats_economy', None), # 從字典移除並放入嵌套結構
-                    'business': flight_details.pop('available_seats_business', None),
-                    'first': flight_details.pop('available_seats_first', None)
+                    'economy': economy_seats,
+                    'business': business_seats,
+                    'first': first_seats
                 }
                 return flight_details
                 
@@ -1151,7 +1166,7 @@ class SearchService:
                         tp.economy_price,
                         tp.business_price,
                         tp.first_price,
-                        tp.last_updated as price_last_updated,
+                        tp.price_updated_at as price_last_updated, -- 修正：欄位名稱是 price_updated_at 而非 last_updated
                         -- 價格排序 (使用 COALESCE 處理 NULL)
                         CASE $1 -- $1 是 class_type
                             WHEN '經濟' THEN COALESCE(tp.economy_price, 99999999) -- 修正：欄位名稱是 economy_price
@@ -1166,7 +1181,7 @@ class SearchService:
                         -- 分區排序，取最新價格
                         ROW_NUMBER() OVER (
                             PARTITION BY f.flight_number, f.scheduled_departure::date 
-                            ORDER BY tp.last_updated DESC NULLS LAST
+                            ORDER BY tp.price_updated_at DESC -- 修正：欄位名稱是 price_updated_at 而非 last_updated
                         ) as rn
                     FROM flights f
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
@@ -1350,9 +1365,7 @@ class SearchService:
                     tp.economy_price,
                     tp.business_price,
                     tp.first_price,
-                    tp.available_seats_economy,
-                    tp.available_seats_business,
-                    tp.available_seats_first
+                    tp.available_seats
                 FROM flights f
                 JOIN airlines al ON f.airline_id = al.airline_id
                 JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
@@ -1550,9 +1563,7 @@ class SearchService:
                     tp.economy_price,
                     tp.business_price,
                     tp.first_price,
-                    tp.available_seats_economy,
-                    tp.available_seats_business,
-                    tp.available_seats_first
+                    tp.available_seats
                 FROM flights f
                 JOIN airlines al ON f.airline_id = al.airline_id
                 JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
