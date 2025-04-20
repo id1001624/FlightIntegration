@@ -775,6 +775,10 @@ class SearchService:
         """
         獲取數據庫中所有台灣機場的基本信息 (使用 asyncpg)
         
+        注意: 在我們的資料庫設計中，airport_id 欄位實際上存儲的是機場的IATA代碼 (如TPE、TSA)
+        同樣地，airline_id 欄位實際上存儲的是航空公司的代碼 (如CI、BR)
+        這些ID直接作為識別符使用，不需要額外的iata_code欄位
+        
         Returns:
             List[Dict[str, Any]]: 機場列表
         """
@@ -783,12 +787,12 @@ class SearchService:
             pool = await init_asyncpg_pool()
             async with pool.acquire() as conn:
                 sql = """
-                SELECT airport_id, iata_code, name_zh, city, country 
+                SELECT airport_id, name_zh, city, country 
                 FROM airports 
-                WHERE country = '台灣' OR iata_code = ANY($1::text[]) -- 包括常量列表中的機場
+                WHERE country = '台灣' OR country = 'Taiwan' OR airport_id = ANY($1::text[]) -- 包括常量列表中的機場
                 ORDER BY 
                     CASE 
-                        WHEN iata_code IN ('TPE', 'TSA', 'RMQ', 'KHH') THEN 0 -- 主要國際/國內機場優先
+                        WHEN airport_id IN ('TPE', 'TSA', 'RMQ', 'KHH') THEN 0 -- 主要國際/國內機場優先
                         ELSE 1 
                     END,
                     city, name_zh -- 然後按城市和名稱排序
@@ -812,7 +816,7 @@ class SearchService:
         獲取從指定台灣機場出發可到達的目的地機場列表 (使用 asyncpg)
         
         Args:
-            departure_iata: 出發機場的IATA代碼 (應為台灣機場之一)
+            departure_iata: 出發機場的機場ID (應為台灣機場之一)
             date_str: 可選的日期 (YYYY-MM-DD)，用於過濾特定日期的航班 (目前未使用，保留兼容性)
 
         Returns:
@@ -834,14 +838,13 @@ class SearchService:
                 sql = """
                 SELECT DISTINCT 
                     a_arr.airport_id, 
-                    a_arr.iata_code, 
                     a_arr.name_zh, 
                     a_arr.city, 
                     a_arr.country
                 FROM flights f
                 JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                 JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
-                WHERE a_dep.iata_code = $1
+                WHERE a_dep.airport_id = $1
                 ORDER BY a_arr.country, a_arr.city, a_arr.name_zh; -- 按國家、城市、名稱排序
                 """
                 params = [departure_iata]
@@ -852,8 +855,8 @@ class SearchService:
                 #         flight_date = datetime.strptime(date_str, "%Y-%m-%d").date()
                 #         start_of_day = datetime.combine(flight_date, datetime.min.time())
                 #         end_of_day = datetime.combine(flight_date, datetime.max.time())
-                #         sql = sql.replace("WHERE a_dep.iata_code = $1", 
-                #                           "WHERE a_dep.iata_code = $1 AND f.scheduled_departure >= $2 AND f.scheduled_departure <= $3")
+                #         sql = sql.replace("WHERE a_dep.airport_id = $1", 
+                #                           "WHERE a_dep.airport_id = $1 AND f.scheduled_departure >= $2 AND f.scheduled_departure <= $3")
                 #         params.extend([start_of_day, end_of_day])
                 #     except ValueError:
                 #         logger.warning(f"獲取目的地時日期格式錯誤: {date_str}，將忽略日期過濾")
@@ -999,9 +1002,9 @@ class SearchService:
         從所有台灣機場搜索飛往特定目的地的航班 (使用 asyncpg)
 
         Args:
-            arrival_iata: 目的地機場IATA代碼
+            arrival_iata: 目的地機場的ID
             date_str: 日期 (YYYY-MM-DD)
-            airlines: 航空公司IATA代碼列表，可選
+            airlines: 航空公司ID列表，可選
             price_min: 最低價格，可選
             price_max: 最高價格，可選
             class_type: 艙位類型
@@ -1037,18 +1040,18 @@ class SearchService:
                         f.flight_number, 
                         f.scheduled_departure, 
                         f.scheduled_arrival, 
-                        a_dep.iata_code as departure_iata, 
+                        a_dep.airport_id as departure_airport_id, 
                         a_dep.name_zh as departure_name,
                         a_dep.city as departure_city,
                         a_dep.country as departure_country,
-                        a_arr.iata_code as arrival_iata, 
+                        a_arr.airport_id as arrival_airport_id, 
                         a_arr.name_zh as arrival_name,
                         a_arr.city as arrival_city,
                         a_arr.country as arrival_country,
-                        al.iata_code as airline_iata, 
+                        al.airline_id as airline_id, 
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
-                        al.logo_url as airline_logo_url,
+                        al.logo_path as airline_logo_url,
                         f.duration,
                         f.aircraft_type,
                         f.status,
@@ -1076,8 +1079,8 @@ class SearchService:
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN airlines al ON f.airline_id = al.airline_id
                     LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                    WHERE a_dep.iata_code = ANY($2::text[]) -- $2 是 TAIWAN_AIRPORTS
-                      AND a_arr.iata_code = $3 -- $3 是 arrival_iata
+                    WHERE a_dep.airport_id = ANY($2::text[]) -- $2 是 TAIWAN_AIRPORTS
+                      AND a_arr.airport_id = $3 -- $3 是 arrival_iata
                       AND f.scheduled_departure >= $4 -- $4 是 start_of_day
                       AND f.scheduled_departure <= $5 -- $5 是 end_of_day
                       {airline_filter}
@@ -1097,7 +1100,7 @@ class SearchService:
                 airline_filter_sql = ""
                 if airlines:
                     airline_placeholders = ', '.join(f'${i}' for i in range(param_index + 1, param_index + 1 + len(airlines)))
-                    airline_filter_sql = f" AND al.iata_code IN ({airline_placeholders})"
+                    airline_filter_sql = f" AND al.airline_id IN ({airline_placeholders})"
                     params.extend(airlines)
                     param_index += len(airlines)
 
