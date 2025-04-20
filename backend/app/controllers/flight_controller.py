@@ -112,31 +112,26 @@ async def search_flights(args):
             passengers_int, max_results_int, sort_by
         )
         
-        # 3. 根據請求的 class_type 提取對應的航班列表 (從新的結構中提取)
-        cabin_key_map = {"經濟": "economy", "商務": "business", "頭等": "first"}
-        requested_cabin_key = cabin_key_map.get(class_type, "economy")
-        
-        # 提取去程航班 (從 all_cabins.departure 中提取)
-        outbound_flights_list = service_result.get("all_cabins", {}).get("departure", {}).get(requested_cabin_key, {}).get("flights", [])
-        
-        # 提取回程航班 (從 all_cabins.return 中提取)
-        inbound_flights_list = None
-        if "return" in service_result.get("all_cabins", {}):
-             inbound_flights_list = service_result.get("all_cabins", {}).get("return", {}).get(requested_cabin_key, {}).get("flights", [])
+        # 3. ***修正: 直接從 service_result 提取 departure 和 return 列表***
+        departure_flights_list = service_result.get("departure", [])
+        return_flights_list = service_result.get("return", []) # 如果沒有回程，會是空列表
 
         # 4. 使用 Schema 序列化提取出的航班列表
-        serialized_outbound = flights_search_result_schema.dump(outbound_flights_list)
-        serialized_inbound = flights_search_result_schema.dump(inbound_flights_list) if inbound_flights_list is not None else None
-        
-        # 5. 構建最終響應 (保持不變，使用 outbound_flights/inbound_flights)
+        serialized_departure = flights_search_result_schema.dump(departure_flights_list)
+        serialized_return = flights_search_result_schema.dump(return_flights_list)
+
+        # 5. ***修正: 構建包含新鍵名的最終響應***
         final_response = {
-            'outbound_flights': serialized_outbound,
-            'total_outbound': len(serialized_outbound)
+            'departure': serialized_departure, # 使用 'departure'
+            # 可以選擇性地包含總數或其他元數據
+            # 'total_departure': len(serialized_departure)
         }
-        if serialized_inbound is not None:
-            final_response['inbound_flights'] = serialized_inbound
-            final_response['total_inbound'] = len(serialized_inbound)
-            
+        # 只有當請求了回程且實際有回程數據時才添加 return 鍵
+        if return_date and serialized_return: 
+            final_response['return'] = serialized_return # 使用 'return'
+            # 'total_return': len(serialized_return)
+
+        # 返回包含新鍵名的成功響應
         return _success_response(final_response)
 
     except Exception as e: 
