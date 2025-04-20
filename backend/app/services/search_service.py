@@ -188,6 +188,9 @@ class SearchService:
                 f.flight_number, 
                 f.scheduled_departure, 
                 f.scheduled_arrival, 
+                f.aircraft,
+                f.departure_terminal,
+                f.arrival_terminal,
                 a_dep.airport_id as departure_airport_id, 
                 a_dep.iata_code as departure_iata,
                 a_dep.name_zh as departure_name,
@@ -202,6 +205,7 @@ class SearchService:
                 al.iata_code as airline_iata,
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
+                al.is_domestic as airline_is_domestic,
                 al.logo_path as airline_logo_url,
                 tp.economy_price,
                 tp.business_price,
@@ -348,35 +352,37 @@ class SearchService:
             formatted_flight = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
+                'aircraft': flight.get('aircraft'),
                 'airline': {
                     'id': flight.get('airline_id'),
-                    'iata': flight.get('airline_iata'), # 從 SQL 獲取
+                    'iata': flight.get('airline_iata'),
                     'name_zh': flight.get('airline_name_zh'),
                     'name_en': flight.get('airline_name_en'),
-                    'is_domestic': flight.get('airline_is_domestic'), # 確保 SQL 已選擇此欄位
-                    'logo_url': flight.get('airline_logo_url') # 使用 SQL 中的別名
+                    'is_domestic': flight.get('airline_is_domestic'),
+                    'logo_url': flight.get('airline_logo_url')
                 },
                 'departure_airport': {
                     'id': flight.get('departure_airport_id'),
-                    'iata': flight.get('departure_iata'), # 從 SQL 獲取
+                    'iata': flight.get('departure_iata'),
                     'name': flight.get('departure_name'),
                     'city': flight.get('departure_city'),
-                    'country': flight.get('departure_country')
+                    'country': flight.get('departure_country'),
+                    'terminal': flight.get('departure_terminal')
                 },
                 'arrival_airport': {
                     'id': flight.get('arrival_airport_id'),
-                    'iata': flight.get('arrival_iata'), # 從 SQL 獲取
+                    'iata': flight.get('arrival_iata'),
                     'name': flight.get('arrival_name'),
                     'city': flight.get('arrival_city'),
-                    'country': flight.get('arrival_country')
+                    'country': flight.get('arrival_country'),
+                    'terminal': flight.get('arrival_terminal')
                 },
                 'departure_time': departure_time_obj.isoformat() if departure_time_obj else None,
                 'arrival_time': arrival_time_obj.isoformat() if arrival_time_obj else None,
                 'duration_minutes': duration_minutes,
                 'price': price,
-                'cabin_class': cabin_class, # 返回請求的艙等
-                'available_seats': flight.get('available_seats'), # 從 SQL 獲取
-                # 由於數據庫沒有 status 欄位，我們暫時不返回或給一個預設值
+                'cabin_class': cabin_class,
+                'available_seats': flight.get('available_seats'),
                 # 'status': flight.get('status', 'Scheduled') 
             }
             
