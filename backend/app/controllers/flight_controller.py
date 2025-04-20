@@ -38,6 +38,7 @@ from ..schemas.airline_schema import airlines_schema, airlines_basic_schema
 from ..schemas.airport_schema import airports_basic_schema
 from webargs.flaskparser import use_args
 import logging
+import asyncpg
 
 # 創建藍圖
 flight_bp = Blueprint('flight', __name__)
@@ -94,19 +95,22 @@ async def search_flights(args):
     elif only_target_airlines:
         airlines = TARGET_AIRLINES.copy()
 
+    pool = None
+    conn = None
     try:
-        # 2. 調用服務層獲取數據
+        # --- Connection Management Start ---
+        pool = await get_pool()
+        conn = await pool.acquire()
+        # -----------------------------------
+        
+        # 2. 調用服務層獲取數據，傳入 conn
         service_result = await SearchService.search_flights(
+            conn, # Pass the acquired connection
             departure, arrival, departure_date,
             airlines, return_date,
             price_min, price_max, class_type,
             passengers_int, max_results_int, sort_by
         )
-        
-        # 檢查服務層是否返回錯誤
-        if isinstance(service_result, dict) and "error" in service_result:
-            # 如果服務層返回錯誤字典，直接返回錯誤響應
-            return _error_response(service_result["error"], 500) 
         
         # 3. 根據請求的 class_type 提取對應的航班列表 (從新的結構中提取)
         cabin_key_map = {"經濟": "economy", "商務": "business", "頭等": "first"}
@@ -133,14 +137,22 @@ async def search_flights(args):
             final_response['inbound_flights'] = serialized_inbound
             final_response['total_inbound'] = len(serialized_inbound)
             
-        # 可以選擇性地返回所有艙位的數據 (現在 service_result 本身就包含了)
-        # final_response['all_cabins_data'] = service_result.get('all_cabins')
-            
         return _success_response(final_response)
 
     except Exception as e: 
-        current_app.logger.error(f"搜索航班控制器層發生未預期錯誤: {e}", exc_info=True)
+        # Catch errors from service layer or connection management
+        current_app.logger.error(f"搜索航班控制器層發生錯誤: {e}", exc_info=True)
         return _error_response('搜索航班時發生內部錯誤', 500)
+    finally:
+        # --- Connection Management End ---
+        if conn and pool:
+            try:
+                await pool.release(conn)
+            except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
+                current_app.logger.warning(f"在釋放搜索航班連接時發生可忽略的異常: {e}")
+            except Exception as e:
+                current_app.logger.error(f"在釋放搜索航班連接時發生未預期的異常: {e}", exc_info=True)
+        # -------------------------------
 
 @flight_bp.route('/from_taiwan/<string:arrival_iata>', methods=['GET'])
 async def flights_from_taiwan(arrival_iata):

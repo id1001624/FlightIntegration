@@ -29,6 +29,7 @@ class SearchService:
     
     @staticmethod
     async def search_flights(
+        conn: asyncpg.Connection, # Accept connection as argument
         departure_code: str,
         arrival_code: str,
         date_str: str,
@@ -42,9 +43,10 @@ class SearchService:
         sort_by: str = "price"
     ) -> Dict[str, Any]:
         """
-        執行航班搜索
+        執行航班搜索 (需要傳入數據庫連接)
         
         Args:
+            conn: Active asyncpg database connection
             departure_code: 出發地IATA代碼
             arrival_code: 目的地IATA代碼
             date_str: 去程日期 (YYYY-MM-DD)
@@ -60,99 +62,81 @@ class SearchService:
         Returns:
             Dict[str, Any]: 搜索結果
         """
-        pool = None # 初始化 pool
-        conn = None # 顯式初始化 conn
+        # Removed pool/connection management from here
         try:
-            # 獲取數據庫連接池
-            pool = await init_asyncpg_pool()
+            # 查詢去程航班 - Pass conn directly
+            outbound_flights = await SearchService._query_flights(
+                conn, # Pass the provided connection
+                departure_code, arrival_code, date_str, 
+                airline_code, price_min, price_max, 
+                cabin_class, max_results, sort_by
+            )
             
-            # 明確捕獲連接獲取操作的異常
-            try:
-                conn = await pool.acquire()
-                
-                # 查詢去程航班
-                outbound_flights = await SearchService._query_flights(
-                    conn, # 傳遞 conn 而不是 db
-                    departure_code, arrival_code, date_str, 
+            # 生成三種艙等的航班數據
+            outbound_results = {
+                "economy": await SearchService._format_flights(outbound_flights, "經濟"),
+                "business": await SearchService._format_flights(outbound_flights, "商務"),
+                "first": await SearchService._format_flights(outbound_flights, "頭等")
+            }
+            
+            # 如果提供了回程日期，也查詢回程航班
+            inbound_results = None
+            if return_date_str:
+                inbound_flights = await SearchService._query_flights(
+                    conn, # Pass the provided connection
+                    arrival_code, departure_code, return_date_str, 
                     airline_code, price_min, price_max, 
                     cabin_class, max_results, sort_by
                 )
-                
-                # 生成三種艙等的航班數據
-                outbound_results = {
-                    "economy": await SearchService._format_flights(outbound_flights, "經濟"),
-                    "business": await SearchService._format_flights(outbound_flights, "商務"),
-                    "first": await SearchService._format_flights(outbound_flights, "頭等")
+                inbound_results = {
+                    "economy": await SearchService._format_flights(inbound_flights, "經濟"),
+                    "business": await SearchService._format_flights(inbound_flights, "商務"),
+                    "first": await SearchService._format_flights(inbound_flights, "頭等")
                 }
-                
-                # 如果提供了回程日期，也查詢回程航班
-                inbound_results = None
-                if return_date_str:
-                    inbound_flights = await SearchService._query_flights(
-                        conn, # 傳遞 conn 而不是 db
-                        arrival_code, departure_code, return_date_str, 
-                        airline_code, price_min, price_max, 
-                        cabin_class, max_results, sort_by
-                    )
-                    inbound_results = {
-                        "economy": await SearchService._format_flights(inbound_flights, "經濟"),
-                        "business": await SearchService._format_flights(inbound_flights, "商務"),
-                        "first": await SearchService._format_flights(inbound_flights, "頭等")
-                    }
-                
-                # 準備結果
-                result = {
-                    "all_cabins": {
-                        "departure": { # 將去程放入 departure
-                            "economy": {
-                                "name": "經濟艙",
-                                "flights": outbound_results["economy"]
-                            },
-                            "business": {
-                                "name": "商務艙",
-                                "flights": outbound_results["business"]
-                            },
-                            "first": {
-                                "name": "頭等艙",
-                                "flights": outbound_results["first"]
-                            }
-                        }
-                    }
-                }
-                
-                if inbound_results:
-                    result["all_cabins"]["return"] = { # 將回程放入 return
+        
+            # 準備結果 (structure remains the same)
+            result = {
+                "all_cabins": {
+                    "departure": { # 將去程放入 departure
                         "economy": {
                             "name": "經濟艙",
-                            "flights": inbound_results["economy"]
+                            "flights": outbound_results["economy"]
                         },
                         "business": {
                             "name": "商務艙",
-                            "flights": inbound_results["business"]
+                            "flights": outbound_results["business"]
                         },
                         "first": {
                             "name": "頭等艙",
-                            "flights": inbound_results["first"]
+                            "flights": outbound_results["first"]
                         }
                     }
-                
-                return result # 成功時返回包含 outbound/inbound 的字典
+                }
+            }
             
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略 Event loop is closed 和 cannot perform operation: another operation is in progress 錯誤
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
+            if inbound_results:
+                result["all_cabins"]["return"] = { # 將回程放入 return
+                    "economy": {
+                        "name": "經濟艙",
+                        "flights": inbound_results["economy"]
+                    },
+                    "business": {
+                        "name": "商務艙",
+                        "flights": inbound_results["business"]
+                    },
+                    "first": {
+                        "name": "頭等艙",
+                        "flights": inbound_results["first"]
+                    }
+                }
+                
+            return result # 成功時返回包含 outbound/inbound 的字典
 
         except Exception as e:
-            logger.error(f"執行航班搜索時發生未預期錯誤: {e}", exc_info=True)
-            # 發生錯誤時，返回一個包含錯誤信息的字典，而不是列表
-            return {"error": f"搜索服務內部錯誤: {str(e)}"} 
+            # Log the error with context, but don't handle connection release here
+            logger.error(f"執行航班搜索查詢時發生錯誤: {e}", exc_info=True)
+            # Re-raise the exception so the controller knows something went wrong
+            raise # Or return an error dict: return {"error": f"搜索服務查詢錯誤: {str(e)}"}
     
     @staticmethod
     async def _query_flights(
