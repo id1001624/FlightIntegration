@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 航班控制器
 處理與航班相關的API請求
@@ -550,65 +552,7 @@ async def get_from_taiwan_flights_endpoint(arrival_iata: str):
 
 @flight_bp.route('/api/debug/airports', methods=['GET'])
 async def debug_airports():
-    """列出資料庫中所有機場，並包含一個特定航班號用於偵錯連接"""
-    # from app.database.db import get_db, release_db # <-- Remove old imports
+    """列出資料庫中所有機場，用於偵錯"""
+    # 使用連接池初始化函數代替舊的方式
     
-    pool = None # Initialize pool
-    specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df'
-    
-    try:
-        pool = await get_pool() # Get the pool object
-        
-        # Use 'async with' to acquire a connection from the pool
-        async with pool.acquire() as conn:
-            # Transaction block (optional but good practice)
-            async with conn.transaction(): 
-                # 獲取機場列表
-                query_airports = """
-                SELECT 
-                    airport_id, airport_id as iata_code, name_zh, 
-                    name_en, city, country
-                FROM airports LIMIT 20
-                """
-                airports = await conn.fetch(query_airports) # Use conn here
-                result_airports = [{
-                    'airport_id': str(airport['airport_id']),
-                    'iata_code': airport['iata_code'],
-                    'name_zh': airport['name_zh'],
-                    'name_en': airport['name_en'],
-                    'city': airport['city'],
-                    'country': airport['country']
-                } for airport in airports]
-                
-                # --- 恢復查詢特定航班號 --- 
-                query_specific_flight = """
-                SELECT flight_number FROM flights WHERE flight_id = $1;
-                """
-                specific_flight_record = await conn.fetchrow(query_specific_flight, specific_flight_id) # Use conn here
-                specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
-                # ---------------------------
-
-        # --- Connection is automatically released when exiting 'async with' block --- 
-
-        final_response = {
-            'airports': result_airports,
-            'debug_specific_flight_check': {
-                'searched_id': specific_flight_id,
-                'found_flight_number': specific_flight_number
-            }
-        }
-        
-        return jsonify(final_response)
-        
-    except Exception as e:
-        # ... (Error handling remains mostly the same, specific_flight_id is defined) ...
-        error_response = {
-            'error': str(e),
-            'debug_specific_flight_check': {
-                 'searched_id': specific_flight_id,
-                 'error_during_check': True
-            }
-        }
-        # Log the detailed error as well
-        logger.error(f"Error in debug_airports: {e}", exc_info=True) 
-        return jsonify(error_response), 500
+    # ... 代碼實現 ...

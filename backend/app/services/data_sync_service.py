@@ -17,7 +17,8 @@ from fastapi import Depends
 # 導入 SQLAlchemy 錯誤類型
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..database.db import get_db, db
+# 修改導入，保留db但移除get_db
+from ..database.db import db, init_asyncpg_pool
 from ..models import Airline, Airport, Flight, TicketPrice, Weather # <-- 使用 ..models 導入所有
 from ..utils.api_client import ApiClient
 
@@ -79,7 +80,6 @@ class DataSyncService:
         """獲取或創建連接池，優先使用傳入的連接池"""
         if self.pool is None:
             # 使用 db.py 中的方法初始化連接池
-            from ..database.db import init_asyncpg_pool # <-- 確保是相對導入
             self.pool = await init_asyncpg_pool()
         return self.pool
     

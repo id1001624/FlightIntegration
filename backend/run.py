@@ -50,102 +50,106 @@ app = create_app()
 @app.route('/api/debug/flights', methods=['GET'])
 async def debug_flights():
     """列出資料庫中所有航班的基本信息，用於偵錯"""
-    from app.database.db import get_db, release_db
+    from app.database.db import init_asyncpg_pool
     
-    db = await get_db()
     try:
-        # 使用 asyncpg 直接查詢
-        query = """
-        SELECT 
-            f.flight_id, 
-            f.flight_number, 
-            f.scheduled_departure, 
-            f.status,
-            dep.airport_id as dep_id, 
-            dep.airport_id as dep_code, 
-            dep.name_zh as dep_name,
-            arr.airport_id as arr_id, 
-            arr.airport_id as arr_code, 
-            arr.name_zh as arr_name,
-            al.airline_id as airline_code, 
-            al.name_zh as airline_name
-        FROM 
-            flights f
-        JOIN 
-            airports dep ON f.departure_airport_id = dep.airport_id
-        JOIN 
-            airports arr ON f.arrival_airport_id = arr.airport_id
-        JOIN 
-            airlines al ON f.airline_id = al.airline_id
-        LIMIT 10
-        """
+        # 獲取連接池
+        pool = await init_asyncpg_pool()
         
-        flights = await db.fetch(query)
-        result = []
-        
-        for flight in flights:
-            result.append({
-                'flight_id': str(flight['flight_id']),
-                'flight_number': flight['flight_number'],
-                'departure': {
-                    'airport_id': str(flight['dep_id']),
-                    'code': flight['dep_code'],
-                    'name': flight['dep_name']
-                },
-                'arrival': {
-                    'airport_id': str(flight['arr_id']),
-                    'code': flight['arr_code'],
-                    'name': flight['arr_name']
-                },
-                'airline': {
-                    'code': flight['airline_code'],
-                    'name': flight['airline_name']
-                },
-                'departure_time': flight['scheduled_departure'].isoformat() if flight['scheduled_departure'] else None
-            })
-        
-        return jsonify(result)
+        # 使用連接池獲取連接
+        async with pool.acquire() as conn:
+            # 使用 asyncpg 直接查詢
+            query = """
+            SELECT 
+                f.flight_id, 
+                f.flight_number, 
+                f.scheduled_departure, 
+                f.status,
+                dep.airport_id as dep_id, 
+                dep.airport_id as dep_code, 
+                dep.name_zh as dep_name,
+                arr.airport_id as arr_id, 
+                arr.airport_id as arr_code, 
+                arr.name_zh as arr_name,
+                al.airline_id as airline_code, 
+                al.name_zh as airline_name
+            FROM 
+                flights f
+            JOIN 
+                airports dep ON f.departure_airport_id = dep.airport_id
+            JOIN 
+                airports arr ON f.arrival_airport_id = arr.airport_id
+            JOIN 
+                airlines al ON f.airline_id = al.airline_id
+            LIMIT 10
+            """
+            
+            flights = await conn.fetch(query)
+            result = []
+            
+            for flight in flights:
+                result.append({
+                    'flight_id': str(flight['flight_id']),
+                    'flight_number': flight['flight_number'],
+                    'departure': {
+                        'airport_id': str(flight['dep_id']),
+                        'code': flight['dep_code'],
+                        'name': flight['dep_name']
+                    },
+                    'arrival': {
+                        'airport_id': str(flight['arr_id']),
+                        'code': flight['arr_code'],
+                        'name': flight['arr_name']
+                    },
+                    'airline': {
+                        'code': flight['airline_code'],
+                        'name': flight['airline_name']
+                    },
+                    'departure_time': flight['scheduled_departure'].isoformat() if flight['scheduled_departure'] else None
+                })
+            
+            return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    finally:
-        await release_db(db)
 
 @app.route('/api/debug/airports', methods=['GET'])
 async def debug_airports():
     """列出資料庫中所有機場，用於偵錯"""
-    from app.database.db import get_db, release_db
+    from app.database.db import init_asyncpg_pool
     
-    db = await get_db()
     try:
-        # 使用 asyncpg 直接查詢
-        query = """
-        SELECT 
-            airport_id, 
-            airport_id as iata_code, 
-            name_zh, 
-            name_en, 
-            city, 
-            country
-        FROM 
-            airports
-        LIMIT 20
-        """
+        # 獲取連接池
+        pool = await init_asyncpg_pool()
         
-        airports = await db.fetch(query)
-        result = [{
-            'airport_id': str(airport['airport_id']),
-            'iata_code': airport['iata_code'],
-            'name_zh': airport['name_zh'],
-            'name_en': airport['name_en'],
-            'city': airport['city'],
-            'country': airport['country']
-        } for airport in airports]
-        
-        return jsonify(result)
+        # 使用連接池獲取連接
+        async with pool.acquire() as conn:
+            # 使用 asyncpg 直接查詢
+            query = """
+            SELECT 
+                airport_id, 
+                airport_id as iata_code, 
+                name_zh, 
+                name_en, 
+                city, 
+                country
+            FROM 
+                airports
+            LIMIT 20
+            """
+            
+            airports = await conn.fetch(query)
+            result = [{
+                'airport_id': str(airport['airport_id']),
+                'iata_code': airport['iata_code'],
+                'name_zh': airport['name_zh'],
+                'name_en': airport['name_en'],
+                'city': airport['city'],
+                'country': airport['country']
+            } for airport in airports]
+            
+            return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-    finally:
-        await release_db(db)
 
 async def run_async_app():
     """運行異步 Flask 應用"""
