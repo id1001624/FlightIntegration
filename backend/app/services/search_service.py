@@ -937,9 +937,9 @@ class SearchService:
                 FROM 
                     flights f
                 JOIN 
-                    airports dep ON f.departure_airport = dep.airport_id
+                    airports dep ON f.departure_airport_id = dep.airport_id
                 JOIN 
-                    airports arr ON f.arrival_airport = arr.airport_id
+                    airports arr ON f.arrival_airport_id = arr.airport_id
                 WHERE 
                     dep.airport_id = $1
                 GROUP BY 
