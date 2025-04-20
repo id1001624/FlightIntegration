@@ -2,7 +2,7 @@
 import os
 import sys
 import logging
-# import requests  # <-- 移除 requests 庫
+import requests # <-- 重新導入 requests 庫
 from linebot.v3.messaging import (
     Configuration,
     ApiClient,
@@ -22,6 +22,7 @@ from pathlib import Path
 from flask import Blueprint, current_app
 # from linebot import LineBotApi # <-- 移除 v2 LineBotApi
 # from linebot.models import RichMenu # <-- 移除 v2 RichMenu
+import json
 
 # 加載環境變數
 # load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env')) # 由 Flask app 加載
@@ -101,37 +102,32 @@ def create_rich_menu():
             rich_menu_id = rich_menu_response.rich_menu_id
             logger.info(f"Rich Menu 已創建，ID: {rich_menu_id}")
             
-            # 2. 上傳圖片 (使用 v3 SDK)
-            # 確定 Content-Type
+            # 2. 上傳圖片 (恢復使用 requests)
             content_type = 'image/jpeg' if RICH_MENU_IMAGE_PATH.lower().endswith('.jpg') else 'image/png'
-            
-            # 使用 with open 確保文件正確關閉
+
             with open(image_absolute_path, 'rb') as f:
-                # 使用 set_rich_menu_image 上傳
-                # 注意：v3 SDK 的 set_rich_menu_image 方法直接處理 bytes
-                upload_response = messaging_api_blob.set_rich_menu_image(
-                    rich_menu_id=rich_menu_id,
-                    body=f.read() # 傳遞文件內容 bytes
-                )
-                # set_rich_menu_image 成功時通常返回 None 或 {}，這裡主要檢查是否拋出異常
-                logger.info(f"Rich Menu 圖片上傳成功 (Rich Menu ID: {rich_menu_id})")
-            
-            # 移除手動 requests 上傳的程式碼
-            # upload_url = f"https://api-data.line.me/v2/bot/richmenu/{rich_menu_id}/content"
-            # headers = {
-            #     "Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}",
-            #     "Content-Type": content_type # 使用偵測到的 content_type
-            # }
-            # try:
-            #     response = requests.post(upload_url, headers=headers, data=image_data)
-            #     response.raise_for_status() # 如果響應狀態碼不是 2xx，則引發異常
-            #     logger.info(f"Rich Menu 圖片上傳成功，響應碼：{response.status_code}")
-            # except requests.exceptions.RequestException as e:
-            #     logger.error(f"上傳 Rich Menu 圖片時發生錯誤: {e}")
-            #     # 如果上傳失敗，考慮是否要刪除已創建的 Rich Menu
-            #     # messaging_api.delete_rich_menu(rich_menu_id)
-            #     # logger.warning(f"已刪除創建失敗的 Rich Menu: {rich_menu_id}")
-            #     return
+                image_data = f.read() # 讀取圖片 bytes
+
+            # --- 開始 requests 上傳 ---
+            upload_url = f"https://api-data.line.me/v2/bot/richmenu/{rich_menu_id}/content"
+            headers = {
+                "Authorization": f"Bearer {CHANNEL_ACCESS_TOKEN}",
+                "Content-Type": content_type # 使用偵測到的 content_type
+            }
+            try:
+                response = requests.post(upload_url, headers=headers, data=image_data)
+                response.raise_for_status() # 如果響應狀態碼不是 2xx，則引發異常
+                logger.info(f"Rich Menu 圖片上傳成功 (使用 requests)，響應碼：{response.status_code}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"使用 requests 上傳 Rich Menu 圖片時發生錯誤: {e}")
+                # 如果上傳失敗，刪除已創建的 Rich Menu
+                try:
+                    messaging_api.delete_rich_menu(rich_menu_id)
+                    logger.warning(f"已刪除因圖片上傳失敗而創建的 Rich Menu: {rich_menu_id}")
+                except Exception as delete_error:
+                    logger.error(f"嘗試刪除失敗的 Rich Menu {rich_menu_id} 時出錯: {delete_error}")
+                return # 終止腳本執行
+            # --- 結束 requests 上傳 ---
 
             # 3. 將 Rich Menu 設為默認
             messaging_api.set_default_rich_menu(rich_menu_id=rich_menu_id)
@@ -144,21 +140,26 @@ def create_rich_menu():
         logger.error(f"調用 LINE API 時發生錯誤 (狀態碼: {e.status})：")
         try:
             # 嘗試解析標準的 ErrorResponse
-            error_response = ErrorResponse.from_dict(e.body) # v3 可能用 from_dict
+            error_body_dict = json.loads(e.body) # 先嘗試解析 JSON
+            error_response = ErrorResponse.from_dict(error_body_dict)
             logger.error(f"  訊息: {error_response.message}")
             if error_response.details:
                 for detail in error_response.details:
                     logger.error(f"  - Property: {detail.property}, Message: {detail.message}")
+        except json.JSONDecodeError:
+             logger.error(f"  無法解析錯誤響應體 (非 JSON): {e.body}")
         except Exception as parse_error:
             # 如果解析失敗，直接打印原始 body
             logger.error(f"  無法解析錯誤響應體，原始 Body: {e.body}, 解析錯誤: {parse_error}")
             # 打印更多 ApiException 的信息
             logger.error(f"  Reason: {e.reason}")
             logger.error(f"  Headers: {e.headers}")
-            
-    # 移除 requests 的錯誤處理
-    # except requests.RequestException as e:
-    #     logger.error(f"使用 requests 發送 HTTP 請求時發生錯誤: {e}")
+
+    # 恢復 requests 的錯誤處理
+    except requests.RequestException as e:
+        # 這個錯誤現在會在恢復的 requests 代碼塊中被捕獲和處理
+        # 這裡只是為了完整性，但上面的 try/except 應該已經處理了
+        logger.error(f"處理 HTTP 請求時發生錯誤 (可能是 requests): {e}")
     except FileNotFoundError:
         # 這個錯誤應該在函數開頭就被捕獲了，但保留以防萬一
         logger.error(f"錯誤：找不到指定的圖片文件 '{image_absolute_path}'")
