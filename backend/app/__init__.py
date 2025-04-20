@@ -11,11 +11,36 @@ from asgiref.wsgi import WsgiToAsgi
 from flask import Flask
 from flask_cors import CORS
 from flask_caching import Cache
-from .models.base import db
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from .config import DevelopmentConfig, ProductionConfig 
+
+# --- 在頂部添加 .env 加載 ---
+from dotenv import load_dotenv, find_dotenv
+
+dotenv_path = find_dotenv(filename='.env', raise_error_if_not_found=False, usecwd=True)
+if dotenv_path:
+    print(f"[app/__init__.py] 找到並加載 .env 文件: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path)
+else:
+    # 嘗試向上查找 backend/.env
+    try:
+        current_dir = os.path.dirname(__file__) # app/
+        backend_dir = os.path.dirname(current_dir) # backend/
+        dotenv_path_alt = os.path.join(backend_dir, '.env')
+        if os.path.exists(dotenv_path_alt):
+            print(f"[app/__init__.py] 在 backend 目錄找到並加載 .env 文件: {dotenv_path_alt}")
+            load_dotenv(dotenv_path=dotenv_path_alt)
+        else:
+            print("[app/__init__.py] 警告: 未在當前目錄或 backend 目錄找到 .env 文件。")
+    except Exception as e:
+        print(f"[app/__init__.py] 查找備用 .env 時出錯: {e}")
+# -----------------------------
+
+# --- 推遲導入，確保 .env 已加載 ---
+from .models.base import db 
+from .config import DevelopmentConfig, ProductionConfig
+# -------------------------------
 
 # 初始化緩存
 cache = Cache()
