@@ -4,7 +4,6 @@ Flask應用啟動腳本
 import os
 import asyncio
 import logging
-# import click # <-- 移除 click 導入
 from flask import Flask, jsonify
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -28,26 +27,6 @@ print(f"Database URL: {os.getenv('DATABASE_URL', '未設置')}")
 
 # 創建Flask應用
 app = create_app()
-
-# --- 移除頂層導入 CLI 相關模塊的嘗試 ---
-# _crm_module = None
-# try:
-#     # ... (移除 try-except 塊)
-# except Exception as e:
-#     print(f"[run.py top level] 導入 create_rich_menu 模塊時發生其他錯誤: {e}")
-
-# --- 移除 Flask CLI 命令註冊 --- 
-# @app.cli.group()
-# def scripts():
-#     pass
-# 
-# @scripts.command("setup-rich-menu")
-# @click.option(...)
-# @click.option(...)
-# def setup_rich_menu_command(image_path, frontend_url):
-#     # ... (移除整個函數)
-
-# --- 結束移除 CLI 命令註冊 ---
 
 # 添加測試路由檢查可用航班
 @app.route('/api/debug/flights', methods=['GET'])
@@ -162,6 +141,64 @@ def debug_airports():
     except Exception as e:
         error_traceback = traceback.format_exc()
         print(f"Debug airports 錯誤: {str(e)}\n{error_traceback}")
+        return jsonify({
+            'error': str(e),
+            'type': type(e).__name__,
+            'trace': error_traceback
+        }), 500
+
+@app.route('/api/debug/schema', methods=['GET'])
+def debug_schema():
+    """顯示資料庫表的結構"""
+    import traceback  # 導入 traceback 用於獲取詳細錯誤信息
+    import psycopg2  # 使用同步連接
+    import psycopg2.extras  # 導入extras模組用於DictCursor
+    import os
+    from flask import request
+    
+    try:
+        # 直接使用同步連接
+        db_url = os.environ.get('DATABASE_URL')
+        conn = psycopg2.connect(db_url)
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        table_name = request.args.get('table', 'airports')
+        
+        query = """
+        SELECT 
+            column_name, 
+            data_type, 
+            is_nullable,
+            column_default
+        FROM 
+            information_schema.columns 
+        WHERE 
+            table_name = %s
+        ORDER BY 
+            ordinal_position
+        """
+        
+        cursor.execute(query, (table_name,))
+        columns = cursor.fetchall()
+        
+        # 轉換為JSON可序列化格式
+        result = [{
+            'column_name': col['column_name'],
+            'data_type': col['data_type'],
+            'is_nullable': col['is_nullable'],
+            'default': col['column_default']
+        } for col in columns]
+        
+        cursor.close()
+        conn.close()
+        return jsonify({
+            'table': table_name,
+            'columns': result
+        })
+        
+    except Exception as e:
+        error_traceback = traceback.format_exc()
+        print(f"Debug schema 錯誤: {str(e)}\n{error_traceback}")
         return jsonify({
             'error': str(e),
             'type': type(e).__name__,
