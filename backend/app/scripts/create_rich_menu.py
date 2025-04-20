@@ -110,8 +110,7 @@ def create_rich_menu():
                 # 使用 set_rich_menu_image 上傳
                 # 注意：v3 SDK 的 set_rich_menu_image 方法直接處理 bytes
                 upload_response = messaging_api_blob.set_rich_menu_image(
-                    rich_menu_id=rich_menu_id, 
-                    content_type=content_type, 
+                    rich_menu_id=rich_menu_id,
                     body=f.read() # 傳遞文件內容 bytes
                 )
                 # set_rich_menu_image 成功時通常返回 None 或 {}，這裡主要檢查是否拋出異常
