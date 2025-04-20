@@ -18,7 +18,7 @@ def parse_datetime(datetime_str: str) -> Optional[datetime]:
         解析後的datetime對象，解析失敗時返回None
     """
     if not datetime_str:
-        logger.warning("提供的日期時間字符串為空")
+        # logger.warning("提供的日期時間字符串為空")
         return None
     
     # 嘗試標準格式

@@ -51,36 +51,58 @@ except ImportError as e:
 def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
     """將 TDX 原始航班數據轉換為內部格式"""
     try:
-        airline_id = raw_flight.get('AirlineID')
-        flight_number = raw_flight.get('FlightNumber')
-        flight_date = raw_flight.get('FlightDate')
+        # --- 使用正確的 snake_case 鍵名 ---
+        airline_id = raw_flight.get('airline_id')
+        flight_number = raw_flight.get('flight_number')
+        flight_date = raw_flight.get('flight_date')
         
         # 確保關鍵字段存在
         if not airline_id or not flight_number or not flight_date:
-             logger.warning(f"TDX 原始數據缺少關鍵字段: {raw_flight}")
+             logger.warning(f"TDX 原始數據缺少關鍵字段 (檢查 airline_id, flight_number, flight_date): {raw_flight}")
              return None
              
-        scheduled_dep = raw_flight.get('ScheduleDepartureTime')
-        scheduled_arr = raw_flight.get('ScheduleArrivalTime')
-        # --- 移除 UUID 生成 ---
-        # flight_uuid = uuid.uuid4() 
+        # --- 使用正確的 snake_case 鍵名 ---
+        scheduled_dep = raw_flight.get('scheduled_departure')
+        scheduled_arr = raw_flight.get('scheduled_arrival')
+        departure_airport_id = raw_flight.get('departure_airport_id')
+        arrival_airport_id = raw_flight.get('arrival_airport_id')
+        aircraft_type = raw_flight.get('aircraft') # 假設 tdx_client 返回的是 'aircraft'
+        departure_terminal = raw_flight.get('departure_terminal')
+        arrival_terminal = raw_flight.get('arrival_terminal')
 
-        # 只保留資料庫表中存在的欄位
-        return {
-            # --- 移除 flight_id ---
-            # 'flight_id': flight_uuid, 
-            'flight_number': airline_id + flight_number,
+        # --- 移除臨時測試日誌 ---
+        # if not scheduled_dep or not scheduled_dep.strip():
+        #     logging.warning(f"TDX 原始數據檢查: 航班 {airline_id}{flight_number} 的 scheduled_dep 為空或空白: '{scheduled_dep}'")
+        # if not scheduled_arr or not scheduled_arr.strip():
+        #     logging.warning(f"TDX 原始數據檢查: 航班 {airline_id}{flight_number} 的 scheduled_arr 為空或空白: '{scheduled_arr}'")
+        # --- 臨時測試日誌結束 ---
+
+        # --- 格式化返回的字典，確保鍵名與模型一致 --- 
+        formatted_flight = {
+            'flight_number': flight_number, # 使用從 raw_flight 獲取的 flight_number
             'airline_id': airline_id,
-            'departure_airport_id': raw_flight.get('DepartureAirportID', ''),
-            'arrival_airport_id': raw_flight.get('ArrivalAirportID', ''),
-            # 檢查 scheduled_dep 是否為真且非空字串才解析
-            'scheduled_departure': format_datetime(parse_datetime(scheduled_dep)) if scheduled_dep and scheduled_dep.strip() else None,
-            # 檢查 scheduled_arr 是否為真且非空字串才解析
-            'scheduled_arrival': format_datetime(parse_datetime(scheduled_arr)) if scheduled_arr and scheduled_arr.strip() else None,
-            'aircraft': raw_flight.get('AircraftType', ''), # 使用模型欄位 aircraft
-            'departure_terminal': raw_flight.get('DepartureTerminal'), # 保留，模型中有
-            'arrival_terminal': raw_flight.get('ArrivalTerminal'), # 保留，模型中有
+            'departure_airport_id': departure_airport_id,
+            'arrival_airport_id': arrival_airport_id,
+            # 這裡的 scheduled_dep/arr 是上面 get 到的值，可能已經是 datetime 或 None
+            'scheduled_departure': scheduled_dep,
+            'scheduled_arrival': scheduled_arr,
+            # --- 使用 aircraft 而非 AircraftType --- 
+            'aircraft': aircraft_type if aircraft_type else '', # 確保 aircraft 鍵存在且有值
+            'departure_terminal': departure_terminal,
+            'arrival_terminal': arrival_terminal,
         }
+        
+        # --- 再次檢查時間格式化 (如果 tdx_client 返回的是字符串) ---
+        # 如果 scheduled_dep/arr 是字符串，需要解析和格式化
+        if isinstance(scheduled_dep, str):
+             dt_dep = parse_datetime(scheduled_dep)
+             formatted_flight['scheduled_departure'] = format_datetime(dt_dep) if dt_dep else None
+        if isinstance(scheduled_arr, str):
+             dt_arr = parse_datetime(scheduled_arr)
+             formatted_flight['scheduled_arrival'] = format_datetime(dt_arr) if dt_arr else None
+             
+        return formatted_flight
+        
     except Exception as e:
         logger.error(f"格式化 TDX 航班數據時出錯: {raw_flight}, 錯誤: {e}")
         return None
@@ -273,19 +295,22 @@ class ApiSyncManager:
                     logger.info(f"TDX FIDS 返回 {len(raw_data)} 筆 {departure} 的原始記錄，開始篩選...")
                     # 根據國內/國際進行篩選
                     if is_domestic:
+                        # --- Restore original list comprehension ---
                         tdx_raw_flights_filtered = [
                             f for f in raw_data
-                            if f.get('DepartureAirportID') == departure and
-                               f.get('ArrivalAirportID') == arrival and # 國內也需匹配到達機場
-                               self.is_tdx_target_airline(f.get('AirlineID')) # 只篩選 AE, B7, DA
+                            # 使用正確的 snake_case 鍵名
+                            if f.get('departure_airport_id') == departure and
+                               f.get('arrival_airport_id') == arrival and
+                               self.is_tdx_target_airline(f.get('airline_id'))
                         ]
                         logger.info(f"篩選國內航線 {departure}->{arrival} (AE, B7, DA) 結果: {len(tdx_raw_flights_filtered)} 個航班")
                     else: # 國際航線
+                        # --- Restore original list comprehension for international too, using correct keys ---
                         tdx_raw_flights_filtered = [
                             f for f in raw_data
-                            if f.get('DepartureAirportID') == departure and
-                               f.get('ArrivalAirportID') == arrival and # 國際需匹配到達機場
-                               f.get('AirlineID') in TARGET_AIRLINES # 篩選目標國際航空公司
+                            if f.get('departure_airport_id') == departure and
+                               f.get('arrival_airport_id') == arrival and
+                               f.get('airline_id') in TARGET_AIRLINES # Use correct key
                         ]
                         logger.info(f"篩選國際航線 {departure}->{arrival} (TARGET_AIRLINES) 結果: {len(tdx_raw_flights_filtered)} 個航班")
                 else:
@@ -302,7 +327,9 @@ class ApiSyncManager:
                     # 將格式化後的 TDX 航班添加到主列表 (去重)
                     self._add_unique_flights(flights, tdx_processed_flights, flight_keys)
                 else:
-                    logger.warning(f"從 TDX API 獲取 {departure}->{arrival} 的航班篩選/格式化後為空")
+                    # --- 移除冗餘日誌，因為篩選結果為0時已有日誌 --- 
+                    # logger.warning(f"從 TDX API 獲取 {departure}->{arrival} 的航班篩選/格式化後為空") 
+                    pass # 篩選結果為0時，上面已有篩選日誌，這裡無需再警告
 
             except Exception as e:
                 logger.error(f"處理 TDX 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
@@ -313,28 +340,29 @@ class ApiSyncManager:
             try:
                 time.sleep(self.request_delay)
                 logger.info(f"嘗試從 FlightStats 獲取 {departure}->{arrival} 的航班 (日期: {date_str})")
-                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, date_str)
+                # 假設 get_flights 返回內部格式的列表
+                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, date_str) 
                 
                 fs_processed_flights = [] # 存放格式化後的 FlightStats 航班
                 if fs_flights_raw:
                     logger.info(f"FlightStats 返回 {len(fs_flights_raw)} 筆原始記錄，開始篩選...")
-                    # 篩選目標航空公司，並排除已從 TDX 獲取的航班 (基於 flight_key)
+                    # --- 恢復 FlightStats 的原始篩選邏輯 --- 
                     for flight in fs_flights_raw:
                         airline_id = flight.get('airline_id')
                         if airline_id in TARGET_AIRLINES:
                             # 生成 flight_key 以檢查是否已從 TDX 添加
                             flight_number = flight.get('flight_number', '')
-                            dep_dt_str = flight.get('scheduled_departure') # FlightStats 應返回內部格式
+                            dep_dt_str = flight.get('scheduled_departure')
                             dep_date = dep_dt_str[:10] if isinstance(dep_dt_str, str) and len(dep_dt_str) >= 10 else ''
-                            
                             flight_key = f"{flight_number}_{dep_date}" if flight_number and dep_date else None
                             
-                            if flight_key and flight_key in flight_keys:
-                                # logger.debug(f"FlightStats 航班 {flight_key} 已從 TDX 添加，跳過")
-                                continue # 如果 TDX 已經添加過，則跳過
-                            else:
-                                # 假設 fs_flights_raw 已经是内部格式或兼容格式
+                            is_new = flight_key and flight_key not in flight_keys
+
+                            if is_new:
                                 fs_processed_flights.append(flight)
+                                # logger.debug(f"[FS Included] {flight_key}") # 可選的精簡日誌
+                            # else:
+                            #     logger.debug(f"[FS Excluded] Target: {airline_id in TARGET_AIRLINES}, New: {is_new}, Key: {flight_key}")
                                 
                     if fs_processed_flights:
                         logger.info(f"從 FlightStats 篩選出 {len(fs_processed_flights)} 個新的目標航班")

@@ -15,8 +15,7 @@ from .models.base import db
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-# from .utils.rate_limiter import limiter # 導入限速器 - 錯誤導入: rate_limiter.py 中沒有這個名稱
-from config import DevelopmentConfig, ProductionConfig # <-- 再次嘗試直接導入，理論上本地應可行
+from .config import DevelopmentConfig, ProductionConfig 
 
 # 初始化緩存
 cache = Cache()

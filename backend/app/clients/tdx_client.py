@@ -180,6 +180,7 @@ class TdxApiClient(BaseAPIClient):
                 flight = {
                     'flight_number': airline_id + flight_number_only,
                     'airline_id': airline_id,
+                    'flight_date': flight_date,
                     'departure_airport_id': departure_airport,
                     'arrival_airport_id': item.get('ArrivalAirportID', ''),
                     'scheduled_departure': format_datetime(scheduled_departure) if scheduled_departure else None,

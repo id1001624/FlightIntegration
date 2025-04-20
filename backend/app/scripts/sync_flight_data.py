@@ -13,6 +13,38 @@ import argparse
 from datetime import datetime, timedelta
 import psycopg2
 import time
+from dotenv import load_dotenv, find_dotenv
+
+# --- 在導入應用模塊前加載 .env 文件 ---
+dotenv_path = find_dotenv(filename='.env', raise_error_if_not_found=False, usecwd=True)
+# 嘗試從 backend 目錄查找 .env (如果腳本在 scripts 中執行或從根目錄以 -m 執行)
+if not dotenv_path:
+    try:
+        # 判斷當前是否以 -m 模式從根目錄執行
+        # 如果是，當前工作目錄應為 FlightIntegration
+        # 如果直接執行，工作目錄可能不同
+        cwd = os.getcwd()
+        # 假設項目根目錄名為 FlightIntegration
+        if os.path.basename(cwd) == 'FlightIntegration': 
+            backend_path = os.path.join(cwd, 'backend')
+        else:
+            # 嘗試從腳本位置向上查找 backend
+            scripts_dir = os.path.dirname(__file__)
+            app_dir = os.path.dirname(scripts_dir)
+            backend_path = os.path.dirname(app_dir)
+            
+        dotenv_path_alt = os.path.join(backend_path, '.env')
+        if os.path.exists(dotenv_path_alt):
+            dotenv_path = dotenv_path_alt
+    except Exception:
+        pass # 忽略查找過程中的錯誤
+
+if dotenv_path and os.path.exists(dotenv_path):
+    print(f"[sync_flight_data] 找到並加載 .env 文件: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path, override=True) 
+else:
+    print("[sync_flight_data] 警告: 未找到 .env 文件於預期位置，將依賴系統環境變數。")
+# --------------------------------------
 
 # -- 路徑計算更新 --
 # current_dir: backend/app/scripts/
