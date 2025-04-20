@@ -557,11 +557,11 @@ async def debug_airports():
     from app.database.db import get_db, release_db
     
     db = None # 初始化 db
-    specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df' # <-- 將定義移到 try 之前
+    # specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df' # 保持定義以便 except 塊使用
     
     try:
         db = await get_db()
-        # 獲取機場列表 (保持不變)
+        # 獲取機場列表
         query_airports = """
         SELECT 
             airport_id, 
@@ -584,14 +584,16 @@ async def debug_airports():
             'country': airport['country']
         } for airport in airports]
         
-        # --- 查詢特定航班號 (id 已在 try 之前定義) --- 
-        query_specific_flight = """
-        SELECT flight_number 
-        FROM flights 
-        WHERE flight_id = $1;
-        """
-        specific_flight_record = await db.fetchrow(query_specific_flight, specific_flight_id)
-        specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
+        # --- 暫時註釋掉查詢特定航班號 --- 
+        # query_specific_flight = """
+        # SELECT flight_number 
+        # FROM flights 
+        # WHERE flight_id = $1;
+        # """
+        # specific_flight_record = await db.fetchrow(query_specific_flight, specific_flight_id)
+        # specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
+        specific_flight_number = "測試查詢已暫時禁用" # 提供佔位符
+        specific_flight_id = "N/A" # 提供佔位符
         # ---------------------------
         
         # 將機場列表和特定航班號組合到最終響應中
@@ -605,7 +607,9 @@ async def debug_airports():
         
         return jsonify(final_response)
     except Exception as e:
-        # 現在可以安全訪問 specific_flight_id
+        # 確保 specific_flight_id 仍然有定義 (即使查詢被禁用)
+        if 'specific_flight_id' not in locals(): 
+             specific_flight_id = "N/A (Error before check)"
         error_response = {
             'error': str(e),
             'debug_specific_flight_check': {
@@ -615,6 +619,5 @@ async def debug_airports():
         }
         return jsonify(error_response), 500
     finally:
-        # 確保 db 在 release 前已賦值
         if db:
             await release_db(db)
