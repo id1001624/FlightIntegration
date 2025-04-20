@@ -199,7 +199,7 @@ class SearchService:
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_path as airline_logo_url,
-                f.aircraft_type,
+                f.aircraft,
                 f.status,
                 tp.price_economy,
                 tp.price_business,
@@ -1026,7 +1026,7 @@ class SearchService:
                     f.scheduled_arrival,
                     f.departure_terminal,
                     f.arrival_terminal,
-                    f.flight_status,
+                    -- f.flight_status, -- 移除：不存在的欄位
                     a1.airport_id as departure_airport_id,
                     a1.name_zh as departure_airport_name_zh,
                     a1.city as departure_city,
@@ -1039,11 +1039,16 @@ class SearchService:
                     al.name_zh as airline_name_zh,
                     al.iata_code as airline_iata,
                     -- 計算 duration
-                    EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes 
+                    EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes,
+                    -- 添加 available_seats
+                    tp.available_seats_economy,
+                    tp.available_seats_business,
+                    tp.available_seats_first 
                 FROM flights f
                 JOIN airports a1 ON f.departure_airport_id = a1.airport_id
                 JOIN airports a2 ON f.arrival_airport_id = a2.airport_id
                 JOIN airlines al ON f.airline_id = al.airline_id
+                LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id -- 添加 JOIN
                 WHERE f.flight_id = $1;
                 """
                 
@@ -1054,7 +1059,14 @@ class SearchService:
                     
                 logger.info(f"成功獲取航班ID {flight_id} 的詳細信息")
                 # 轉換為字典並返回
-                return dict(row)
+                flight_details = dict(row)
+                # 添加可用座位信息
+                flight_details['available_seats'] = {
+                    'economy': flight_details.pop('available_seats_economy', None), # 從字典移除並放入嵌套結構
+                    'business': flight_details.pop('available_seats_business', None),
+                    'first': flight_details.pop('available_seats_first', None)
+                }
+                return flight_details
                 
             finally:
                 # 確保連接被釋放，即使發生錯誤
@@ -1143,12 +1155,12 @@ class SearchService:
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
                         al.logo_path as airline_logo_url, -- 修正: 使用 logo_path
-                        f.aircraft_type,
-                        f.status,
+                        f.aircraft,
+                        -- f.status, -- 移除：不存在的欄位
                         tp.price_economy,
                         tp.price_business,
                         tp.price_first,
-                        tp.currency,
+                        -- tp.currency, -- 移除：不存在的欄位
                         tp.last_updated as price_last_updated,
                         -- 價格排序 (使用 COALESCE 處理 NULL)
                         CASE $1 -- $1 是 class_type
@@ -1342,9 +1354,9 @@ class SearchService:
                     a_arr.city AS arrival_city,
                     f.scheduled_departure AS departure_time,
                     f.scheduled_arrival AS arrival_time,
-                    f.aircraft_type,
+                    f.aircraft,
                     f.duration AS duration_minutes,
-                    f.status,
+                    -- f.status, -- 移除：不存在的欄位
                     tp.price_economy,
                     tp.price_business,
                     tp.price_first,
@@ -1543,9 +1555,9 @@ class SearchService:
                     a_arr.city AS arrival_city,
                     f.scheduled_departure AS departure_time,
                     f.scheduled_arrival AS arrival_time,
-                    f.aircraft_type,
+                    f.aircraft,
                     f.duration AS duration_minutes,
-                    f.status,
+                    -- f.status, -- 移除：不存在的欄位
                     tp.price_economy,
                     tp.price_business,
                     tp.price_first,
