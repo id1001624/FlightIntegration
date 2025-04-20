@@ -198,10 +198,10 @@ export default {
       return '經濟艙';
     };
 
-    const formattedDepartureTime = computed(() => formatTime(props.flight.departure?.time));
-    const formattedArrivalTime = computed(() => formatTime(props.flight.arrival?.time));
+    const formattedDepartureTime = computed(() => formatTime(props.flight.scheduled_departure));
+    const formattedArrivalTime = computed(() => formatTime(props.flight.scheduled_arrival));
     const formattedDepartureDate = computed(() => {
-        const dateStr = props.flight.departure?.time;
+        const dateStr = props.flight.scheduled_departure;
         console.log(`[FlightCard] formattedDepartureDate computed with: ${dateStr}`);
         if (!dateStr) return '--/--';
         try {
@@ -217,13 +217,16 @@ export default {
         }
     });
 
-    const getDepartureAirportCode = computed(() => props.flight.departure?.code || props.flight.departure?.airport_id || 'N/A');
-    const getArrivalAirportCode = computed(() => props.flight.arrival?.code || props.flight.arrival?.airport_id || 'N/A');
+    const getDepartureAirportCode = computed(() => props.flight.departure_airport?.code || 'N/A');
+    const getArrivalAirportCode = computed(() => props.flight.arrival_airport?.code || 'N/A');
 
-    const airlineName = computed(() => props.flight.airline?.name || props.flight.airline?.name_zh || '未知航空');
+    const airlineName = computed(() => props.flight.airline?.name_zh || props.flight.airline?.name || '未知航空');
     const flightNumber = computed(() => props.flight.flight_number || 'N/A');
 
     const displayPrice = computed(() => {
+      if (props.flight.price !== null && props.flight.price !== undefined) {
+          return formatPrice(props.flight.price);
+      }
       if (props.flight.price?.amount && typeof props.flight.price.amount === 'number') {
         return formatPrice(props.flight.price.amount);
       }
@@ -233,15 +236,15 @@ export default {
       return '洽詢';
     });
 
-    const flightClassType = computed(() => formatClassType(props.flight.price?.cabin_class));
+    const flightClassType = computed(() => formatClassType(props.flight.cabin_class));
 
     const flightDuration = computed(() => {
       if (props.flight.duration_minutes != null) {
         return formatDuration(props.flight.duration_minutes);
       }
       // 其次嘗試計算時間差
-      const departure = props.flight.departure?.time || props.flight.scheduled_departure;
-      const arrival = props.flight.arrival?.time || props.flight.scheduled_arrival;
+      const departure = props.flight.scheduled_departure;
+      const arrival = props.flight.scheduled_arrival;
       if (departure && arrival) {
         try {
           const diff = new Date(arrival) - new Date(departure);
