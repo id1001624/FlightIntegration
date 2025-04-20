@@ -1,5 +1,6 @@
 # 敏感資訊
 .env
+.env.local
 .flaskenv
 app/config.py
 backend/app/config.py
