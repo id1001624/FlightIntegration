@@ -298,11 +298,12 @@ class SearchService:
             logger.debug(f"Executing SQL: {final_sql} with params: {params}")
             # 使用 conn 執行查詢
             rows = await conn.fetch(final_sql, *params)
+            logger.debug(f"Raw rows from DB: {rows}") # Log raw rows
             logger.info(f"查詢到 {len(rows)} 條航班記錄")
             # 將 asyncpg Row 對象轉換為字典列表
             return [dict(row) for row in rows]
         except Exception as e:
-            logger.error(f"查詢航班時發生錯誤: {e}\nSQL: {final_sql}\nParams: {params}", exc_info=True)
+            logger.error(f"查詢航班時發生錯誤: {e}\\nSQL: {final_sql}\\nParams: {params}", exc_info=True)
             return []
 
     @staticmethod
@@ -320,6 +321,8 @@ class SearchService:
         result = []
         
         for flight in flights:
+            logger.debug(f"Processing flight dict: {flight}") # Log each flight dict before formatting
+            
             # 根據請求的 cabin_class 選擇對應的價格欄位
             price = None
             requested_cabin_class_upper = cabin_class.upper()
@@ -352,41 +355,42 @@ class SearchService:
             formatted_flight = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
-                'aircraft': flight.get('aircraft'),
+                'aircraft': flight.get('aircraft'), 
                 'airline': {
                     'id': flight.get('airline_id'),
-                    'iata': flight.get('airline_iata'),
+                    'iata': flight.get('airline_iata'), # Now reading alias from SQL
                     'name_zh': flight.get('airline_name_zh'),
                     'name_en': flight.get('airline_name_en'),
-                    'is_domestic': flight.get('airline_is_domestic'),
-                    'logo_path': flight.get('logo_path')
+                    'is_domestic': flight.get('airline_is_domestic'), 
+                    'logo_path': flight.get('logo_path') # Changed from logo_url
                 },
                 'departure_airport': {
                     'id': flight.get('departure_airport_id'),
-                    'iata': flight.get('departure_iata'),
+                    'iata': flight.get('departure_iata'), # Now reading alias from SQL
                     'name': flight.get('departure_name'),
                     'city': flight.get('departure_city'),
                     'country': flight.get('departure_country'),
-                    'terminal': flight.get('departure_terminal')
+                    'terminal': flight.get('departure_terminal') 
                 },
                 'arrival_airport': {
                     'id': flight.get('arrival_airport_id'),
-                    'iata': flight.get('arrival_iata'),
+                    'iata': flight.get('arrival_iata'), # Now reading alias from SQL
                     'name': flight.get('arrival_name'),
                     'city': flight.get('arrival_city'),
                     'country': flight.get('arrival_country'),
-                    'terminal': flight.get('arrival_terminal')
+                    'terminal': flight.get('arrival_terminal') 
                 },
                 'departure_time': departure_time_obj.isoformat() if departure_time_obj else None,
                 'arrival_time': arrival_time_obj.isoformat() if arrival_time_obj else None,
                 'duration_minutes': duration_minutes,
                 'price': price,
-                'cabin_class': cabin_class,
-                'available_seats': flight.get('available_seats'),
-                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None
+                'cabin_class': cabin_class, 
+                'available_seats': flight.get('available_seats'), 
+                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None # Added
                 # 'status': flight.get('status', 'Scheduled') 
             }
             
+            logger.debug(f"Formatted flight dict: {formatted_flight}") # Log the final formatted dict for this flight
             result.append(formatted_flight)
             
         return result
