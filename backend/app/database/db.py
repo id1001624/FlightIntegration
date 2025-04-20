@@ -89,26 +89,10 @@ async def init_asyncpg_pool() -> Pool:
     
     return _asyncpg_pool
 
-async def get_db():
-    """
-    獲取 asyncpg 數據庫連接
-    
-    Returns:
-        Connection: 異步數據庫連接
-    """
-    pool = await init_asyncpg_pool()
-    return await pool.acquire()
-
-async def release_db(conn):
-    """
-    釋放數據庫連接
-    
-    Args:
-        conn: 要釋放的連接
-    """
-    if conn:
-        pool = await init_asyncpg_pool() # 確保池已初始化
-        await pool.release(conn)
+async def get_pool() -> Pool:
+    """獲取初始化的 asyncpg 連接池"""
+    # Ensures pool is initialized and returns it
+    return await init_asyncpg_pool()
 
 async def close_asyncpg_pool():
     """關閉 asyncpg 連接池"""

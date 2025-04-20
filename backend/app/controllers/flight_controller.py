@@ -10,7 +10,7 @@ from ..models import Flight, Airport, Airline
 from ..services.search_service import SearchService
 from ..services.data_sync_service import DataSyncService
 from ..clients.flightstats_client import FlightStatsApiClient
-from ..database.db import get_db, release_db # 導入異步 DB 工具
+from ..database.db import get_pool # <-- Import get_pool instead of get_db/release_db
 from .. import cache
 # 從常量模組導入
 from ..scripts.constants import (
@@ -355,11 +355,11 @@ def generate_test_data():
 async def refresh_flight_status(flight_id):
     """獲取並返回特定航班的最新狀態 (來自FlightStats)"""
     # TODO: 考慮為 flight_id 格式添加驗證 (e.g., UUID)
-    db_conn = None
+    pool = None
     try:
         current_app.logger.info(f"請求刷新航班狀態: {flight_id}")
         
-        db_conn = await get_db()
+        pool = await get_pool()
         flight_info_query = """
             SELECT 
                 f.airline_id, 
@@ -368,7 +368,7 @@ async def refresh_flight_status(flight_id):
             FROM flights f 
             WHERE f.flight_id = $1
         """
-        flight_record = await db_conn.fetchrow(flight_info_query, flight_id)
+        flight_record = await pool.fetchrow(flight_info_query, flight_id)
         
         if not flight_record:
             raise NotFound(f"在數據庫中找不到航班 ID: {flight_id}")
@@ -417,9 +417,6 @@ async def refresh_flight_status(flight_id):
     except Exception as e:
         current_app.logger.error(f"刷新航班 {flight_id} 狀態時發生內部錯誤: {e}", exc_info=True)
         return _error_response('刷新航班狀態時發生內部錯誤', 500)
-    finally:
-        if db_conn:
-            await release_db(db_conn) # 釋放連接
 
 @flight_bp.route('/popular', methods=['GET'])
 async def get_popular_flights_endpoint():
@@ -554,49 +551,45 @@ async def get_from_taiwan_flights_endpoint(arrival_iata: str):
 @flight_bp.route('/api/debug/airports', methods=['GET'])
 async def debug_airports():
     """列出資料庫中所有機場，並包含一個特定航班號用於偵錯連接"""
-    from app.database.db import get_db, release_db
+    # from app.database.db import get_db, release_db # <-- Remove old imports
     
-    db = None # 初始化 db
-    # specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df' # 保持定義以便 except 塊使用
+    pool = None # Initialize pool
+    specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df'
     
     try:
-        db = await get_db()
-        # 獲取機場列表
-        query_airports = """
-        SELECT 
-            airport_id, 
-            airport_id as iata_code, 
-            name_zh, 
-            name_en, 
-            city, 
-            country
-        FROM 
-            airports
-        LIMIT 20
-        """
-        airports = await db.fetch(query_airports)
-        result_airports = [{
-            'airport_id': str(airport['airport_id']),
-            'iata_code': airport['iata_code'],
-            'name_zh': airport['name_zh'],
-            'name_en': airport['name_en'],
-            'city': airport['city'],
-            'country': airport['country']
-        } for airport in airports]
+        pool = await get_pool() # Get the pool object
         
-        # --- 暫時註釋掉查詢特定航班號 --- 
-        # query_specific_flight = """
-        # SELECT flight_number 
-        # FROM flights 
-        # WHERE flight_id = $1;
-        # """
-        # specific_flight_record = await db.fetchrow(query_specific_flight, specific_flight_id)
-        # specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
-        specific_flight_number = "測試查詢已暫時禁用" # 提供佔位符
-        specific_flight_id = "N/A" # 提供佔位符
-        # ---------------------------
-        
-        # 將機場列表和特定航班號組合到最終響應中
+        # Use 'async with' to acquire a connection from the pool
+        async with pool.acquire() as conn:
+            # Transaction block (optional but good practice)
+            async with conn.transaction(): 
+                # 獲取機場列表
+                query_airports = """
+                SELECT 
+                    airport_id, airport_id as iata_code, name_zh, 
+                    name_en, city, country
+                FROM airports LIMIT 20
+                """
+                airports = await conn.fetch(query_airports) # Use conn here
+                result_airports = [{
+                    'airport_id': str(airport['airport_id']),
+                    'iata_code': airport['iata_code'],
+                    'name_zh': airport['name_zh'],
+                    'name_en': airport['name_en'],
+                    'city': airport['city'],
+                    'country': airport['country']
+                } for airport in airports]
+                
+                # --- 恢復查詢特定航班號 --- 
+                query_specific_flight = """
+                SELECT flight_number FROM flights WHERE flight_id = $1;
+                """
+                specific_flight_record = await conn.fetchrow(query_specific_flight, specific_flight_id) # Use conn here
+                specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
+                # ---------------------------
+
+        # --- Connection is automatically released when exiting 'async with' block --- 
+
         final_response = {
             'airports': result_airports,
             'debug_specific_flight_check': {
@@ -606,10 +599,9 @@ async def debug_airports():
         }
         
         return jsonify(final_response)
+        
     except Exception as e:
-        # 確保 specific_flight_id 仍然有定義 (即使查詢被禁用)
-        if 'specific_flight_id' not in locals(): 
-             specific_flight_id = "N/A (Error before check)"
+        # ... (Error handling remains mostly the same, specific_flight_id is defined) ...
         error_response = {
             'error': str(e),
             'debug_specific_flight_check': {
@@ -617,7 +609,6 @@ async def debug_airports():
                  'error_during_check': True
             }
         }
+        # Log the detailed error as well
+        logger.error(f"Error in debug_airports: {e}", exc_info=True) 
         return jsonify(error_response), 500
-    finally:
-        if db:
-            await release_db(db)
