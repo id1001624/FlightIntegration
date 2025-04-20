@@ -198,7 +198,7 @@ class SearchService:
                 al.airline_id as airline_id, 
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
-                al.logo_url as airline_logo_url,
+                al.logo_path as airline_logo_url,
                 f.duration,
                 f.aircraft_type,
                 f.status,
@@ -1140,7 +1140,7 @@ class SearchService:
                         al.airline_id as airline_id, 
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
-                        al.logo_path as airline_logo_url,
+                        al.logo_path as airline_logo_url, -- 修正: 使用 logo_path
                         f.duration,
                         f.aircraft_type,
                         f.status,
