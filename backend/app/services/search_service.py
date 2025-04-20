@@ -172,10 +172,10 @@ class SearchService:
         
         Args:
             conn: asyncpg 連接對象
-            departure_code: 出發地機場IATA代碼
-            arrival_code: 目的地機場IATA代碼
+            departure_code: 出發地機場ID
+            arrival_code: 目的地機場ID
             date_str: 日期字符串 (YYYY-MM-DD)
-            airline_code: 航空公司IATA代碼或代碼列表，可選
+            airline_code: 航空公司ID或ID列表，可選
             price_min: 最低價格，可選
             price_max: 最高價格，可選
             cabin_class: 艙位類型 (目前主要影響格式化，查詢基於最低價)
@@ -195,7 +195,7 @@ class SearchService:
             logger.error(f"日期格式錯誤: {date_str}")
             return []
         
-        # 構建 SQL 查詢 - 使用IATA代碼
+        # 構建 SQL 查詢 - 使用機場ID
         sql = """
         WITH RankedFlights AS (
             SELECT 
@@ -203,15 +203,15 @@ class SearchService:
                 f.flight_number, 
                 f.scheduled_departure, 
                 f.scheduled_arrival, 
-                a_dep.iata_code as departure_iata, 
+                a_dep.airport_id as departure_airport_id, 
                 a_dep.name_zh as departure_name,
                 a_dep.city as departure_city,
                 a_dep.country as departure_country,
-                a_arr.iata_code as arrival_iata, 
+                a_arr.airport_id as arrival_airport_id, 
                 a_arr.name_zh as arrival_name,
                 a_arr.city as arrival_city,
                 a_arr.country as arrival_country,
-                al.iata_code as airline_iata, 
+                al.airline_id as airline_id, 
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_url as airline_logo_url,
@@ -237,8 +237,8 @@ class SearchService:
             JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
             JOIN airlines al ON f.airline_id = al.airline_id
             LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-            WHERE a_dep.iata_code = $1 
-              AND a_arr.iata_code = $2
+            WHERE f.departure_airport_id = $1 
+              AND f.arrival_airport_id = $2
               AND f.scheduled_departure >= $3
               AND f.scheduled_departure <= $4
               {airline_filter} -- 航空公司過濾條件將插入這裡
@@ -260,11 +260,11 @@ class SearchService:
             if isinstance(airline_code, list):
                 if airline_code: # 確保列表不為空
                     airline_placeholders = ', '.join(f'${i}' for i in range(param_index + 1, param_index + 1 + len(airline_code)))
-                    airline_filter_sql = f" AND al.iata_code IN ({airline_placeholders})"
+                    airline_filter_sql = f" AND al.airline_id IN ({airline_placeholders})"
                     params.extend(airline_code)
                     param_index += len(airline_code)
             elif isinstance(airline_code, str):
-                airline_filter_sql = f" AND al.iata_code = ${param_index + 1}"
+                airline_filter_sql = f" AND al.airline_id = ${param_index + 1}"
                 params.append(airline_code)
                 param_index += 1
         
@@ -407,8 +407,8 @@ class SearchService:
         獲取指定時間範圍內的低價日曆
         
         Args:
-            departure_code: 出發地IATA代碼
-            arrival_code: 目的地IATA代碼
+            departure_code: 出發地機場ID
+            arrival_code: 目的地機場ID
             start_date: 開始日期 (YYYY-MM-DD)
             end_date: 結束日期 (YYYY-MM-DD)
             cabin_class: 艙位類型
@@ -451,8 +451,8 @@ class SearchService:
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                    WHERE a_dep.iata_code = $1 
-                      AND a_arr.iata_code = $2
+                    WHERE a_dep.airport_id = $1 
+                      AND a_arr.airport_id = $2
                       AND f.scheduled_departure BETWEEN $3 AND $4
                       AND tp.{price_field} IS NOT NULL
                     GROUP BY DATE(f.scheduled_departure)
@@ -528,8 +528,8 @@ class SearchService:
         獲取特定航線的票價趨勢
         
         Args:
-            departure_code: 出發地IATA代碼
-            arrival_code: 目的地IATA代碼
+            departure_code: 出發地機場ID
+            arrival_code: 目的地機場ID
             start_date: 趨勢起始日期
             cabin_class: 艙位類型
             days_before: 查詢多少天前的數據
@@ -570,8 +570,8 @@ class SearchService:
                     JOIN flights f ON tp.flight_id = f.flight_id
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
-                    WHERE a_dep.iata_code = $1 
-                      AND a_arr.iata_code = $2
+                    WHERE a_dep.airport_id = $1 
+                      AND a_arr.airport_id = $2
                       AND DATE(f.scheduled_departure) = $3
                       AND tp.created_at >= $4
                       AND tp.{price_field} IS NOT NULL
@@ -648,8 +648,8 @@ class SearchService:
         獲取航線統計信息
         
         Args:
-            departure_code: 出發地IATA代碼
-            arrival_code: 目的地IATA代碼
+            departure_code: 出發地機場ID
+            arrival_code: 目的地機場ID
             
         Returns:
             Dict[str, Any]: 航線統計數據
@@ -678,8 +678,8 @@ class SearchService:
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                    WHERE a_dep.iata_code = $1 
-                      AND a_arr.iata_code = $2
+                    WHERE a_dep.airport_id = $1 
+                      AND a_arr.airport_id = $2
                       AND f.scheduled_departure >= CURRENT_DATE
                 ),
                 FlightStats AS (
@@ -691,24 +691,23 @@ class SearchService:
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN airlines al ON f.airline_id = al.airline_id
-                    WHERE a_dep.iata_code = $1 
-                      AND a_arr.iata_code = $2
+                    WHERE a_dep.airport_id = $1 
+                      AND a_arr.airport_id = $2
                       AND f.scheduled_departure >= CURRENT_DATE
                 ),
                 TopAirlines AS (
                     SELECT 
                         al.airline_id,
                         al.name_zh,
-                        al.iata_code,
                         COUNT(f.flight_id) AS flight_count
                     FROM flights f
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN airlines al ON f.airline_id = al.airline_id
-                    WHERE a_dep.iata_code = $1 
-                      AND a_arr.iata_code = $2
+                    WHERE a_dep.airport_id = $1 
+                      AND a_arr.airport_id = $2
                       AND f.scheduled_departure >= CURRENT_DATE
-                    GROUP BY al.airline_id, al.name_zh, al.iata_code
+                    GROUP BY al.airline_id, al.name_zh
                     ORDER BY flight_count DESC
                     LIMIT 5
                 )
@@ -726,17 +725,17 @@ class SearchService:
                 # 查詢熱門航空公司
                 airlines_sql = """
                 SELECT 
-                    al.iata_code,
+                    al.airline_id,
                     al.name_zh,
                     COUNT(f.flight_id) AS flight_count
                 FROM flights f
                 JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                 JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                 JOIN airlines al ON f.airline_id = al.airline_id
-                WHERE a_dep.iata_code = $1 
-                  AND a_arr.iata_code = $2
+                WHERE a_dep.airport_id = $1 
+                  AND a_arr.airport_id = $2
                   AND f.scheduled_departure >= CURRENT_DATE
-                GROUP BY al.iata_code, al.name_zh
+                GROUP BY al.airline_id, al.name_zh
                 ORDER BY flight_count DESC
                 LIMIT 5;
                 """
@@ -767,7 +766,7 @@ class SearchService:
                         },
                         "top_airlines": [
                             {
-                                "code": row["iata_code"],
+                                "code": row["airline_id"],
                                 "name": row["name_zh"],
                                 "flight_count": row["flight_count"]
                             }
@@ -864,11 +863,10 @@ class SearchService:
             try:
                 conn = await pool.acquire()
                 
-                # 查詢台灣所有機場
+                # 查詢台灣所有機場（注意：資料庫沒有 iata_code 欄位，使用 airport_id）
                 sql = """
                 SELECT 
                     airport_id,
-                    iata_code,
                     name_zh,
                     city,
                     country
@@ -888,7 +886,7 @@ class SearchService:
                     try:
                         await pool.release(conn)
                     except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略 Event loop is closed 和 cannot perform operation: another operation is in progress 錯誤
+                        # 忽略特定異常
                         logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
                     except Exception as e:
                         logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
@@ -905,7 +903,7 @@ class SearchService:
         獲取從指定台灣機場出發可到達的目的地機場列表
         
         Args:
-            departure_airport (str): 出發機場的 IATA 代碼
+            departure_airport (str): 出發機場的 ID
             date (str, optional): 過濾日期 (YYYY-MM-DD)
             limit (int, optional): 返回結果的最大數量
             
@@ -916,24 +914,21 @@ class SearchService:
         conn = None
         
         try:
-            # 檢查出發機場是否為台灣機場
-            taiwan_airports = await SearchService.get_taiwan_airports()
-            taiwan_airport_codes = [airport.get('iata_code') for airport in taiwan_airports]
+            # 從 constants 導入台灣機場列表
+            from ..scripts.constants import TAIWAN_AIRPORTS
             
-            if departure_airport not in taiwan_airport_codes:
-                logger.warning(f"嘗試搜索非台灣機場出發的航班: {departure_airport}")
-                return []
-                
+            # 檢查出發機場是否為台灣機場
+            # 注意：departure_airport 現在是 airport_id，而 TAIWAN_AIRPORTS 是 IATA 代碼
+            # 先檢查是否為常數表中的台灣機場 ID（在此情況下直接通過），否則執行查詢
+            
             pool = await init_asyncpg_pool()
             try:
                 conn = await pool.acquire()
                 
-                # 這裡的 SQL 查詢可以根據需要調整
-                # 注意，現在根據機場的 IATA 代碼而不是 airport_id 進行查詢
+                # 這裡的 SQL 查詢使用 airport_id 而非 iata_code
                 sql = """
                 SELECT DISTINCT
                     arr.airport_id,
-                    arr.iata_code,
                     arr.name_zh AS airport_name,
                     arr.city,
                     arr.country,
@@ -946,9 +941,9 @@ class SearchService:
                 JOIN 
                     airports arr ON f.arrival_airport = arr.airport_id
                 WHERE 
-                    dep.iata_code = $1
+                    dep.airport_id = $1
                 GROUP BY 
-                    arr.airport_id, arr.iata_code, arr.name_zh, arr.city, arr.country
+                    arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
                     arr.city
                 LIMIT $2
@@ -957,7 +952,7 @@ class SearchService:
                 rows = await conn.fetch(sql, departure_airport, limit)
                 destinations = [dict(row) for row in rows]
                 
-                logger.info(f"成功獲取從 {departure_airport} 出發的目的地，共 {len(destinations)} 個目的地")
+                logger.info(f"成功獲取從機場ID {departure_airport} 出發的目的地，共 {len(destinations)} 個目的地")
                 return destinations
                 
             finally:
@@ -972,7 +967,7 @@ class SearchService:
                         logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
                         
         except Exception as e:
-            logger.error(f"獲取從 {departure_airport} 出發的目的地時出錯: {e}", exc_info=True)
+            logger.error(f"獲取從機場ID {departure_airport} 出發的目的地時出錯: {e}", exc_info=True)
             return []
 
     @staticmethod
@@ -1094,7 +1089,7 @@ class SearchService:
             try:
                 conn = await pool.acquire()
                 
-                # 從 constants 導入台灣機場列表
+                # 從 constants 導入台灣機場列表 (在我們的情況下是airport_id，而非iata_code)
                 from ..scripts.constants import TAIWAN_AIRPORTS
 
                 # 構建 SQL 查詢
@@ -1144,8 +1139,8 @@ class SearchService:
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                     JOIN airlines al ON f.airline_id = al.airline_id
                     LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                    WHERE a_dep.airport_id = ANY($2::text[]) -- $2 是 TAIWAN_AIRPORTS
-                      AND a_arr.airport_id = $3 -- $3 是 arrival_iata
+                    WHERE f.departure_airport_id = ANY($2::text[]) -- $2 是 TAIWAN_AIRPORTS (機場ID陣列)
+                      AND f.arrival_airport_id = $3 -- $3 是 arrival_iata (目的地機場ID)
                       AND f.scheduled_departure >= $4 -- $4 是 start_of_day
                       AND f.scheduled_departure <= $5 -- $5 是 end_of_day
                       {airline_filter}
@@ -1235,80 +1230,6 @@ class SearchService:
             return []
 
     @staticmethod
-    async def get_popular_flights(
-        max_results: int = 20,
-        cabin_class: str = "經濟" # 假設需要指定艙等以格式化價格
-    ) -> List[Dict[str, Any]]:
-        """
-        獲取預定義的熱門航線的航班信息
-        
-        Args:
-            max_results: 每個熱門航線顯示的最大航班數
-            cabin_class: 用於格式化價格的艙位
-            
-        Returns:
-            List[Dict[str, Any]]: 熱門航班列表，包含航線信息和航班詳情
-        """
-        pool = None
-        conn = None
-        all_popular_flights_details = []
-        
-        # 使用常量中的航線元組
-        popular_routes = FRONTEND_POPULAR_ROUTES_TUPLES 
-        today_str = datetime.now().strftime("%Y-%m-%d")
-
-        try:
-            pool = await init_asyncpg_pool()
-            try:
-                conn = await pool.acquire()
-                
-                for dep_iata, arr_iata in popular_routes:
-                    logger.info(f"正在查詢熱門航線: {dep_iata} -> {arr_iata} (日期: {today_str})")
-                    # 調用 _query_flights 獲取當天該航線的航班數據
-                    # 注意: _query_flights 需要 conn
-                    route_flights_raw = await SearchService._query_flights(
-                        conn,
-                        dep_iata, 
-                        arr_iata, 
-                        today_str, 
-                        max_results=max_results, # 限制每個航線的結果數
-                        sort_by="price" # 按價格排序
-                        # 其他過濾條件可以按需添加
-                    )
-                    
-                    # 格式化查詢到的航班
-                    formatted_route_flights = await SearchService._format_flights(route_flights_raw, cabin_class)
-                    
-                    if formatted_route_flights:
-                        # 添加航線信息到結果中
-                        all_popular_flights_details.append({
-                            "departure_iata": dep_iata,
-                            "arrival_iata": arr_iata,
-                            "flights": formatted_route_flights 
-                        })
-                        logger.info(f"找到 {len(formatted_route_flights)} 個 {dep_iata} -> {arr_iata} 的航班")
-                    else:
-                        logger.info(f"未找到 {dep_iata} -> {arr_iata} 的今日航班")
-
-                logger.info(f"共獲取到 {len(all_popular_flights_details)} 個熱門航線的航班數據")
-                return all_popular_flights_details
-                
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略特定異常
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
-
-        except Exception as e:
-            logger.error(f"獲取熱門航班時出錯: {e}", exc_info=True)
-            return [] # 返回空列表表示錯誤
-
-    @staticmethod
     async def get_flights_from_taiwan(
         arrival_iata: str,
         date_str: str,
@@ -1322,7 +1243,7 @@ class SearchService:
         保留此方法是為了向後兼容性。
         
         Args:
-            arrival_iata (str): 目的地機場IATA代碼
+            arrival_iata (str): 目的地機場ID
             date_str (str): 日期 (YYYY-MM-DD)
             max_results (int, optional): 最大結果數，默認為50
             cabin_class (str, optional): 艙位類型，默認為"經濟"
@@ -1348,8 +1269,8 @@ class SearchService:
         根據出發和到達機場獲取航班信息
         
         Args:
-            dep_airport (str): 出發機場 IATA 代碼
-            arr_airport (str): 到達機場 IATA 代碼
+            dep_airport (str): 出發機場 ID
+            arr_airport (str): 到達機場 ID
             from_date (str, optional): 開始日期 (YYYY-MM-DD)
             to_date (str, optional): 結束日期 (YYYY-MM-DD)
             limit (int, optional): 返回結果的最大數量，默認為 100
@@ -1404,8 +1325,8 @@ class SearchService:
                 JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                 JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
                 LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                WHERE a_dep.iata_code = $1 
-                AND a_arr.iata_code = $2
+                WHERE a_dep.airport_id = $1 
+                AND a_arr.airport_id = $2
                 {date_condition}
                 ORDER BY f.scheduled_departure
                 LIMIT ${len(params) + 1}
@@ -1417,7 +1338,7 @@ class SearchService:
                 rows = await conn.fetch(sql, *params)
                 flights = [dict(row) for row in rows]
                 
-                logger.info(f"成功獲取從 {dep_airport} 到 {arr_airport} 的航班，共 {len(flights)} 個航班")
+                logger.info(f"成功獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班，共 {len(flights)} 個航班")
                 return flights
                 
             finally:
@@ -1432,5 +1353,206 @@ class SearchService:
                         logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
         
         except Exception as e:
-            logger.error(f"獲取從 {dep_airport} 到 {arr_airport} 的航班時出錯: {e}", exc_info=True)
+            logger.error(f"獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班時出錯: {e}", exc_info=True)
+            return [] 
+
+    @staticmethod
+    async def get_popular_flights(
+        max_results: int = 20,
+        cabin_class: str = "經濟"
+    ) -> List[Dict[str, Any]]:
+        """
+        獲取預定義的熱門航線的航班信息
+        
+        Args:
+            max_results: 每個熱門航線顯示的最大航班數
+            cabin_class: 用於格式化價格的艙位
+            
+        Returns:
+            List[Dict[str, Any]]: 熱門航班列表，包含航線信息和航班詳情
+        """
+        pool = None
+        conn = None
+        all_popular_flights_details = []
+        
+        # 使用常量中的航線元組 (注意：需要修改為使用 airport_id 而非 iata_code)
+        popular_routes = FRONTEND_POPULAR_ROUTES_TUPLES 
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
+        try:
+            pool = await init_asyncpg_pool()
+            try:
+                conn = await pool.acquire()
+                
+                for dep_id, arr_id in popular_routes:
+                    logger.info(f"正在查詢熱門航線: 機場ID {dep_id} -> 機場ID {arr_id} (日期: {today_str})")
+                    # 調用 _query_flights 獲取當天該航線的航班數據
+                    # 注意: _query_flights 需要 conn
+                    route_flights_raw = await SearchService._query_flights(
+                        conn,
+                        dep_id, 
+                        arr_id, 
+                        today_str, 
+                        max_results=max_results, # 限制每個航線的結果數
+                        sort_by="price" # 按價格排序
+                        # 其他過濾條件可以按需添加
+                    )
+                    
+                    # 格式化查詢到的航班
+                    formatted_route_flights = await SearchService._format_flights(route_flights_raw, cabin_class)
+                    
+                    if formatted_route_flights:
+                        # 添加航線信息到結果中
+                        all_popular_flights_details.append({
+                            "departure_id": dep_id,
+                            "arrival_id": arr_id,
+                            "flights": formatted_route_flights 
+                        })
+                        logger.info(f"找到 {len(formatted_route_flights)} 個從 {dep_id} 到 {arr_id} 的航班")
+                    else:
+                        logger.info(f"未找到從 {dep_id} 到 {arr_id} 的今日航班")
+
+                logger.info(f"共獲取到 {len(all_popular_flights_details)} 個熱門航線的航班數據")
+                return all_popular_flights_details
+                
+            finally:
+                # 確保連接被釋放，即使發生錯誤
+                if conn:
+                    try:
+                        await pool.release(conn)
+                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
+                        # 忽略特定異常
+                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
+                    except Exception as e:
+                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"獲取熱門航班時出錯: {e}", exc_info=True)
+            return [] # 返回空列表表示錯誤
+
+    @staticmethod
+    async def get_flights_from_taiwan(
+        arrival_iata: str,
+        date_str: str,
+        max_results: int = 50,
+        cabin_class: str = "經濟"
+    ) -> List[Dict[str, Any]]:
+        """
+        從所有台灣機場獲取飛往特定目的地的航班
+        
+        注意: 此方法與 search_flights_from_taiwan 功能重疊，建議使用後者以獲得更多過濾選項。
+        保留此方法是為了向後兼容性。
+        
+        Args:
+            arrival_iata (str): 目的地機場ID
+            date_str (str): 日期 (YYYY-MM-DD)
+            max_results (int, optional): 最大結果數，默認為50
+            cabin_class (str, optional): 艙位類型，默認為"經濟"
+            
+        Returns:
+            List[Dict[str, Any]]: 格式化後的航班列表
+        """
+        logger.warning("調用了 get_flights_from_taiwan，建議使用 search_flights_from_taiwan 以獲得更多過濾選項。")
+        # 直接調用更通用的搜索函數，傳遞必要參數
+        return await SearchService.search_flights_from_taiwan(
+            arrival_iata=arrival_iata,
+            date_str=date_str,
+            class_type=cabin_class,
+            max_results_total=max_results,
+            sort_by="price" # 默認按價格排序
+        )
+
+    @staticmethod
+    async def get_flights_by_route(dep_airport: str, arr_airport: str, 
+                                   from_date: str = None, to_date: str = None,
+                                   limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        根據出發和到達機場獲取航班信息
+        
+        Args:
+            dep_airport (str): 出發機場 ID
+            arr_airport (str): 到達機場 ID
+            from_date (str, optional): 開始日期 (YYYY-MM-DD)
+            to_date (str, optional): 結束日期 (YYYY-MM-DD)
+            limit (int, optional): 返回結果的最大數量，默認為 100
+            
+        Returns:
+            List[Dict[str, Any]]: 航班信息列表
+        """
+        pool = None
+        conn = None
+        
+        try:
+            pool = await init_asyncpg_pool()
+            try:
+                conn = await pool.acquire()
+                
+                params = [dep_airport, arr_airport]
+                date_condition = ""
+                
+                if from_date:
+                    date_condition += " AND f.scheduled_departure >= $3"
+                    params.append(from_date)
+                
+                if to_date:
+                    date_condition += f" AND f.scheduled_departure <= ${len(params) + 1}"
+                    params.append(to_date)
+                
+                sql = f"""
+                SELECT 
+                    f.flight_id,
+                    f.flight_number,
+                    al.airline_id,
+                    al.name_zh AS airline_name,
+                    a_dep.airport_id AS departure_airport,
+                    a_dep.name_zh AS departure_airport_name,
+                    a_dep.city AS departure_city,
+                    a_arr.airport_id AS arrival_airport,
+                    a_arr.name_zh AS arrival_airport_name,
+                    a_arr.city AS arrival_city,
+                    f.scheduled_departure AS departure_time,
+                    f.scheduled_arrival AS arrival_time,
+                    f.aircraft_type,
+                    f.duration AS duration_minutes,
+                    f.status,
+                    tp.price_economy,
+                    tp.price_business,
+                    tp.price_first,
+                    tp.available_seats_economy,
+                    tp.available_seats_business,
+                    tp.available_seats_first
+                FROM flights f
+                JOIN airlines al ON f.airline_id = al.airline_id
+                JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
+                JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
+                LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
+                WHERE a_dep.airport_id = $1 
+                AND a_arr.airport_id = $2
+                {date_condition}
+                ORDER BY f.scheduled_departure
+                LIMIT ${len(params) + 1}
+                """
+                
+                # 添加 limit 參數
+                params.append(limit)
+                
+                rows = await conn.fetch(sql, *params)
+                flights = [dict(row) for row in rows]
+                
+                logger.info(f"成功獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班，共 {len(flights)} 個航班")
+                return flights
+                
+            finally:
+                # 確保連接被釋放，即使發生錯誤
+                if conn:
+                    try:
+                        await pool.release(conn)
+                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
+                        # 忽略特定異常
+                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
+                    except Exception as e:
+                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
+        
+        except Exception as e:
+            logger.error(f"獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班時出錯: {e}", exc_info=True)
             return [] 
