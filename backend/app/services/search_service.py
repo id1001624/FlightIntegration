@@ -946,15 +946,22 @@ class SearchService:
                 WHERE 
                     dep.airport_id = $1
                     AND tp.economy_price IS NOT NULL
-                    AND DATE(f.scheduled_departure) = $3
+                    AND DATE(f.scheduled_departure) = $3 -- 比較日期部分
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
                     arr.city
                 LIMIT $2
                 """
-                # 將日期字串轉換為 SQL 參數
-                params.append(date)
+                # 將日期字串轉換為 date 物件，以便 asyncpg 正確處理
+                try:
+                    date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+                    params.append(date_obj)
+                except ValueError:
+                    # 如果日期格式在控制器層已驗證，這裡理論上不會發生
+                    # 但為保險起見，記錄錯誤並返回空列表
+                    logger.error(f"在服務層遇到無效的日期格式: {date}")
+                    return []
             else:
                 # 不過濾日期，返回所有目的地
                 sql = """
