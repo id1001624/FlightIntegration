@@ -199,7 +199,6 @@ class SearchService:
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_path as airline_logo_url,
-                f.duration,
                 f.aircraft_type,
                 f.status,
                 tp.price_economy,
@@ -211,7 +210,8 @@ class SearchService:
                 COALESCE(tp.price_economy, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
                 EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
-                f.duration as sort_duration,
+                -- f.duration as sort_duration, -- 修改計算方式
+                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算時間差（秒）用於排序
                 ROW_NUMBER() OVER (
                     PARTITION BY f.flight_number, f.scheduled_departure::date -- 按航班號和日期分區
                     ORDER BY tp.last_updated DESC -- 每個分區內按價格更新時間排序，取最新的
@@ -1037,7 +1037,9 @@ class SearchService:
                     a2.country as arrival_country,
                     al.airline_id,
                     al.name_zh as airline_name_zh,
-                    al.iata_code as airline_iata
+                    al.iata_code as airline_iata,
+                    -- 計算 duration
+                    EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes 
                 FROM flights f
                 JOIN airports a1 ON f.departure_airport_id = a1.airport_id
                 JOIN airports a2 ON f.arrival_airport_id = a2.airport_id
@@ -1141,7 +1143,6 @@ class SearchService:
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
                         al.logo_path as airline_logo_url, -- 修正: 使用 logo_path
-                        f.duration,
                         f.aircraft_type,
                         f.status,
                         tp.price_economy,
@@ -1157,7 +1158,8 @@ class SearchService:
                         END as sort_price,
                         -- 時間排序
                         EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
-                        f.duration as sort_duration,
+                        -- f.duration as sort_duration, -- 修改
+                        EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算秒數用於排序
                         -- 分區排序，取最新價格
                         ROW_NUMBER() OVER (
                             PARTITION BY f.flight_number, f.scheduled_departure::date 
