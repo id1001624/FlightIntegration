@@ -933,15 +933,18 @@ class SearchService:
                     arr.city,
                     arr.country,
                     COUNT(f.flight_id) AS flight_count,
-                    MIN(f.price_economy) AS min_price
+                    MIN(tp.economy_price) AS min_price -- 修改為使用 tp.economy_price
                 FROM 
                     flights f
                 JOIN 
                     airports dep ON f.departure_airport_id = dep.airport_id
                 JOIN 
                     airports arr ON f.arrival_airport_id = arr.airport_id
+                LEFT JOIN
+                    ticket_prices tp ON f.flight_id = tp.flight_id -- 添加 LEFT JOIN
                 WHERE 
                     dep.airport_id = $1
+                    AND tp.economy_price IS NOT NULL -- 確保經濟艙價格存在
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
