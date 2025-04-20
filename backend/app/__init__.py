@@ -57,6 +57,8 @@ def create_app(config_name=None):
         flask.Flask: 初始化的Flask應用
     """
     app = Flask(__name__, instance_relative_config=False) # instance_relative_config=False 確保從對象加載
+    app.static_folder = 'static' # <--- Added: Explicitly set static folder
+    print(f"[create_app] Static folder set to: {app.static_folder}") # Log static folder path
     
     # 確定配置名稱
     if not config_name:
@@ -144,7 +146,12 @@ def setup_logging(app):
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
         
-    log_level = getattr(logging, app.config.get('LOG_LEVEL', 'INFO'))
+    # --- Modified: Prioritize LOG_LEVEL env var, default to DEBUG ---
+    log_level_str = os.environ.get('LOG_LEVEL', 'DEBUG').upper() 
+    log_level = getattr(logging, log_level_str, logging.DEBUG) # Default to DEBUG if invalid
+    print(f"[setup_logging] Log level string from env/default: {log_level_str}")
+    print(f"[setup_logging] Calculated log level: {log_level} ({logging.getLevelName(log_level)})")
+    # -----------------------------------------------------------------
     
     # 確保所有日誌處理器都使用UTF-8編碼
     file_handler = RotatingFileHandler(
@@ -199,6 +206,11 @@ def setup_logging(app):
     root_console_handler.setFormatter(formatter)
     root_console_handler.setLevel(log_level)
     root_logger.addHandler(root_console_handler)
+    
+    # --- Added: Log the effective log level ---
+    app.logger.info(f"日誌系統已配置，有效日誌級別: {logging.getLevelName(app.logger.getEffectiveLevel())}")
+    root_logger.info(f"根記錄器已配置，有效日誌級別: {logging.getLevelName(root_logger.getEffectiveLevel())}")
+    # ----------------------------------------
 
 def register_blueprints(app):
     """註冊所有藍圖"""
@@ -224,5 +236,5 @@ def register_error_handlers(app):
     
     @app.errorhandler(500)
     def server_error(error):
-        app.logger.error(error)
+        app.logger.error(error, exc_info=True) # Log full traceback for 500 errors
         return {'error': 'Internal server error'}, 500
