@@ -331,20 +331,30 @@ const flightService = {
       };
       
       console.log('[flightService] Requesting flight search with params:', apiParams); // <-- 添加日誌
-      const response = await api.get('/flights/search', { params: apiParams });
-      console.log('[flightService] Raw API response for flight search:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
-      
-      const data = this._handleResponse(response);
-      console.log('[flightService] Processed flight search data:', JSON.parse(JSON.stringify(data))); // <-- 添加日誌
-      
-      // 更新緩存
-      if (!cache.flights.data) cache.flights.data = {};
-      if (!cache.flights.timestamp) cache.flights.timestamp = {};
-      
-      cache.flights.data[cacheKey] = data;
+      const response = await api.get('/flights/search', { params });
+      console.log('[flightService] Raw API response for flights:', JSON.parse(JSON.stringify(response)));
+
+      // *** 修正：直接處理新的響應結構 ***
+      let flightsData = [];
+      if (response && response.data && response.data.departure && Array.isArray(response.data.departure)) {
+        flightsData = response.data.departure;
+        console.log('[flightService] Extracted flights directly from response.data.departure');
+        // 如果需要合併回程
+        // if (response.data.return && Array.isArray(response.data.return)) {
+        //   flightsData = flightsData.concat(response.data.return);
+        //   console.log('[flightService] Appended return flights');
+        // }
+      } else {
+        // 如果結構不匹配或沒有航班，記錄警告
+        console.warn('[flightService] Unexpected response structure or no departure flights in response.data:', response?.data);
+        // flightsData 保持為 []
+      }
+
+      // *** 修正：緩存並返回直接提取的數據 ***
+      cache.flights.data[cacheKey] = flightsData;
       cache.flights.timestamp[cacheKey] = Date.now();
-      
-      return data;
+      return flightsData;
+
     } catch (error) {
       console.error('搜索航班時出錯:', error);
       throw error;
