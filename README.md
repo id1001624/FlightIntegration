@@ -56,9 +56,14 @@
     ```
 6.  **填充初始/航班真資料、票價假資料**: 
     
+    只導入某路線測試
+    ```bash
+    python backend/app/scripts/sync_flight_data.py flights -d TPE -a NRT --limit 5
+    ```
+    
     航班真資料調用 TDX、FlightStats API 導入資料庫
     ```bash
-    python app/scripts/generate_fake_prices.py
+    python app/scripts/sync_flight_data.py flights-only
     ```
 
     目前還沒有票價資料，先用腳本模擬資料
