@@ -46,27 +46,23 @@ class FlightSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
-# --- 新增 Price Schema ---
-class PriceSchema(Schema):
-    """用於序列化票價信息"""
-    amount = fields.Float(allow_none=True) # 使用 Float 輸出，或者 Decimal(as_string=True)
-    currency = fields.Str(load_default='TWD')
-    cabin_class = fields.Str()
-    available_seats = fields.Int(allow_none=True)
-
 class FlightSearchResultSchema(Schema):
     """用於序列化航班搜索結果列表中的單個航班"""
     flight_id = fields.UUID(dump_only=True)
     flight_number = fields.Str()
-    scheduled_departure = fields.DateTime()
-    scheduled_arrival = fields.DateTime()
+    aircraft = fields.Str(allow_none=True)
+    scheduled_departure = fields.String(attribute="departure_time", allow_none=True)
+    scheduled_arrival = fields.String(attribute="arrival_time", allow_none=True)
     departure_terminal = fields.Str(allow_none=True)
     arrival_terminal = fields.Str(allow_none=True)
     airline = fields.Nested(AirlineBasicSchema, dump_only=True)
-    departure_airport = fields.Nested(AirportBasicSchema, dump_only=True) # 移除 attribute，假設直接使用對象
-    arrival_airport = fields.Nested(AirportBasicSchema, dump_only=True)   # 移除 attribute，假設直接使用對象
-    duration_minutes = fields.Int(allow_none=True) # 移除了 lowest_price
-    price = fields.Nested(PriceSchema, allow_none=True) # 添加嵌套的 PriceSchema
+    departure_airport = fields.Nested(AirportBasicSchema, dump_only=True)
+    arrival_airport = fields.Nested(AirportBasicSchema, dump_only=True)
+    duration_minutes = fields.Int(allow_none=True)
+    price = fields.Float(allow_none=True)
+    available_seats = fields.Int(allow_none=True)
+    cabin_class = fields.Str(allow_none=True)
+    price_updated_at = fields.String(allow_none=True)
 
 # --- 新增用於 /from_taiwan 端點的請求參數 Schema ---
 class FlightsFromTaiwanArgsSchema(Schema):
@@ -115,8 +111,8 @@ flights_search_result_schema = FlightSearchResultSchema(many=True)
 flight_schema = FlightSchema()
 flights_from_taiwan_args_schema = FlightsFromTaiwanArgsSchema()
 flight_status_schema = FlightStatusSchema()
-sync_taiwan_flights_args_schema = SyncTaiwanFlightsArgsSchema() # 新增
-generate_test_data_args_schema = GenerateTestDataArgsSchema() # 新增
+sync_taiwan_flights_args_schema = SyncTaiwanFlightsArgsSchema()
+generate_test_data_args_schema = GenerateTestDataArgsSchema()
 
 airport_basic_schema = AirportBasicSchema()
 airports_basic_schema = AirportBasicSchema(many=True) 
