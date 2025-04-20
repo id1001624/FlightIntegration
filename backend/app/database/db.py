@@ -36,8 +36,8 @@ logger = logging.getLogger("database")
 # ------------------------------------
 
 # 異步數據庫連接池
-_asyncpg_pool: Optional[Pool] = None
-_pool_lock = asyncio.Lock()  # 添加鎖來保護連接池初始化
+# _asyncpg_pool: Optional[Pool] = None # 移除全局變數
+# _pool_lock = asyncio.Lock()  # 移除鎖
 
 def get_db_url():
     """動態獲取資料庫URL"""
@@ -64,49 +64,57 @@ def init_sqlalchemy(app):
     return sqlalchemy_db
 
 async def init_asyncpg_pool() -> Pool:
-    """初始化 asyncpg 連接池 (動態讀取 URL)"""
-    global _asyncpg_pool
+    """創建並返回一個新的 asyncpg 連接池 (不再共享全局池)"""
+    # global _asyncpg_pool # 移除 global
     
-    # 使用鎖確保同時只有一個操作在創建連接池
-    async with _pool_lock:
-        if _asyncpg_pool is None:
-            # --- 在函數內部動態讀取環境變數 ---
-            db_connection_url = get_db_url() # 使用輔助函數獲取 URL
-            if not db_connection_url:
-                 # 如果沒有獲取到 URL，則無法創建連接池
-                 error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
-                 logger.error(error_msg)
-                 raise RuntimeError(error_msg)
-            # ------------------------------------
-                 
-            try:
-                # 直接使用獲取到的完整連接字串
-                _asyncpg_pool = await asyncpg.create_pool(
-                    dsn=db_connection_url, # 將獲取的 URL 傳遞給 dsn 參數
-                    min_size=10,  # 增加最小連接數
-                    max_size=30,  # 增加最大連接數
-                    max_inactive_connection_lifetime=300.0  # 設置非活動連接的最大生命週期（秒）
-                )
-                logger.info("asyncpg 數據庫連接池初始化成功")
-            except Exception as e:
-                logger.error(f"asyncpg 數據庫連接池初始化失敗: {str(e)}")
-                raise
+    # 移除鎖的使用
+    # async with _pool_lock:
+    #     if _asyncpg_pool is None:
     
-    return _asyncpg_pool
+    # --- 在函數內部動態讀取環境變數 ---
+    db_connection_url = get_db_url() # 使用輔助函數獲取 URL
+    if not db_connection_url:
+         # 如果沒有獲取到 URL，則無法創建連接池
+         error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
+         logger.error(error_msg)
+         raise RuntimeError(error_msg)
+    # ------------------------------------
+         
+    try:
+        # 直接使用獲取到的完整連接字串創建 *新* 連接池
+        pool = await asyncpg.create_pool(
+            dsn=db_connection_url, # 將獲取的 URL 傳遞給 dsn 參數
+            min_size=2,  # 減少每次創建的最小連接數
+            max_size=5,  # 減少每次創建的最大連接數
+            # 移除不活動超時，因為池是短暫的
+            # max_inactive_connection_lifetime=300.0  
+            command_timeout=60.0 # 添加命令超時
+        )
+        logger.info("為當前請求創建了一個新的 asyncpg 連接池")
+        return pool # 直接返回新創建的池
+    except Exception as e:
+        logger.error(f"創建新的 asyncpg 連接池失敗: {str(e)}")
+        raise
+    
+    # return _asyncpg_pool # 不再返回全局池
 
 async def get_pool() -> Pool:
-    """獲取初始化的 asyncpg 連接池"""
+    """獲取 asyncpg 連接池 (現在每次都創建新的)"""
     # 確保連接池已初始化並返回
     return await init_asyncpg_pool()
 
 async def close_asyncpg_pool():
-    """關閉 asyncpg 連接池"""
-    global _asyncpg_pool
+    """關閉 asyncpg 連接池 (不再需要全局關閉)"""
+    # global _asyncpg_pool # 移除 global
     
-    if _asyncpg_pool:
-        await _asyncpg_pool.close()
-        _asyncpg_pool = None
-        logger.info("asyncpg 數據庫連接池已關閉")
+    # 這個函數現在意義不大，因為池是按需創建的
+    # 如果需要關閉傳入的特定池，需要修改接口
+    # if _asyncpg_pool:
+    #     await _asyncpg_pool.close()
+    #     _asyncpg_pool = None
+    #     logger.info("asyncpg 數據庫連接池已關閉")
+    logger.warning("close_asyncpg_pool 不再管理全局池，此調用無效果。")
+    pass # 保留函數定義以避免導入錯誤，但使其無操作
 
 # 提供兼容舊代碼的 SQLAlchemy 直接訪問方式
 db = sqlalchemy_db
@@ -114,22 +122,23 @@ db = sqlalchemy_db
 # 提供在 FastAPI 啟動時初始化數據庫連接的函數
 async def setup_db(app):
     """設置數據庫連接（同時適用於 Flask 和 FastAPI）"""
-    # 初始化 asyncpg 連接池
-    await init_asyncpg_pool()
+    # 初始化 asyncpg 連接池 (不再需要在啟動時預創建全局池)
+    # await init_asyncpg_pool() 
+    logger.info("數據庫設置：asyncpg 連接池將按需創建。")
     
     # 如果是 Flask 應用，也初始化 SQLAlchemy
     if hasattr(app, 'config'):
         init_sqlalchemy(app)
     
-    # 在應用關閉時關閉連接池
-    async def cleanup():
-        await close_asyncpg_pool()
+    # 在應用關閉時關閉連接池 (不再需要全局關閉)
+    # async def cleanup():
+    #     await close_asyncpg_pool()
     
-    if hasattr(app, 'on_event'):
-        # FastAPI
-        app.on_event("shutdown")(cleanup)
-    else:
-        # Flask
-        @app.teardown_appcontext
-        def teardown(exception=None):
-            pass  # SQLAlchemy 會自動處理 
+    # if hasattr(app, 'on_event'):
+    #     # FastAPI
+    #     app.on_event("shutdown")(cleanup)
+    # else:
+    #     # Flask
+    #     @app.teardown_appcontext
+    #     def teardown(exception=None):
+    #         pass  # SQLAlchemy 會自動處理 
