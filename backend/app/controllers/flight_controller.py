@@ -556,8 +556,11 @@ async def debug_airports():
     """列出資料庫中所有機場，並包含一個特定航班號用於偵錯連接"""
     from app.database.db import get_db, release_db
     
-    db = await get_db()
+    db = None # 初始化 db
+    specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df' # <-- 將定義移到 try 之前
+    
     try:
+        db = await get_db()
         # 獲取機場列表 (保持不變)
         query_airports = """
         SELECT 
@@ -581,8 +584,7 @@ async def debug_airports():
             'country': airport['country']
         } for airport in airports]
         
-        # --- 新增：查詢特定航班號 --- 
-        specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df'
+        # --- 查詢特定航班號 (id 已在 try 之前定義) --- 
         query_specific_flight = """
         SELECT flight_number 
         FROM flights 
@@ -603,7 +605,7 @@ async def debug_airports():
         
         return jsonify(final_response)
     except Exception as e:
-        # 在錯誤響應中也包含特定航班檢查信息
+        # 現在可以安全訪問 specific_flight_id
         error_response = {
             'error': str(e),
             'debug_specific_flight_check': {
@@ -613,4 +615,6 @@ async def debug_airports():
         }
         return jsonify(error_response), 500
     finally:
-        await release_db(db)
+        # 確保 db 在 release 前已賦值
+        if db:
+            await release_db(db)
