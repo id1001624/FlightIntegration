@@ -1,7 +1,7 @@
 from marshmallow import Schema, fields, validate, ValidationError, validates_schema
 
 class TicketPriceByFlightArgsSchema(Schema):
-    class_type = fields.Str(required=False, load_default='經濟', validate=validate.OneOf(['經濟', '商務', '頭等']), metadata={"description": "艙位等級"})
+    class_type = fields.Str(required=False, load_default='經濟艙', validate=validate.OneOf(['經濟艙', '商務艙', '頭等艙']), metadata={"description": "艙位等級"})
 
 class LowestPricesArgsSchema(Schema):
     departure = fields.Str(required=True, error_messages={'required': '必須提供出發機場代碼'})

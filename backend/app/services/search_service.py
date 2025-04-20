@@ -11,12 +11,13 @@ from typing import List, Dict, Any, Optional, Tuple, Union
 from sqlalchemy.sql import text, func
 from sqlalchemy import or_ # 導入 or_ 用於多航線篩選
 from decimal import Decimal
+from marshmallow import ValidationError # 導入 ValidationError
 
 # 導入 asyncpg 連接池初始化函數
 from ..database.db import init_asyncpg_pool
 # 這些模型現在僅用於類型提示
 from ..models import Airline, Airport, Flight, TicketPrice
-from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema
+from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema, FlightSearchResultSchema
 from ..schemas.airline_schema import AirlineBasicSchema
 from ..schemas.airport_schema import AirportBasicSchema
 from ..utils.api_client import ApiClient
@@ -24,6 +25,9 @@ from ..utils.cache_manager import CacheManager
 from ..scripts.constants import FRONTEND_POPULAR_ROUTES_TUPLES, TAIWAN_AIRPORTS # 導入常量
 
 logger = logging.getLogger(__name__)
+
+# 實例化 Schema (many=True)
+flights_search_result_schema = FlightSearchResultSchema(many=True)
 
 class SearchService:
     """搜索服務 - 處理航班搜索的業務邏輯"""
@@ -309,7 +313,7 @@ class SearchService:
     @staticmethod
     async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str = 'ECONOMY') -> List[Dict[str, Any]]:
         """
-        格式化航班信息
+        格式化航班信息 (使用 FlightSearchResultSchema)
         
         Args:
             flights: 從 _query_flights 返回的原始航班數據列表 (字典列表)
@@ -318,82 +322,101 @@ class SearchService:
         Returns:
             List[Dict[str, Any]]: 格式化後用於 API 響應的航班信息列表
         """
-        result = []
-        
+        prepared_data = []
+
         for flight in flights:
-            logger.debug(f"Processing flight dict: {flight}") # Log each flight dict before formatting
-            
-            # 根據請求的 cabin_class 選擇對應的價格欄位
+            logger.debug(f"Processing raw flight dict: {flight}")
+
+            # 1. 選擇價格
             price = None
             requested_cabin_class_upper = cabin_class.upper()
             if requested_cabin_class_upper == 'ECONOMY':
-                price = flight.get('economy_price') 
+                price = flight.get('economy_price')
             elif requested_cabin_class_upper == 'BUSINESS':
                 price = flight.get('business_price')
             elif requested_cabin_class_upper == 'FIRST':
                 price = flight.get('first_price')
-            # 如果價格是 Decimal 類型，轉換為 float 或 str 以便 JSON 序列化
+
             if isinstance(price, Decimal):
-                price = float(price) 
-                
-            # 獲取飛行時間（分鐘）- 已在 SQL 中計算好
+                price = float(price)
+
+            # 2. 計算飛行時間 (如果 SQL 沒算好)
             duration_minutes = flight.get('duration_minutes')
-            # 確保 duration_minutes 是整數或 None
             if duration_minutes is not None:
                 try:
                     duration_minutes = int(duration_minutes)
                 except (ValueError, TypeError):
                     logger.warning(f"無法將 duration_minutes '{duration_minutes}' 轉換為整數，航班 ID: {flight.get('flight_id')}")
-                    duration_minutes = 0 # 或設置為 None，視前端需求而定
+                    duration_minutes = None
             else:
-                duration_minutes = 0 # 或設置為 None
-                
-            # 獲取起飛和到達時間
-            departure_time_obj = flight.get('scheduled_departure')
-            arrival_time_obj = flight.get('scheduled_arrival')
+                 # 如果 SQL 沒算，嘗試從時間計算
+                departure_time_obj = flight.get('scheduled_departure')
+                arrival_time_obj = flight.get('scheduled_arrival')
+                if departure_time_obj and arrival_time_obj:
+                    duration_delta = arrival_time_obj - departure_time_obj
+                    duration_minutes = int(duration_delta.total_seconds() / 60)
+                else:
+                    duration_minutes = None
 
-            formatted_flight = {
+            # 3. 準備傳遞給 Schema 的數據字典
+            #    鍵名需要匹配 Schema 字段名，或嵌套 Schema 的 attribute 指定的鍵名
+            data_for_schema = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
-                'aircraft': flight.get('aircraft'), 
-                'airline': {
-                    'id': flight.get('airline_id'),
-                    'iata': flight.get('airline_iata'), # Now reading alias from SQL
-                    'name_zh': flight.get('airline_name_zh'),
-                    'name_en': flight.get('airline_name_en'),
-                    'is_domestic': flight.get('airline_is_domestic'), 
-                    'logo_path': flight.get('logo_path') # Changed from logo_url
-                },
-                'departure_airport': {
-                    'id': flight.get('departure_airport_id'),
-                    'iata': flight.get('departure_iata'), # Now reading alias from SQL
-                    'name': flight.get('departure_name'),
-                    'city': flight.get('departure_city'),
-                    'country': flight.get('departure_country'),
-                    'terminal': flight.get('departure_terminal') 
-                },
-                'arrival_airport': {
-                    'id': flight.get('arrival_airport_id'),
-                    'iata': flight.get('arrival_iata'), # Now reading alias from SQL
-                    'name': flight.get('arrival_name'),
-                    'city': flight.get('arrival_city'),
-                    'country': flight.get('arrival_country'),
-                    'terminal': flight.get('arrival_terminal') 
-                },
-                'departure_time': departure_time_obj.isoformat() if departure_time_obj else None,
-                'arrival_time': arrival_time_obj.isoformat() if arrival_time_obj else None,
+                'aircraft': flight.get('aircraft'),
+                'departure_terminal': flight.get('departure_terminal'),
+                'arrival_terminal': flight.get('arrival_terminal'),
+                'available_seats': flight.get('available_seats'),
+                # 傳遞原始 datetime 對象給 Schema (如果 Schema 定義為 DateTime)
+                # 或傳遞 ISO 格式字符串 (如果 Schema 定義為 String)
+                # FlightSearchResultSchema 定義為 String，所以這裡轉換
+                'departure_time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None,
+                'arrival_time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None,
+                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None,
                 'duration_minutes': duration_minutes,
                 'price': price,
-                'cabin_class': cabin_class, 
-                'available_seats': flight.get('available_seats'), 
-                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None # Added
-                # 'status': flight.get('status', 'Scheduled') 
+                'cabin_class': cabin_class,
+                # 準備嵌套字典 - 鍵名需匹配嵌套 Schema 的 attribute 或字段名
+                'airline': {
+                    # AirlineBasicSchema 沒有 attribute，直接用字段名
+                    'code': flight.get('airline_iata'), # 假設 'code' 對應 IATA
+                    'name_zh': flight.get('airline_name_zh'),
+                    'name_en': flight.get('airline_name_en'),
+                    'logo_path': flight.get('logo_path'),
+                    'is_domestic': flight.get('airline_is_domestic')
+                },
+                'departure_airport': {
+                    # AirportBasicSchema 使用 attribute
+                    'airport_id': flight.get('departure_airport_id'), # 對應 schema 的 code
+                    'name_zh': flight.get('departure_name'),        # 對應 schema 的 name
+                    'city': flight.get('departure_city'),           # 直接匹配
+                    'country': flight.get('departure_country')     # 直接匹配
+                    # 注意： 'iata' 和 'terminal' 不在 AirportBasicSchema 中
+                },
+                'arrival_airport': {
+                    # AirportBasicSchema 使用 attribute
+                    'airport_id': flight.get('arrival_airport_id'), # 對應 schema 的 code
+                    'name_zh': flight.get('arrival_name'),        # 對應 schema 的 name
+                    'city': flight.get('arrival_city'),           # 直接匹配
+                    'country': flight.get('arrival_country')     # 直接匹配
+                    # 注意： 'iata' 和 'terminal' 不在 AirportBasicSchema 中
+                }
             }
-            
-            logger.debug(f"Formatted flight dict: {formatted_flight}") # Log the final formatted dict for this flight
-            result.append(formatted_flight)
-            
-        return result
+            prepared_data.append(data_for_schema)
+
+        # 4. 使用 Schema 進行序列化
+        try:
+            result = flights_search_result_schema.dump(prepared_data)
+            logger.debug(f"Schema serialized result: {result}")
+            return result
+        except ValidationError as err:
+            logger.error(f"序列化航班數據時出錯: {err.messages}")
+            # 在生產環境中可能需要更健壯的錯誤處理
+            # 例如，返回部分成功或特定的錯誤響應
+            return [] # 或者 raise err
+        except Exception as e:
+            logger.error(f"序列化過程中發生意外錯誤: {e}", exc_info=True)
+            return []
     
     @staticmethod
     async def get_low_fare_calendar(

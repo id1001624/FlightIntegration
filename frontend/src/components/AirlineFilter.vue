@@ -49,8 +49,8 @@
 <script>
 import { computed } from 'vue';
 
-// 定義後端基礎 URL (與 FlightCard 一致)
-const backendUrl = 'http://localhost:5000';
+// **讀取環境變數並移除 /api**
+const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
 
 export default {
   name: 'AirlineFilter',

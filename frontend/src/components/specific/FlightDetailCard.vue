@@ -110,8 +110,8 @@ import { ref, computed, reactive, watch } from 'vue';
 import flightService from '@/api/services/flightService'; // 確保路徑正確
 import defaultLogo from '@/assets/images/origin-airline.png'; // 確保你有預設圖片
 
-// 定義後端基礎 URL (與 FlightCard 一致)
-const backendUrl = 'http://localhost:5000';
+// **讀取環境變數並移除 /api**
+const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
 
 const props = defineProps({
   initialFlight: {
