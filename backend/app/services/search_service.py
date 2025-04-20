@@ -199,18 +199,14 @@ class SearchService:
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_path as airline_logo_url,
-                f.aircraft,
-                f.status,
                 tp.price_economy,
                 tp.price_business,
                 tp.price_first,
-                tp.currency,
                 tp.last_updated as price_last_updated,
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
                 COALESCE(tp.price_economy, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
                 EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
-                -- f.duration as sort_duration, -- 修改計算方式
                 EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算時間差（秒）用於排序
                 ROW_NUMBER() OVER (
                     PARTITION BY f.flight_number, f.scheduled_departure::date -- 按航班號和日期分區
@@ -1026,7 +1022,6 @@ class SearchService:
                     f.scheduled_arrival,
                     f.departure_terminal,
                     f.arrival_terminal,
-                    -- f.flight_status, -- 移除：不存在的欄位
                     a1.airport_id as departure_airport_id,
                     a1.name_zh as departure_airport_name_zh,
                     a1.city as departure_city,
@@ -1038,9 +1033,7 @@ class SearchService:
                     al.airline_id,
                     al.name_zh as airline_name_zh,
                     al.iata_code as airline_iata,
-                    -- 計算 duration
                     EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes,
-                    -- 添加 available_seats
                     tp.available_seats_economy,
                     tp.available_seats_business,
                     tp.available_seats_first 
@@ -1154,13 +1147,10 @@ class SearchService:
                         al.airline_id as airline_id, 
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
-                        al.logo_path as airline_logo_url, -- 修正: 使用 logo_path
-                        f.aircraft,
-                        -- f.status, -- 移除：不存在的欄位
+                        al.logo_path as airline_logo_url, 
                         tp.price_economy,
                         tp.price_business,
                         tp.price_first,
-                        -- tp.currency, -- 移除：不存在的欄位
                         tp.last_updated as price_last_updated,
                         -- 價格排序 (使用 COALESCE 處理 NULL)
                         CASE $1 -- $1 是 class_type
@@ -1356,7 +1346,6 @@ class SearchService:
                     f.scheduled_arrival AS arrival_time,
                     f.aircraft,
                     f.duration AS duration_minutes,
-                    -- f.status, -- 移除：不存在的欄位
                     tp.price_economy,
                     tp.price_business,
                     tp.price_first,
@@ -1557,7 +1546,6 @@ class SearchService:
                     f.scheduled_arrival AS arrival_time,
                     f.aircraft,
                     f.duration AS duration_minutes,
-                    -- f.status, -- 移除：不存在的欄位
                     tp.price_economy,
                     tp.price_business,
                     tp.price_first,
