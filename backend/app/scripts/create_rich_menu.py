@@ -65,29 +65,29 @@ def create_rich_menu():
         chat_bar_text=CHAT_BAR_TEXT, # 使用變數
         areas=[
             RichMenuArea(
-                bounds=RichMenuBounds(x=0, y=0, width=833, height=843),
+                bounds=RichMenuBounds(x=0, y=0, width=2500, height=1686), # <--- 讓首頁按鈕涵蓋整個區域
                 action=URIAction(label='首頁', uri=f'{FRONTEND_URL}/') # 確保結尾有斜線
             ),
-            RichMenuArea(
-                bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
-                action=URIAction(label='航班搜尋', uri=f'{FRONTEND_URL}/flights/search')
-            ),
-            RichMenuArea(
-                bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
-                action=URIAction(label='熱門航班', uri=f'{FRONTEND_URL}/flights/popular')
-            ),
-            RichMenuArea(
-                bounds=RichMenuBounds(x=0, y=843, width=833, height=843),
-                action=URIAction(label='台灣出發', uri=f'{FRONTEND_URL}/flights/from-taiwan')
-            ),
-            RichMenuArea(
-                bounds=RichMenuBounds(x=833, y=843, width=834, height=843),
-                action=URIAction(label='常見問題', uri=f'{FRONTEND_URL}/faq')
-            ),
-            RichMenuArea(
-                bounds=RichMenuBounds(x=1667, y=843, width=833, height=843),
-                action=URIAction(label='關於我們', uri=f'{FRONTEND_URL}/about')
-            )
+            # RichMenuArea(
+            #     bounds=RichMenuBounds(x=833, y=0, width=834, height=843),
+            #     action=URIAction(label='航班搜尋', uri=f'{FRONTEND_URL}/flight-search') # <-- 修正 URI
+            # ),
+            # RichMenuArea(
+            #     bounds=RichMenuBounds(x=1667, y=0, width=833, height=843),
+            #     action=URIAction(label='熱門航班', uri=f'{FRONTEND_URL}/flights/popular')
+            # ),
+            # RichMenuArea(
+            #     bounds=RichMenuBounds(x=0, y=843, width=833, height=843),
+            #     action=URIAction(label='台灣出發', uri=f'{FRONTEND_URL}/flights/from-taiwan')
+            # ),
+            # RichMenuArea(
+            #     bounds=RichMenuBounds(x=833, y=843, width=834, height=843),
+            #     action=URIAction(label='常見問題', uri=f'{FRONTEND_URL}/faq')
+            # ),
+            # RichMenuArea(
+            #     bounds=RichMenuBounds(x=1667, y=843, width=833, height=843),
+            #     action=URIAction(label='關於我們', uri=f'{FRONTEND_URL}/about')
+            # )
         ]
     )
 

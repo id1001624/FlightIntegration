@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple, Union
 from sqlalchemy.sql import text, func
+from sqlalchemy import or_ # 導入 or_ 用於多航線篩選
 
 # 移除 SQLAlchemy 相關導入
 from ..database.db import get_db, release_db
@@ -18,6 +19,7 @@ from ..schemas.airline_schema import AirlineBasicSchema
 from ..schemas.airport_schema import AirportBasicSchema
 from ..utils.api_client import ApiClient
 from ..utils.cache_manager import CacheManager
+from ..scripts.constants import FRONTEND_POPULAR_ROUTES_TUPLES, TAIWAN_AIRPORTS # 導入常量
 
 logger = logging.getLogger(__name__)
 
@@ -996,3 +998,171 @@ class SearchService:
             return [] # 返回空列表表示錯誤
         finally:
             await release_db(db) 
+
+    @staticmethod
+    async def get_popular_flights(
+        max_results: int = 20,
+        cabin_class: str = "經濟" # 假設需要指定艙等以格式化價格
+    ) -> List[Dict[str, Any]]:
+        """
+        查詢熱門航線的未來航班
+
+        Args:
+            max_results: 最大結果數
+            cabin_class: 艙位類型，用於格式化價格
+
+        Returns:
+            List[Dict[str, Any]]: 熱門航班列表
+        """
+        db = None
+        try:
+            db = await get_db()
+            today = datetime.now().date()
+
+            # 構建熱門航線的篩選條件 (departure, arrival)
+            route_conditions = []
+            for dep, arr in FRONTEND_POPULAR_ROUTES_TUPLES:
+                route_conditions.append(
+                    f"(f.departure_airport_id = '{dep}' AND f.arrival_airport_id = '{arr}')"
+                )
+
+            if not route_conditions:
+                logger.warning("未定義熱門航線常量 (FRONTEND_POPULAR_ROUTES_TUPLES)")
+                return []
+
+            route_filter = " OR ".join(route_conditions)
+
+            # 基礎 SQL 查詢 (類似 _query_flights 但添加熱門航線和日期篩選)
+            sql = f"""
+            SELECT
+                f.flight_id, f.flight_number, f.scheduled_departure, f.scheduled_arrival,
+                a_dep.airport_id as departure_id, a_dep.name_zh as departure_name,
+                a_dep.city as departure_city, a_dep.country as departure_country,
+                a_arr.airport_id as arrival_id, a_arr.name_zh as arrival_name,
+                a_arr.city as arrival_city, a_arr.country as arrival_country,
+                al.airline_id, al.name_zh as airline_name_zh,
+                al.name_en as airline_name_en, al.is_domestic as airline_is_domestic,
+                al.logo_path as airline_logo_path
+            FROM
+                flights f
+            JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
+            JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
+            JOIN airlines al ON f.airline_id = al.airline_id
+            WHERE
+                DATE(f.scheduled_departure) >= $1
+                AND ({route_filter})
+            ORDER BY
+                f.scheduled_departure ASC
+            LIMIT $2
+            """
+
+            params = [today, max_results]
+            logger.info(f"查詢熱門航班 SQL: {sql} 參數: {params}")
+
+            flights = await db.fetch(sql, *params)
+            logger.info(f"找到 {len(flights)} 個熱門航班")
+
+            # 使用 _format_flights 格式化結果
+            formatted_flights = await SearchService._format_flights(flights, cabin_class)
+            return formatted_flights
+
+        except Exception as e:
+            logger.error(f"查詢熱門航班時出錯: {str(e)}", exc_info=True)
+            return []
+        finally:
+            if db:
+                await release_db(db)
+
+    @staticmethod
+    async def get_flights_from_taiwan(
+        arrival_iata: str,
+        date_str: str,
+        max_results: int = 50,
+        cabin_class: str = "經濟" # 假設需要指定艙等以格式化價格
+    ) -> List[Dict[str, Any]]:
+        """
+        查詢從台灣出發到指定目的地的航班
+
+        Args:
+            arrival_iata: 到達機場 IATA 代碼
+            date_str: 日期字符串 (YYYY-MM-DD)
+            max_results: 最大結果數
+            cabin_class: 艙位類型，用於格式化價格
+
+        Returns:
+            List[Dict[str, Any]]: 航班列表
+        """
+        db = None
+        try:
+            db = await get_db()
+            flight_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+            # 構建台灣出發機場的篩選條件
+            dep_placeholders = []
+            params = []
+            param_index = 1
+            for airport_code in TAIWAN_AIRPORTS:
+                dep_placeholders.append(f"${param_index}")
+                params.append(airport_code)
+                param_index += 1
+
+            if not dep_placeholders:
+                 logger.warning("未定義台灣機場常量 (TAIWAN_AIRPORTS)")
+                 return []
+
+            dep_filter = f"f.departure_airport_id IN ({', '.join(dep_placeholders)})"
+
+            # 添加到達機場和日期參數
+            params.append(arrival_iata)
+            arrival_placeholder = f"${param_index}"
+            param_index += 1
+            params.append(flight_date)
+            date_placeholder = f"${param_index}"
+            param_index += 1
+            params.append(max_results)
+            limit_placeholder = f"${param_index}"
+
+
+            # 基礎 SQL 查詢
+            sql = f"""
+            SELECT
+                f.flight_id, f.flight_number, f.scheduled_departure, f.scheduled_arrival,
+                a_dep.airport_id as departure_id, a_dep.name_zh as departure_name,
+                a_dep.city as departure_city, a_dep.country as departure_country,
+                a_arr.airport_id as arrival_id, a_arr.name_zh as arrival_name,
+                a_arr.city as arrival_city, a_arr.country as arrival_country,
+                al.airline_id, al.name_zh as airline_name_zh,
+                al.name_en as airline_name_en, al.is_domestic as airline_is_domestic,
+                al.logo_path as airline_logo_path
+            FROM
+                flights f
+            JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
+            JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
+            JOIN airlines al ON f.airline_id = al.airline_id
+            WHERE
+                {dep_filter}
+                AND f.arrival_airport_id = {arrival_placeholder}
+                AND DATE(f.scheduled_departure) = {date_placeholder}
+            ORDER BY
+                f.scheduled_departure ASC
+            LIMIT {limit_placeholder}
+            """
+
+            logger.info(f"查詢台灣出發航班 SQL: {sql} 參數: {params}")
+
+            flights = await db.fetch(sql, *params)
+            logger.info(f"找到 {len(flights)} 個從台灣到 {arrival_iata} 的航班 (日期: {date_str})")
+
+            # 使用 _format_flights 格式化結果
+            formatted_flights = await SearchService._format_flights(flights, cabin_class)
+            return formatted_flights
+
+        except ValueError:
+            logger.error(f"日期格式錯誤: {date_str}")
+            return []
+        except Exception as e:
+            logger.error(f"查詢台灣出發航班時出錯: {str(e)}", exc_info=True)
+            return []
+        finally:
+            if db:
+                await release_db(db) 

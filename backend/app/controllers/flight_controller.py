@@ -28,13 +28,23 @@ from ..schemas.flight_schema import (
     flights_from_taiwan_args_schema, # 新增導入
     flight_status_schema, # 新增導入
     sync_taiwan_flights_args_schema, # 新增導入
-    generate_test_data_args_schema # 新增導入
+    generate_test_data_args_schema, # 新增導入
+    FlightSchema,
+    FlightSearchArgsSchema
 )
 from ..schemas.airline_schema import airlines_schema, airlines_basic_schema
 from ..schemas.airport_schema import airports_basic_schema
+from webargs.flaskparser import use_args
+import logging
 
 # 創建藍圖
 flight_bp = Blueprint('flight', __name__)
+logger = logging.getLogger(__name__)
+
+# 初始化 Schema
+flight_schema = FlightSchema()
+flight_schema_many = FlightSchema(many=True)
+search_args_schema = FlightSearchArgsSchema()
 
 # --- 輔助函數 --- 
 def _success_response(data):
@@ -52,7 +62,8 @@ def _error_response(message, status_code):
 # --- API 端點 --- 
 
 @flight_bp.route('/search', methods=['GET'])
-async def search_flights():
+@use_args(search_args_schema, location="query")
+async def search_flights(args):
     """搜索航班"""
     # 1. 參數驗證 (保持不變)
     try:
@@ -409,3 +420,133 @@ async def refresh_flight_status(flight_id):
     finally:
         if db_conn:
             await release_db(db_conn) # 釋放連接
+
+@flight_bp.route('/popular', methods=['GET'])
+async def get_popular_flights_endpoint():
+    """
+    獲取熱門航線的未來航班
+    ---
+    tags:
+      - Flights
+    parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+        description: 返回的最大航班數量
+      - in: query
+        name: cabin_class
+        schema:
+          type: string
+          default: "經濟"
+        description: 用於格式化價格的艙等 (經濟, 商務, 頭等)
+    responses:
+      200:
+        description: 熱門航班列表
+        content:
+          application/json:
+            schema:
+              type: array
+              items: FlightSchema
+      500:
+        description: 伺服器內部錯誤
+    """
+    try:
+        limit = request.args.get('limit', 20, type=int)
+        cabin_class = request.args.get('cabin_class', "經濟")
+        
+        # 限制最大結果數，防止濫用
+        limit = min(limit, 100) 
+
+        logger.info(f"接收到熱門航班請求: limit={limit}, cabin_class={cabin_class}")
+        flights = await SearchService.get_popular_flights(max_results=limit, cabin_class=cabin_class)
+        
+        # 使用 Schema 序列化結果
+        result = flight_schema_many.dump(flights)
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"處理 /popular 請求時出錯: {e}", exc_info=True)
+        return jsonify({"error": "無法獲取熱門航班信息"}), 500
+
+@flight_bp.route('/from_taiwan/<string:arrival_iata>', methods=['GET'])
+async def get_from_taiwan_flights_endpoint(arrival_iata: str):
+    """
+    獲取從台灣機場出發到指定目的地的航班
+    ---
+    tags:
+      - Flights
+    parameters:
+      - in: path
+        name: arrival_iata
+        required: true
+        schema:
+          type: string
+        description: 到達機場的IATA代碼 (例如 NRT, HKG)
+      - in: query
+        name: date
+        required: true
+        schema:
+          type: string
+          format: date
+        description: 查詢日期 (YYYY-MM-DD)
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+        description: 返回的最大航班數量
+      - in: query
+        name: cabin_class
+        schema:
+          type: string
+          default: "經濟"
+        description: 用於格式化價格的艙等 (經濟, 商務, 頭等)
+    responses:
+      200:
+        description: 從台灣出發的航班列表
+        content:
+          application/json:
+            schema:
+              type: array
+              items: FlightSchema
+      400:
+        description: 請求參數錯誤 (例如日期格式錯誤)
+      500:
+        description: 伺服器內部錯誤
+    """
+    date_str = request.args.get('date')
+    limit = request.args.get('limit', 50, type=int)
+    cabin_class = request.args.get('cabin_class', "經濟")
+
+    if not date_str:
+        return jsonify({"error": "必須提供 'date' 查詢參數 (YYYY-MM-DD)"}), 400
+
+    # 驗證日期格式
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": f"日期格式錯誤: '{date_str}', 請使用 YYYY-MM-DD 格式"}), 400
+        
+    # 限制最大結果數
+    limit = min(limit, 150)
+
+    try:
+        arrival_iata_upper = arrival_iata.upper()
+        logger.info(f"接收到台灣出發請求: arrival={arrival_iata_upper}, date={date_str}, limit={limit}, cabin_class={cabin_class}")
+        
+        flights = await SearchService.get_flights_from_taiwan(
+            arrival_iata=arrival_iata_upper, 
+            date_str=date_str, 
+            max_results=limit, 
+            cabin_class=cabin_class
+        )
+        
+        # 使用 Schema 序列化結果
+        result = flight_schema_many.dump(flights)
+        return jsonify(result), 200
+        
+    except Exception as e:
+        logger.error(f"處理 /from_taiwan/{arrival_iata} 請求時出錯: {e}", exc_info=True)
+        return jsonify({"error": f"無法獲取從台灣到 {arrival_iata} 的航班信息"}), 500
