@@ -228,18 +228,18 @@ class SearchService:
         FROM RankedFlights 
         WHERE rn = 1 -- 只選取每個航班號和日期最新的價格記錄
         {sort_order} -- 排序條件將插入這裡
-        LIMIT $5; -- 結果數量限制
+        LIMIT {limit_placeholder}; -- 結果數量限制
         """
 
         params = [departure_code, arrival_code, start_of_day, end_of_day]
-        param_index = 5 # LIMIT 是第5個參數 ($5)
+        param_index = len(params) # 從 4 開始 (索引從 1 開始)
 
         # 航空公司過濾
         airline_filter_sql = ""
         if airline_code:
             if isinstance(airline_code, list):
                 if airline_code: # 確保列表不為空
-                    airline_placeholders = ', '.join(f'${i}' for i in range(param_index + 1, param_index + 1 + len(airline_code)))
+                    airline_placeholders = ', '.join(f'${i+1}' for i in range(param_index, param_index + len(airline_code)))
                     airline_filter_sql = f" AND al.airline_id IN ({airline_placeholders})"
                     params.extend(airline_code)
                     param_index += len(airline_code)
@@ -271,13 +271,15 @@ class SearchService:
             sort_order_sql = " ORDER BY sort_price ASC, sort_departure_time ASC"
 
         # 添加結果數量限制參數
-        params.append(max_results)
+        limit_param_index = param_index + 1 # LIMIT 的參數索引
+        params.append(max_results) # 將 max_results 添加到列表末尾
 
         # 格式化最終 SQL
         final_sql = sql.format(
             airline_filter=airline_filter_sql,
             price_filter=price_filter_sql,
-            sort_order=sort_order_sql
+            sort_order=sort_order_sql,
+            limit_placeholder=f"${limit_param_index}" # 使用計算出的索引
         )
         
         try:
@@ -306,56 +308,50 @@ class SearchService:
         result = []
         
         for flight in flights:
-            # 獲取價格
+            # 獲取價格 - 根據 _query_flights 的 SQL，價格欄位是固定的
             price = None
             if cabin_class == 'ECONOMY':
-                price = flight.get('amount')
+                price = flight.get('economy_price') # 使用查詢結果中的實際欄位名
             elif cabin_class == 'BUSINESS':
-                price = flight.get('amount')  # 應使用 business_price，但目前 SQL 中使用同一價格欄位
+                price = flight.get('business_price')
             elif cabin_class == 'FIRST':
-                price = flight.get('amount')  # 應使用 first_price，但目前 SQL 中使用同一價格欄位
-                
-            # 計算飛行時間（分鐘）
-            departure_time = flight.get('scheduled_departure')
-            arrival_time = flight.get('scheduled_arrival')
-            duration_minutes = 0
-            
-            if departure_time and arrival_time:
-                duration = arrival_time - departure_time
-                duration_minutes = int(duration.total_seconds() / 60)
-                
+                price = flight.get('first_price')
+
+            # 計算飛行時間（分鐘） - 使用 _query_flights 計算好的 duration_minutes
+            duration_minutes = flight.get('duration_minutes', 0)
+
             formatted_flight = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
                 'airline': {
                     'id': flight.get('airline_id'),
-                    'iata': flight.get('airline_iata', ''),
+                    'iata': flight.get('airline_iata', ''), # 確保這個欄位存在於查詢結果或模型中
                     'name_zh': flight.get('airline_name_zh', ''),
                     'name_en': flight.get('airline_name_en', ''),
-                    'is_domestic': flight.get('airline_is_domestic', False),
-                    'logo_url': flight.get('airline_logo_url', '')  # 使用正確的欄位名稱
+                    'is_domestic': flight.get('airline_is_domestic', False), # 確保這個欄位存在
+                    'logo_url': flight.get('airline_logo_url', '') # 使用正確的欄位名稱
                 },
                 'departure_airport': {
                     'id': flight.get('departure_airport_id'),
-                    'iata': flight.get('departure_iata', ''),
+                    'iata': flight.get('departure_iata', ''), # 確保這個欄位存在
                     'name': flight.get('departure_name', ''),
                     'city': flight.get('departure_city', ''),
                     'country': flight.get('departure_country', '')
                 },
                 'arrival_airport': {
                     'id': flight.get('arrival_airport_id'),
-                    'iata': flight.get('arrival_iata', ''),
+                    'iata': flight.get('arrival_iata', ''), # 確保這個欄位存在
                     'name': flight.get('arrival_name', ''),
                     'city': flight.get('arrival_city', ''),
                     'country': flight.get('arrival_country', '')
                 },
-                'departure_time': departure_time.isoformat() if departure_time else None,
-                'arrival_time': arrival_time.isoformat() if arrival_time else None,
+                'departure_time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None,
+                'arrival_time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None,
                 'duration_minutes': duration_minutes,
                 'price': price,
-                'cabin_class': cabin_class,
-                'available_seats': flight.get('available_seats', 0),
-                'status': flight.get('status', 'UNKNOWN')
+                'cabin_class': cabin_class, # 返回請求的艙等
+                'available_seats': flight.get('available_seats', 0), # 確保這個欄位存在
+                'status': flight.get('status', 'UNKNOWN') # 確保這個欄位存在
             }
             
             result.append(formatted_flight)
