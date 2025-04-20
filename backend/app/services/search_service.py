@@ -188,30 +188,30 @@ class SearchService:
                 f.flight_number, 
                 f.scheduled_departure, 
                 f.scheduled_arrival, 
-                f.aircraft,
-                f.departure_terminal,
-                f.arrival_terminal,
+                f.aircraft, 
+                f.departure_terminal, 
+                f.arrival_terminal, 
                 a_dep.airport_id as departure_airport_id, 
-                a_dep.iata_code as departure_iata,
+                a_dep.airport_id as departure_iata, -- Use airport_id as IATA
                 a_dep.name_zh as departure_name,
                 a_dep.city as departure_city,
                 a_dep.country as departure_country,
                 a_arr.airport_id as arrival_airport_id, 
-                a_arr.iata_code as arrival_iata,
+                a_arr.airport_id as arrival_iata, -- Use airport_id as IATA
                 a_arr.name_zh as arrival_name,
                 a_arr.city as arrival_city,
                 a_arr.country as arrival_country,
                 al.airline_id as airline_id, 
-                al.iata_code as airline_iata,
+                al.airline_id as airline_iata, -- Use airline_id as IATA
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
-                al.is_domestic as airline_is_domestic,
-                al.logo_path as airline_logo_url,
+                al.is_domestic as airline_is_domestic, 
+                al.logo_path, -- Use model column name directly
                 tp.economy_price,
                 tp.business_price,
                 tp.first_price,
-                tp.available_seats,
-                tp.price_updated_at as price_last_updated,
+                tp.available_seats, 
+                tp.price_updated_at, -- Use model column name directly
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
                 COALESCE(tp.economy_price, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
@@ -219,10 +219,10 @@ class SearchService:
                 -- 計算時間差（秒）用於排序
                 EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, 
                 -- Corrected duration calculation alias
-                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 as duration_minutes,
+                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 as duration_minutes, 
                 ROW_NUMBER() OVER (
                     PARTITION BY f.flight_number, f.scheduled_departure::date -- 按航班號和日期分區
-                    ORDER BY tp.price_updated_at DESC -- 修正：欄位名稱是 price_updated_at 而非 last_updated
+                    ORDER BY tp.price_updated_at DESC 
                 ) as rn
             FROM flights f
             JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
@@ -359,7 +359,7 @@ class SearchService:
                     'name_zh': flight.get('airline_name_zh'),
                     'name_en': flight.get('airline_name_en'),
                     'is_domestic': flight.get('airline_is_domestic'),
-                    'logo_url': flight.get('airline_logo_url')
+                    'logo_path': flight.get('logo_path')
                 },
                 'departure_airport': {
                     'id': flight.get('departure_airport_id'),
@@ -383,6 +383,7 @@ class SearchService:
                 'price': price,
                 'cabin_class': cabin_class,
                 'available_seats': flight.get('available_seats'),
+                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None
                 # 'status': flight.get('status', 'Scheduled') 
             }
             
