@@ -50,11 +50,11 @@ app = create_app()
 @app.route('/api/debug/flights', methods=['GET'])
 async def debug_flights():
     """列出資料庫中所有航班的基本信息，用於偵錯"""
-    from app.database.db import init_asyncpg_pool
+    from app.database.db import get_pool  # 改用get_pool而不是init_asyncpg_pool
     
     try:
         # 獲取連接池
-        pool = await init_asyncpg_pool()
+        pool = await get_pool()  # 改用get_pool()
         
         # 使用連接池獲取連接
         async with pool.acquire() as conn:
@@ -115,11 +115,11 @@ async def debug_flights():
 @app.route('/api/debug/airports', methods=['GET'])
 async def debug_airports():
     """列出資料庫中所有機場，用於偵錯"""
-    from app.database.db import init_asyncpg_pool
+    from app.database.db import get_pool  # 改用get_pool而不是init_asyncpg_pool
     
     try:
         # 獲取連接池
-        pool = await init_asyncpg_pool()
+        pool = await get_pool()  # 改用get_pool()
         
         # 使用連接池獲取連接
         async with pool.acquire() as conn:
