@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple, Union
 from sqlalchemy.sql import text, func
 from sqlalchemy import or_ # 導入 or_ 用於多航線篩選
+from decimal import Decimal
 
 # 導入 asyncpg 連接池初始化函數
 from ..database.db import init_asyncpg_pool
@@ -188,26 +189,33 @@ class SearchService:
                 f.scheduled_departure, 
                 f.scheduled_arrival, 
                 a_dep.airport_id as departure_airport_id, 
+                a_dep.iata_code as departure_iata,
                 a_dep.name_zh as departure_name,
                 a_dep.city as departure_city,
                 a_dep.country as departure_country,
                 a_arr.airport_id as arrival_airport_id, 
+                a_arr.iata_code as arrival_iata,
                 a_arr.name_zh as arrival_name,
                 a_arr.city as arrival_city,
                 a_arr.country as arrival_country,
                 al.airline_id as airline_id, 
+                al.iata_code as airline_iata,
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_path as airline_logo_url,
                 tp.economy_price,
                 tp.business_price,
                 tp.first_price,
+                tp.available_seats,
                 tp.price_updated_at as price_last_updated,
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
                 COALESCE(tp.economy_price, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
                 EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
-                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算時間差（秒）用於排序
+                -- 計算時間差（秒）用於排序
+                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, 
+                -- Corrected duration calculation alias
+                EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 as duration_minutes,
                 ROW_NUMBER() OVER (
                     PARTITION BY f.flight_number, f.scheduled_departure::date -- 按航班號和日期分區
                     ORDER BY tp.price_updated_at DESC -- 修正：欄位名稱是 price_updated_at 而非 last_updated
@@ -299,59 +307,77 @@ class SearchService:
         格式化航班信息
         
         Args:
-            flights: 航班信息
-            cabin_class: 艙位類型
-            
+            flights: 從 _query_flights 返回的原始航班數據列表 (字典列表)
+            cabin_class: 請求的艙位類型 (用於選擇顯示哪個價格)
+        
         Returns:
-            List[Dict[str, Any]]: 格式化後的航班信息
+            List[Dict[str, Any]]: 格式化後用於 API 響應的航班信息列表
         """
         result = []
         
         for flight in flights:
-            # 獲取價格 - 根據 _query_flights 的 SQL，價格欄位是固定的
+            # 根據請求的 cabin_class 選擇對應的價格欄位
             price = None
-            if cabin_class == 'ECONOMY':
-                price = flight.get('economy_price') # 使用查詢結果中的實際欄位名
-            elif cabin_class == 'BUSINESS':
+            requested_cabin_class_upper = cabin_class.upper()
+            if requested_cabin_class_upper == 'ECONOMY':
+                price = flight.get('economy_price') 
+            elif requested_cabin_class_upper == 'BUSINESS':
                 price = flight.get('business_price')
-            elif cabin_class == 'FIRST':
+            elif requested_cabin_class_upper == 'FIRST':
                 price = flight.get('first_price')
-
-            # 計算飛行時間（分鐘） - 使用 _query_flights 計算好的 duration_minutes
-            duration_minutes = flight.get('duration_minutes', 0)
+            # 如果價格是 Decimal 類型，轉換為 float 或 str 以便 JSON 序列化
+            if isinstance(price, Decimal):
+                price = float(price) 
+                
+            # 獲取飛行時間（分鐘）- 已在 SQL 中計算好
+            duration_minutes = flight.get('duration_minutes')
+            # 確保 duration_minutes 是整數或 None
+            if duration_minutes is not None:
+                try:
+                    duration_minutes = int(duration_minutes)
+                except (ValueError, TypeError):
+                    logger.warning(f"無法將 duration_minutes '{duration_minutes}' 轉換為整數，航班 ID: {flight.get('flight_id')}")
+                    duration_minutes = 0 # 或設置為 None，視前端需求而定
+            else:
+                duration_minutes = 0 # 或設置為 None
+                
+            # 獲取起飛和到達時間
+            departure_time_obj = flight.get('scheduled_departure')
+            arrival_time_obj = flight.get('scheduled_arrival')
 
             formatted_flight = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
                 'airline': {
                     'id': flight.get('airline_id'),
-                    'iata': flight.get('airline_iata', ''), # 確保這個欄位存在於查詢結果或模型中
-                    'name_zh': flight.get('airline_name_zh', ''),
-                    'name_en': flight.get('airline_name_en', ''),
-                    'is_domestic': flight.get('airline_is_domestic', False), # 確保這個欄位存在
-                    'logo_url': flight.get('airline_logo_url', '') # 使用正確的欄位名稱
+                    'iata': flight.get('airline_iata'), # 從 SQL 獲取
+                    'name_zh': flight.get('airline_name_zh'),
+                    'name_en': flight.get('airline_name_en'),
+                    'is_domestic': flight.get('airline_is_domestic'), # 確保 SQL 已選擇此欄位
+                    'logo_url': flight.get('airline_logo_url') # 使用 SQL 中的別名
                 },
                 'departure_airport': {
                     'id': flight.get('departure_airport_id'),
-                    'iata': flight.get('departure_iata', ''), # 確保這個欄位存在
-                    'name': flight.get('departure_name', ''),
-                    'city': flight.get('departure_city', ''),
-                    'country': flight.get('departure_country', '')
+                    'iata': flight.get('departure_iata'), # 從 SQL 獲取
+                    'name': flight.get('departure_name'),
+                    'city': flight.get('departure_city'),
+                    'country': flight.get('departure_country')
                 },
                 'arrival_airport': {
                     'id': flight.get('arrival_airport_id'),
-                    'iata': flight.get('arrival_iata', ''), # 確保這個欄位存在
-                    'name': flight.get('arrival_name', ''),
-                    'city': flight.get('arrival_city', ''),
-                    'country': flight.get('arrival_country', '')
+                    'iata': flight.get('arrival_iata'), # 從 SQL 獲取
+                    'name': flight.get('arrival_name'),
+                    'city': flight.get('arrival_city'),
+                    'country': flight.get('arrival_country')
                 },
-                'departure_time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None,
-                'arrival_time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None,
+                'departure_time': departure_time_obj.isoformat() if departure_time_obj else None,
+                'arrival_time': arrival_time_obj.isoformat() if arrival_time_obj else None,
                 'duration_minutes': duration_minutes,
                 'price': price,
                 'cabin_class': cabin_class, # 返回請求的艙等
-                'available_seats': flight.get('available_seats', 0), # 確保這個欄位存在
-                'status': flight.get('status', 'UNKNOWN') # 確保這個欄位存在
+                'available_seats': flight.get('available_seats'), # 從 SQL 獲取
+                # 由於數據庫沒有 status 欄位，我們暫時不返回或給一個預設值
+                # 'status': flight.get('status', 'Scheduled') 
             }
             
             result.append(formatted_flight)
