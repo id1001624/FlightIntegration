@@ -68,7 +68,7 @@
 
     目前還沒有票價資料，先用腳本模擬資料
     ```bash
-    python app/scripts/generate_fake_prices.py
+    python backend/app/scripts/generate_fake_prices.py
     ```
 
 ### 前端設定

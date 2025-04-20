@@ -550,3 +550,67 @@ async def get_from_taiwan_flights_endpoint(arrival_iata: str):
     except Exception as e:
         logger.error(f"處理 /from_taiwan/{arrival_iata} 請求時出錯: {e}", exc_info=True)
         return jsonify({"error": f"無法獲取從台灣到 {arrival_iata} 的航班信息"}), 500
+
+@flight_bp.route('/api/debug/airports', methods=['GET'])
+async def debug_airports():
+    """列出資料庫中所有機場，並包含一個特定航班號用於偵錯連接"""
+    from app.database.db import get_db, release_db
+    
+    db = await get_db()
+    try:
+        # 獲取機場列表 (保持不變)
+        query_airports = """
+        SELECT 
+            airport_id, 
+            airport_id as iata_code, 
+            name_zh, 
+            name_en, 
+            city, 
+            country
+        FROM 
+            airports
+        LIMIT 20
+        """
+        airports = await db.fetch(query_airports)
+        result_airports = [{
+            'airport_id': str(airport['airport_id']),
+            'iata_code': airport['iata_code'],
+            'name_zh': airport['name_zh'],
+            'name_en': airport['name_en'],
+            'city': airport['city'],
+            'country': airport['country']
+        } for airport in airports]
+        
+        # --- 新增：查詢特定航班號 --- 
+        specific_flight_id = '57878b2f-4d4c-4d4c-8164-a77ca22913df'
+        query_specific_flight = """
+        SELECT flight_number 
+        FROM flights 
+        WHERE flight_id = $1;
+        """
+        specific_flight_record = await db.fetchrow(query_specific_flight, specific_flight_id)
+        specific_flight_number = specific_flight_record['flight_number'] if specific_flight_record else f'未在DB中找到 flight_id={specific_flight_id}'
+        # ---------------------------
+        
+        # 將機場列表和特定航班號組合到最終響應中
+        final_response = {
+            'airports': result_airports,
+            'debug_specific_flight_check': {
+                'searched_id': specific_flight_id,
+                'found_flight_number': specific_flight_number
+            }
+        }
+        
+        return jsonify(final_response)
+    except Exception as e:
+        # 在錯誤響應中也包含特定航班檢查信息
+        error_response = {
+            'error': str(e),
+            'debug_specific_flight_check': {
+                 'searched_id': specific_flight_id,
+                 'error_during_check': True
+            }
+        }
+        return jsonify(error_response), 500
+    finally:
+        await release_db(db)

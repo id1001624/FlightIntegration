@@ -12,7 +12,28 @@ from datetime import datetime
 import logging
 import os
 import sys
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
+
+# --- 將 .env 加載移至頂部 --- 
+dotenv_path = find_dotenv(filename='.env', raise_error_if_not_found=False, usecwd=True)
+if dotenv_path:
+    print(f"[generate_fake_prices.py] 找到並加載 .env 文件: {dotenv_path}")
+    load_dotenv(dotenv_path=dotenv_path, override=True) # 添加 override=True
+else:
+    # 嘗試向上查找 backend/.env
+    try:
+        scripts_dir = os.path.dirname(__file__) # scripts/
+        app_dir = os.path.dirname(scripts_dir) # app/
+        backend_dir = os.path.dirname(app_dir) # backend/
+        dotenv_path_alt = os.path.join(backend_dir, '.env')
+        if os.path.exists(dotenv_path_alt):
+            print(f"[generate_fake_prices.py] 在 backend 目錄找到並加載 .env 文件: {dotenv_path_alt}")
+            load_dotenv(dotenv_path=dotenv_path_alt, override=True) # 添加 override=True
+        else:
+            print("[generate_fake_prices.py] 警告: 未在當前目錄或 backend 目錄找到 .env 文件。")
+    except Exception as e:
+        print(f"[generate_fake_prices.py] 查找備用 .env 時出錯: {e}")
+# --------------------------
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -31,10 +52,9 @@ BATCH_SIZE = 100 # 一次處理多少航班
 # --- 資料庫連接 ---
 async def get_db_connection():
     """獲取資料庫連接"""
-    load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("SQLALCHEMY_DATABASE_URI")
     if not db_url:
-        logger.error("未設置 DATABASE_URL 環境變數")
+        logger.error("未設置 SQLALCHEMY_DATABASE_URI 環境變數")
         sys.exit(1)
         
     try:
@@ -53,20 +73,24 @@ async def release_db_connection(conn):
 
 # --- 主要邏輯 ---
 async def find_flights_without_prices(conn, limit=BATCH_SIZE):
-    """查找票價記錄中缺少新價格欄位 (以 economy_price 為標誌) 的航班"""
+    """查找在 flights 表存在但在 ticket_prices 表中沒有任何記錄的航班"""
+    # 使用 LEFT JOIN 查找在 flights 存在但在 ticket_prices 不存在的 flight_id
     query = """
-    SELECT DISTINCT flight_id
-    FROM ticket_prices
-    WHERE economy_price IS NULL
+    SELECT f.flight_id
+    FROM flights f
+    LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
+    WHERE tp.flight_id IS NULL 
     LIMIT $1;
     """
     try:
         rows = await conn.fetch(query, limit)
         flight_ids = [row['flight_id'] for row in rows]
-        logger.info(f"找到 {len(flight_ids)} 個航班其票價記錄缺少 economy_price")
+        # 修改日誌消息以反映新的查找邏輯
+        logger.info(f"找到 {len(flight_ids)} 個在 flights 表存在但在 ticket_prices 表中沒有記錄的航班")
         return flight_ids
     except Exception as e:
-        logger.error(f"查找缺少新價格欄位的航班時出錯: {e}")
+        # 修改錯誤消息
+        logger.error(f"查找缺少票價記錄的航班時出錯: {e}")
         return []
 
 def generate_fake_price_data(flight_id):
