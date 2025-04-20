@@ -211,32 +211,20 @@ export default {
         // --- 數據提取 ---
         console.log('[FlightSearch] Starting data extraction from response.');
         let flightsData = [];
-        try { // **修改：將整個提取邏輯包在一個 try-catch 中**
-            // **修改：直接檢查 response 是否為陣列**
-            if (Array.isArray(response)) {
-                flightsData = response; // <<-- 直接賦值！
-                console.log('[FlightSearch] Extracted directly from response Array');
-            }
-            // 可以保留對舊格式的檢查作為備用
-            else if (response && response.data && Array.isArray(response.data.outbound_flights)) { // **修改：檢查後端標準格式**
-                flightsData = response.data.outbound_flights;
-                console.log('[FlightSearch] Extracted from response.data.outbound_flights');
-            } else if (response && response.outbound) { // 保留舊的檢查
-                flightsData = response.outbound;
-                console.log('[FlightSearch] Extracted from response.outbound (legacy?)');
-            } else {
-                console.warn('[FlightSearch] Unexpected response structure:', response);
-                // 不再調用 _handleResponse，因為 API 直接返回了數組
-                flightsData = []; 
-                // // **修改：為 _handleResponse 添加 try-catch**
-                // try {
-                //     console.log('[FlightSearch] Calling _handleResponse for direct response object...');
-                //     flightsData = flightService._handleResponse(response);
-                //     console.log('[FlightSearch] Extracted via _handleResponse for direct response object');
-                // } catch (handleResponseError) {
-                //     console.error('[FlightSearch] Error calling _handleResponse for direct response object:', handleResponseError);
-                //     flightsData = [];
+        try {
+            // **修改：檢查新的響應結構**
+            if (response && response.data && Array.isArray(response.data.departure)) {
+                flightsData = response.data.departure;
+                console.log('[FlightSearch] Extracted flights from response.data.departure');
+                // 如果需要處理回程，可以在這裡合併或單獨處理
+                // if (response.data.return && Array.isArray(response.data.return)) {
+                //     // 合併去程和回程，或者根據 UI 需求分別處理
+                //     flightsData = flightsData.concat(response.data.return);
+                //     console.log('[FlightSearch] Appended return flights');
                 // }
+            } else {
+                console.warn('[FlightSearch] Unexpected response structure or no departure flights found:', response);
+                flightsData = []; // 確保清空
             }
         } catch (extractionError) {
             console.error('[FlightSearch] Error during data extraction logic:', extractionError);
