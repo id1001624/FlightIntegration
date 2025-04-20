@@ -18,8 +18,8 @@ class BaseConfig:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'a_very_default_secret_key_for_dev')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # 資料庫 URI - 必須在 .env 文件中設置
-    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
+    # 資料庫 URI - 優先使用 SQLALCHEMY_DATABASE_URI，若無則使用 DATABASE_URL
+    SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI') or os.environ.get('DATABASE_URL')
     # --- 移除類定義級別的檢查，將檢查移到應用創建時 --- 
     # if not SQLALCHEMY_DATABASE_URI:
     #     print("[BaseConfig] 嚴重錯誤: 環境變數 SQLALCHEMY_DATABASE_URI 未在 .env 文件中設置！")
