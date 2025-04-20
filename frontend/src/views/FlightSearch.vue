@@ -212,18 +212,19 @@ export default {
         console.log('[FlightSearch] Starting data extraction from response.');
         let flightsData = [];
         try {
-            // **修改：檢查新的響應結構**
-            if (response && response.data && Array.isArray(response.data.departure)) {
-                flightsData = response.data.departure;
-                console.log('[FlightSearch] Extracted flights from response.data.departure');
+            // **再次修改：直接檢查 response.departure 是否為陣列**
+            // 假設 flightService.searchFlights 返回的是 API 響應的 data 部分
+            if (response && Array.isArray(response.departure)) { 
+                flightsData = response.departure;
+                console.log('[FlightSearch] Extracted flights from response.departure');
                 // 如果需要處理回程，可以在這裡合併或單獨處理
-                // if (response.data.return && Array.isArray(response.data.return)) {
-                //     // 合併去程和回程，或者根據 UI 需求分別處理
-                //     flightsData = flightsData.concat(response.data.return);
+                // if (response.return && Array.isArray(response.return)) {
+                //     flightsData = flightsData.concat(response.return);
                 //     console.log('[FlightSearch] Appended return flights');
                 // }
             } else {
-                console.warn('[FlightSearch] Unexpected response structure or no departure flights found:', response);
+                // 添加更詳細的日誌，打印 response 結構以便調試
+                console.warn('[FlightSearch] Unexpected response structure or no departure flights found. Response:', JSON.stringify(response));
                 flightsData = []; // 確保清空
             }
         } catch (extractionError) {
@@ -248,8 +249,10 @@ export default {
           console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
           console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
 
-          // 直接使用 API 返回的 price 對象 (如果存在)
-          const priceObject = flight.price || { amount: null, available_seats: null, cabin_class: '經濟', currency: 'TWD' };
+          // 直接使用 API 返回的 price 對象 (如果存在且 amount 不為 null)
+          const priceObject = flight.price && flight.price.amount !== null
+                            ? flight.price
+                            : { amount: null, available_seats: flight.available_seats ?? null, cabin_class: flight.cabin_class || '洽詢', currency: 'TWD' }; // 使用API的座位數和艙等，預設洽詢
 
           // 構建 FlightCard 需要的嵌套結構
           const newFlight = {
@@ -327,8 +330,16 @@ export default {
         }
 
         // 價格篩選
-        const flightPrice = flight.price.amount || 0;
-        if (flightPrice < filters.priceRange.min || flightPrice > filters.priceRange.max) {
+        const flightPrice = flight.price?.amount; // 使用可選鏈接
+        // 如果價格是 null 或 undefined，根據篩選器的最小值決定是否包含
+        if (flightPrice === null || typeof flightPrice === 'undefined') {
+          // 如果篩選器的最小值大於 0，則排除無價格航班
+          if (filters.priceRange.min > 0) {
+            return false;
+          }
+          // 否則 (最小值為 0)，包含無價格航班 (顯示為洽詢)
+        } else if (flightPrice < filters.priceRange.min || flightPrice > filters.priceRange.max) {
+          // 如果有價格但不符合範圍，則排除
           return false;
         }
 
