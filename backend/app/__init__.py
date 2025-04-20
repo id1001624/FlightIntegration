@@ -15,12 +15,8 @@ from .models.base import db
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-# from .database.db import init_db, close_db # 錯誤導入: db.py 中沒有這些名稱
-from .utils.cache_manager import init_cache # 導入緩存初始化
-from .utils.rate_limiter import limiter # 導入限速器
-# 導入配置類
-# from backend.config import DevelopmentConfig, ProductionConfig # <-- 改回絕對導入 (導致 ModuleNotFoundError)
-from config import DevelopmentConfig, ProductionConfig # <-- 嘗試直接導入
+# from .utils.rate_limiter import limiter # 導入限速器 - 錯誤導入: rate_limiter.py 中沒有這個名稱
+from config import DevelopmentConfig, ProductionConfig # <-- 再次嘗試直接導入，理論上本地應可行
 
 # 初始化緩存
 cache = Cache()

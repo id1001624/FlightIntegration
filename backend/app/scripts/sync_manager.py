@@ -18,7 +18,6 @@ from datetime import timedelta as dt_timedelta
 from typing import Dict, List, Optional, Any, Union, Tuple
 import time
 import pytz
-import asyncio
 import re
 
 # *** Logger 配置 ***
@@ -30,7 +29,6 @@ logger = logging.getLogger('sync_manager')
 
 # *** 統一使用相對導入 ***
 try:
-    from ..database.db import get_db, release_db
     from ..utils.api_client import ApiClient
     from ..clients.tdx_client import TdxApiClient
     from ..clients.flightstats_client import FlightStatsApiClient
@@ -43,7 +41,7 @@ try:
     )
     from ..utils.date_utils import parse_datetime, format_datetime
     # 導入模型，用於 get_airport 方法中的類型檢查或查詢 (如果需要)
-    from ..models import Airport, Airline #<-- 確保模型也相對導入
+    # from ..models import Airport, Airline #<-- 移除，不由 SyncManager 處理
 
 except ImportError as e:
     logger.error(f"無法導入必要的模組，請檢查路徑和依賴: {e}")
@@ -75,8 +73,10 @@ def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
             'airline_id': airline_id,
             'departure_airport_id': raw_flight.get('DepartureAirportID', ''),
             'arrival_airport_id': raw_flight.get('ArrivalAirportID', ''),
-            'scheduled_departure': format_datetime(parse_datetime(scheduled_dep)) if scheduled_dep else None,
-            'scheduled_arrival': format_datetime(parse_datetime(scheduled_arr)) if scheduled_arr else None,
+            # 檢查 scheduled_dep 是否為真且非空字串才解析
+            'scheduled_departure': format_datetime(parse_datetime(scheduled_dep)) if scheduled_dep and scheduled_dep.strip() else None,
+            # 檢查 scheduled_arr 是否為真且非空字串才解析
+            'scheduled_arrival': format_datetime(parse_datetime(scheduled_arr)) if scheduled_arr and scheduled_arr.strip() else None,
             'aircraft': raw_flight.get('AircraftType', ''), # 使用模型欄位 aircraft
             'departure_terminal': raw_flight.get('DepartureTerminal'), # 保留，模型中有
             'arrival_terminal': raw_flight.get('ArrivalTerminal'), # 保留，模型中有
@@ -117,10 +117,6 @@ class ApiSyncManager:
         # 檢查至少一個 API 客戶端可用
         if not self.tdx_api and not self.flightstats_api:
             logger.error("無法初始化任何 API 客戶端，同步功能將無法使用")
-
-        # 機場和航空公司緩存
-        self.airports_cache = {}
-        self.airlines_cache = {}
 
         # 請求延遲時間 (秒)
         self.request_delay = 0.5
@@ -201,109 +197,19 @@ class ApiSyncManager:
         return airline_code in self.TDX_TARGET_AIRLINES
     
     def sync_airports(self):
-        """同步機場數據"""
-        logger.info("開始同步機場數據...")
-        added_count = 0
-        updated_count = 0
-
-        # 這裡的邏輯需要重新考慮。
-        # 如果完全依賴資料庫，這個同步方法可能不再需要，
-        # 或者需要從其他來源（如文件、管理界面）獲取數據。
-        # 暫時將其留空或只記錄一條信息。
-        logger.info("機場同步功能當前依賴資料庫數據，未執行外部API同步。")
-
-        # 原有的合併和更新邏輯基於API數據，現已移除
-        # all_airports_data = self._merge_airport_data(tdx_airports, flightstats_airports)
-        # ... (原有的 database update/add logic)
-
-        logger.info(f"機場同步完成。新增: {added_count}, 更新: {updated_count}")
-        # 確保方法有返回值，即使是空的
+        """同步機場數據 - 此方法應由數據管理層處理或從外部來源獲取"""
+        logger.warning("ApiSyncManager.sync_airports 不再執行實際的 API 同步或數據庫操作。機場數據應由 DbManager 或管理腳本處理。")
         return []
     
     def get_airport(self, iata_code: str) -> Optional[Dict]:
-        """嘗試從不同來源獲取機場資訊，優先使用資料庫"""
-        if not iata_code:
-            return None
-
-        iata_code = iata_code.strip().upper()
-        logger.debug(f"正在獲取機場資訊: {iata_code}")
-
-        # 1. 優先從資料庫查詢 (使用相對導入的 Airport 模型)
-        try:
-            # 注意：這裡的 Airport.get_by_iata 是一個假設的方法
-            # 如果你的模型沒有這個方法，需要用 SQLAlchemy 或 asyncpg 查詢
-            # airport_db = Airport.get_by_iata(iata_code) #<-- 假設方法
-            
-            # --- 使用 asyncpg 查詢示例 (如果 get_by_iata 不可用) ---
-            airport_db_dict = asyncio.get_event_loop().run_until_complete(
-                self._get_model_by_id('airports', 'airport_id', iata_code)
-            )
-            # ---
-            
-            if airport_db_dict:
-                logger.debug(f"從資料庫找到機場 {iata_code}")
-                airport_db_dict['source'] = 'database'
-                return airport_db_dict
-
-        except Exception as e:
-            logger.error(f"從資料庫查詢機場 {iata_code} 時出錯: {e}")
-            # 這裡不應返回 None，讓後續邏輯處理
-
-        logger.warning(f"在資料庫中未找到機場資訊: {iata_code}")
-        # 可以在這裡添加從 API 獲取並更新 DB 的邏輯 (如果需要)
+        """獲取機場資訊 - ApiSyncManager 不應直接訪問數據庫"""
+        logger.warning(f"ApiSyncManager.get_airport 被調用 ({iata_code})，但它不應直接訪問數據庫。請從 DbManager 獲取此信息。")
         return None
     
     def sync_airlines(self) -> List[Dict]:
-        """同步航空公司數據 - 當前版本依賴資料庫數據，不執行外部同步"""
-        logger.info("開始同步航空公司數據...")
-        
-        
-        logger.info("航空公司同步功能當前依賴資料庫數據，未執行外部API同步。")
-        
-        # 始終返回空列表，因為此方法不再產生需要處理的外部數據
+        """同步航空公司數據 - 此方法應由數據管理層處理或從外部來源獲取"""
+        logger.warning("ApiSyncManager.sync_airlines 不再執行實際的 API 同步或數據庫操作。航空公司數據應由 DbManager 或管理腳本處理。")
         return []
-    
-    async def get_airline(self, iata_code: str) -> Optional[Dict]:
-        """直接從資料庫獲取航空公司資料 (使用 asyncpg)"""
-        if not iata_code:
-            return None
-            
-        iata_code = iata_code.strip().upper()
-        logger.debug(f"正在從資料庫獲取航空公司資訊: {iata_code}") # 使用模塊 logger
-
-        conn = None
-        try:
-            conn = await get_db() # 獲取 asyncpg 連接
-            if conn is None:
-                logger.error("無法獲取資料庫連接")
-                return None
-
-            # 執行 SQL 查詢
-            # 假設 airlines 表有 airline_id (主鍵), name_zh, name_en 等欄位
-            query = "SELECT airline_id, name_zh, name_en, website, contact_phone, is_domestic FROM airlines WHERE airline_id = $1"
-            row = await conn.fetchrow(query, iata_code)
-
-            if row:
-                logger.debug(f"從資料庫找到航空公司 {iata_code}")
-                # 將查詢結果轉換為字典
-                return {
-                    'airline_id': row['airline_id'],
-                    'name_zh': row['name_zh'],
-                    'name_en': row['name_en'],
-                    'website': row['website'],
-                    'contact_phone': row['contact_phone'],
-                    'is_domestic': row['is_domestic'],
-                    'source': 'database'
-                }
-            else:
-                logger.warning(f"在資料庫中未找到航空公司: {iata_code}")
-                return None
-        except Exception as e:
-            logger.error(f"從資料庫查詢航空公司 {iata_code} 時出錯: {e}")
-            return None
-        finally:
-            if conn:
-                await release_db(conn) # 釋放連接
     
     def sync_flights(self, departure: str, arrival: str, date: Union[dt_datetime, str], days: int = 1) -> List[Dict]:
         """
@@ -442,112 +348,15 @@ class ApiSyncManager:
                 logger.error(f"從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
         # --- 結束 FlightStats API 邏輯 ---
         
-        # *** 在 _add_unique_flights 方法中處理數據庫插入/更新 ***
-        # *** 需要修改 _add_unique_flights 來執行 DB 操作 ***
-        # *** 或者將 DB 操作移回 sync_flights ***
-
         # --- 假設 DB 操作在 _add_unique_flights 之外 --- 
         # --- 我們需要在這裡循環處理格式化後的 flights 列表 --- 
-        async def process_db_operations(pool, flights_to_process):
-            new_count_db = 0
-            update_count_db = 0
-            async with pool.acquire() as conn:
-                for flight in flights_to_process:
-                    try:
-                        # 檢查是否已存在 (使用 flight_number 和 scheduled_departure 日期)
-                        scheduled_dep_dt = parse_datetime(flight['scheduled_departure'])
-                        if not scheduled_dep_dt:
-                            logger.warning(f"跳過航班，無法解析出發時間: {flight.get('flight_number')}")
-                            continue
-                        
-                        # 獲取對應的 airline_id, departure_airport_id, arrival_airport_id (假設已存在)
-                        # 注意: 這裡的實現假設 flight 字典中已有這些 ID
-                        # 實際應用中可能需要先查詢 DB 獲取 ID
-                        airline_id = flight.get('airline_id')
-                        departure_airport_id = flight.get('departure_airport_id')
-                        arrival_airport_id = flight.get('arrival_airport_id')
-                        flight_number = flight.get('flight_number')
-
-                        if not all([airline_id, departure_airport_id, arrival_airport_id, flight_number]):
-                            logger.warning(f"跳過航班，缺少關鍵 ID: {flight}")
-                            continue
-                        
-                        existing_flight = await conn.fetchrow("""
-                            SELECT flight_id FROM flights 
-                            WHERE airline_id = $1 AND 
-                                flight_number = $2 AND 
-                                DATE(scheduled_departure) = DATE($3)
-                        """, airline_id, flight_number, scheduled_dep_dt)
-
-                        # 準備數據 (使用模型欄位)
-                        flight_data_db = {
-                            'flight_number': flight_number,
-                            'airline_id': airline_id,
-                            'departure_airport_id': departure_airport_id,
-                            'arrival_airport_id': arrival_airport_id,
-                            'scheduled_departure': scheduled_dep_dt,
-                            'scheduled_arrival': parse_datetime(flight['scheduled_arrival']),
-                            'aircraft': flight.get('aircraft', ''), # 使用 aircraft
-                            'departure_terminal': flight.get('departure_terminal'),
-                            'arrival_terminal': flight.get('arrival_terminal')
-                        }
-
-                        if existing_flight:
-                            # 更新現有航班
-                            flight_id = existing_flight['flight_id']
-                            await conn.execute("""
-                                UPDATE flights SET
-                                    airline_id = $1,
-                                    departure_airport_id = $2,
-                                    arrival_airport_id = $3,
-                                    scheduled_departure = $4,
-                                    scheduled_arrival = $5,
-                                    aircraft = $6,          -- 使用 aircraft
-                                    departure_terminal = $7,
-                                    arrival_terminal = $8,  -- 修正索引
-                                    updated_at = NOW()
-                                WHERE flight_id = $9         -- 修正索引
-                            """, 
-                            flight_data_db['airline_id'], flight_data_db['departure_airport_id'],
-                            flight_data_db['arrival_airport_id'], flight_data_db['scheduled_departure'],
-                            flight_data_db['scheduled_arrival'], flight_data_db['aircraft'],
-                            flight_data_db['departure_terminal'], flight_data_db['arrival_terminal'], 
-                            flight_id)
-                            update_count_db += 1
-                        else:
-                            # 插入新航班 (flight_id 由 DB default=uuid4 生成)
-                            await conn.execute("""
-                                INSERT INTO flights (
-                                    flight_number, airline_id, departure_airport_id, arrival_airport_id,
-                                    scheduled_departure, scheduled_arrival, aircraft, 
-                                    departure_terminal, arrival_terminal, created_at, updated_at
-                                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-                            """, 
-                            flight_data_db['flight_number'], flight_data_db['airline_id'], 
-                            flight_data_db['departure_airport_id'], flight_data_db['arrival_airport_id'],
-                            flight_data_db['scheduled_departure'], flight_data_db['scheduled_arrival'], 
-                            flight_data_db['aircraft'], flight_data_db['departure_terminal'], 
-                            flight_data_db['arrival_terminal'])
-                            new_count_db += 1
-                            
-                        # 注意：票價同步邏輯 (_sync_ticket_prices) 需要獨立處理或整合
-
-                    except Exception as db_err:
-                        logger.error(f"同步單個航班到 DB 時出錯: {flight.get('flight_number')}, 錯誤: {db_err}", exc_info=False)
-            return new_count_db, update_count_db
+        flights_to_process = flights # 假設這是從 API 獲取的原始數據列表
         
-        # --- 在獲取完所有 flights 後執行 DB 操作 --- 
-        pool = asyncio.get_event_loop().run_until_complete(get_db()) # 這裡需要異步上下文
-        if pool:
-            new_db, updated_db = asyncio.get_event_loop().run_until_complete(
-                process_db_operations(pool, flights)
-            )
-            logger.info(f"數據庫操作完成: 新增 {new_db}, 更新 {updated_db}")
-            # 如果需要釋放連接池，可以在這裡處理，但 get_db/release_db 模式下通常不需要
-        else:
-            logger.error("無法獲取數據庫連接池，跳過數據庫操作")
-
-        return flights # 仍然返回從 API 獲取的列表
+        # 直接返回從 API 獲取的、經過格式化的數據
+        # 注意：這裡可能還需要調用 _add_unique_flights 等邏輯
+        # 但最終目標是返回 API 數據，讓 DbManager 處理數據庫寫入
+        # 示例：假設 flights 已經是最終需要的 API 數據
+        return flights_to_process
     
     def _add_unique_flights(self, target_list: List[Dict], source_flights: List[Dict], flight_keys: set):
         """
@@ -669,27 +478,6 @@ class ApiSyncManager:
 
         logger.info(f"熱門航線同步完成，共處理 {len(all_flights)} 條有效航線")
         return all_flights
-
-    # --- 新增一個輔助方法來異步查詢模型 --- 
-    async def _get_model_by_id(self, table_name: str, id_column: str, id_value: str) -> Optional[Dict]:
-        """異步獲取單個模型記錄"""
-        conn = None
-        try:
-            conn = await get_db()
-            if conn is None: return None
-            # 警告：直接插入表名和列名有SQL注入風險，僅用於內部已知值
-            # 更好的方法是將其參數化或使用 ORM
-            # query = f"SELECT * FROM {table_name} WHERE {id_column} = $1"
-            # 修正為使用正確的主鍵 airline_id 或 airport_id
-            query = f"SELECT * FROM {table_name} WHERE {id_column} = $1"
-            row = await conn.fetchrow(query, id_value)
-            return dict(row) if row else None
-        except Exception as e:
-            logger.error(f"查詢 {table_name} (ID: {id_value}) 時出錯: {e}")
-            return None
-        finally:
-            if conn: await release_db(conn)
-    # ---
 
 def main():
     """主函數，處理命令行參數並執行相應操作"""

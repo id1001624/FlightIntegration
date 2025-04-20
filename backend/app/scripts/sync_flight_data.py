@@ -93,11 +93,11 @@ class FlightDataSyncTool:
         # 首先嘗試從.env加載環境變數
         self._load_env_from_dotenv()
         
-        # 檢查是否有 DATABASE_URL
-        has_database_url = bool(os.getenv('DATABASE_URL'))
+        # 檢查是否有資料庫連接 URI (使用 SQLALCHEMY_DATABASE_URI)
+        has_db_uri = bool(os.getenv('SQLALCHEMY_DATABASE_URI'))
         
-        # 如果沒有 DATABASE_URL，則需要檢查單獨的資料庫環境變數
-        if not has_database_url:
+        # 如果沒有完整的 URI，才需要檢查單獨的資料庫環境變數
+        if not has_db_uri:
             required_vars.extend(['DB_USER', 'DB_PASSWORD', 'DB_HOST', 'DB_PORT', 'DB_NAME'])
         
         # 檢查 API 相關環境變數

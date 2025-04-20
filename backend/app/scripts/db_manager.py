@@ -93,24 +93,16 @@ class DbManager:
         
     def _get_conn_str_from_env(self):
         """從環境變量獲取數據庫連接字符串"""
-        # 優先使用 DATABASE_URL 環境變數
-        database_url = os.environ.get("DATABASE_URL")
-        if database_url:
-            logger.info("使用 DATABASE_URL 環境變數建立資料庫連接")
-            return database_url
-            
-        # 嘗試從環境變量讀取數據庫配置
-        db_host = os.environ.get("DB_HOST")
-        db_port = os.environ.get("DB_PORT", "5432")
-        db_name = os.environ.get("DB_NAME", "flight_integration")
-        db_user = os.environ.get("DB_USER")
-        db_password = os.environ.get("DB_PASSWORD")
-        
-        if not all([db_host, db_user, db_password]):
-            logger.error("環境變量缺少數據庫連接信息")
-            sys.exit(1)
-        
-        return f"host={db_host} port={db_port} dbname={db_name} user={db_user} password={db_password}"
+        # 優先使用 SQLALCHEMY_DATABASE_URI 環境變數
+        database_uri = os.environ.get("SQLALCHEMY_DATABASE_URI")
+        if database_uri:
+            logger.info("使用 SQLALCHEMY_DATABASE_URI 環境變數建立資料庫連接")
+            return database_uri
+
+        # 如果 SQLALCHEMY_DATABASE_URI 不存在，則記錄錯誤並退出
+        # 因為這是預期的主要配置方式
+        logger.error("環境變數 SQLALCHEMY_DATABASE_URI 未設置！")
+        sys.exit(1)
     
     def get_db_connection(self):
         """獲取數據庫連接"""
