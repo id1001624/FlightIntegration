@@ -199,12 +199,12 @@ class SearchService:
                 al.name_zh as airline_name_zh,
                 al.name_en as airline_name_en,
                 al.logo_path as airline_logo_url,
-                tp.price_economy,
-                tp.price_business,
-                tp.price_first,
+                tp.economy_price,
+                tp.business_price,
+                tp.first_price,
                 tp.last_updated as price_last_updated,
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
-                COALESCE(tp.price_economy, 99999999) as sort_price,
+                COALESCE(tp.economy_price, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
                 EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
                 EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算時間差（秒）用於排序
@@ -251,11 +251,11 @@ class SearchService:
         # 價格過濾 (基於經濟艙價格)
         price_filter_sql = ""
         if price_min is not None:
-            price_filter_sql += f" AND tp.price_economy >= ${param_index + 1}"
+            price_filter_sql += f" AND tp.economy_price >= ${param_index + 1}"
             params.append(price_min)
             param_index += 1
         if price_max is not None:
-            price_filter_sql += f" AND tp.price_economy <= ${param_index + 1}"
+            price_filter_sql += f" AND tp.economy_price <= ${param_index + 1}"
             params.append(price_max)
             param_index += 1
             
@@ -413,11 +413,11 @@ class SearchService:
             pool = await init_asyncpg_pool()
             
             # 根據艙等選擇對應的價格欄位
-            price_field = "price_economy"
+            price_field = "economy_price"
             if cabin_class == "商務":
-                price_field = "price_business"
+                price_field = "business_price"
             elif cabin_class == "頭等":
-                price_field = "price_first"
+                price_field = "first_price"
             
             try:
                 conn = await pool.acquire()
@@ -528,11 +528,11 @@ class SearchService:
             history_start_date = start_date_obj - timedelta(days=days_before)
             
             # 根據艙等選擇價格欄位
-            price_field = "price_economy"
+            price_field = "economy_price"
             if cabin_class == "商務":
-                price_field = "price_business"
+                price_field = "business_price"
             elif cabin_class == "頭等":
-                price_field = "price_first"
+                price_field = "first_price"
             
             # 獲取連接池
             pool = await init_asyncpg_pool()
@@ -648,12 +648,12 @@ class SearchService:
                 stats_sql = """
                 WITH PriceStats AS (
                     SELECT 
-                        MIN(tp.price_economy) AS min_economy,
-                        AVG(tp.price_economy) AS avg_economy,
-                        MIN(tp.price_business) AS min_business,
-                        AVG(tp.price_business) AS avg_business,
-                        MIN(tp.price_first) AS min_first,
-                        AVG(tp.price_first) AS avg_first
+                        MIN(tp.economy_price) AS min_economy,
+                        AVG(tp.economy_price) AS avg_economy,
+                        MIN(tp.business_price) AS min_business,
+                        AVG(tp.business_price) AS avg_business,
+                        MIN(tp.first_price) AS min_first,
+                        AVG(tp.first_price) AS avg_first
                     FROM flights f
                     JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
                     JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
@@ -1148,15 +1148,16 @@ class SearchService:
                         al.name_zh as airline_name_zh,
                         al.name_en as airline_name_en,
                         al.logo_path as airline_logo_url, 
-                        tp.price_economy,
-                        tp.price_business,
-                        tp.price_first,
+                        tp.economy_price,
+                        tp.business_price,
+                        tp.first_price,
                         tp.last_updated as price_last_updated,
                         -- 價格排序 (使用 COALESCE 處理 NULL)
                         CASE $1 -- $1 是 class_type
-                            WHEN '商務' THEN COALESCE(tp.price_business, 99999999)
-                            WHEN '頭等' THEN COALESCE(tp.price_first, 99999999)
-                            ELSE COALESCE(tp.price_economy, 99999999) -- 默認經濟艙
+                            WHEN '經濟' THEN COALESCE(tp.economy_price, 99999999) -- 修正：欄位名稱是 economy_price
+                            WHEN '商務' THEN COALESCE(tp.business_price, 99999999) -- 修正：欄位名稱是 business_price
+                            WHEN '頭等' THEN COALESCE(tp.first_price, 99999999) -- 修正：欄位名稱是 first_price
+                            ELSE COALESCE(tp.economy_price, 99999999) -- 修正：欄位名稱是 economy_price
                         END as sort_price,
                         -- 時間排序
                         EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
@@ -1199,11 +1200,11 @@ class SearchService:
 
                 # 價格過濾 (根據 class_type)
                 price_filter_sql = ""
-                price_col_for_filter = "tp.price_economy" # 默認
+                price_col_for_filter = "tp.economy_price" # 默認
                 if class_type == "商務":
-                    price_col_for_filter = "tp.price_business"
+                    price_col_for_filter = "tp.business_price"
                 elif class_type == "頭等":
-                    price_col_for_filter = "tp.price_first"
+                    price_col_for_filter = "tp.first_price"
                 
                 if price_min is not None:
                     price_filter_sql += f" AND {price_col_for_filter} >= ${param_index + 1}"
@@ -1346,9 +1347,9 @@ class SearchService:
                     f.scheduled_arrival AS arrival_time,
                     f.aircraft,
                     f.duration AS duration_minutes,
-                    tp.price_economy,
-                    tp.price_business,
-                    tp.price_first,
+                    tp.economy_price,
+                    tp.business_price,
+                    tp.first_price,
                     tp.available_seats_economy,
                     tp.available_seats_business,
                     tp.available_seats_first
@@ -1546,9 +1547,9 @@ class SearchService:
                     f.scheduled_arrival AS arrival_time,
                     f.aircraft,
                     f.duration AS duration_minutes,
-                    tp.price_economy,
-                    tp.price_business,
-                    tp.price_first,
+                    tp.economy_price,
+                    tp.business_price,
+                    tp.first_price,
                     tp.available_seats_economy,
                     tp.available_seats_business,
                     tp.available_seats_first
