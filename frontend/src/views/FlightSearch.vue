@@ -212,19 +212,14 @@ export default {
         console.log('[FlightSearch] Starting data extraction from response.');
         let flightsData = [];
         try {
-            // **再次修改：直接檢查 response.departure 是否為陣列**
-            // 假設 flightService.searchFlights 返回的是 API 響應的 data 部分
-            if (response && Array.isArray(response.departure)) { 
-                flightsData = response.departure;
-                console.log('[FlightSearch] Extracted flights from response.departure');
-                // 如果需要處理回程，可以在這裡合併或單獨處理
-                // if (response.return && Array.isArray(response.return)) {
-                //     flightsData = flightsData.concat(response.return);
-                //     console.log('[FlightSearch] Appended return flights');
-                // }
+            // *** 最終修正：直接檢查 response 是否為陣列 ***
+            // 因為 flightService.searchFlights 已經處理過，直接返回了航班列表陣列
+            if (Array.isArray(response)) { 
+                flightsData = response; // 直接賦值
+                console.log('[FlightSearch] Extracted flights directly from response array');
             } else {
-                // 添加更詳細的日誌，打印 response 結構以便調試
-                console.warn('[FlightSearch] Unexpected response structure or no departure flights found. Response:', JSON.stringify(response));
+                // 如果收到的不是預期的陣列，記錄警告
+                console.warn('[FlightSearch] Unexpected response format: Expected an array, but received:', response);
                 flightsData = []; // 確保清空
             }
         } catch (extractionError) {
