@@ -903,37 +903,38 @@ class SearchService:
         獲取從指定台灣機場出發可到達的目的地機場列表
         
         Args:
-            departure_airport (str): 出發機場的 ID
-            date (str, optional): 過濾日期 (YYYY-MM-DD)
-            limit (int, optional): 返回結果的最大數量
+            departure_airport_id (str): 出發機場的 ID (IATA 代碼)
+            date (str, optional): 過濾日期 (YYYY-MM-DD 格式)，若提供則只返回該日期有航班的目的地
+            limit (int, optional): 返回結果的最大數量，預設為 100
             
         Returns:
-            List[Dict[str, Any]]: 目的地機場資訊列表
+            List[Dict[str, Any]]: 目的地機場資訊列表，包含代碼、名稱、城市、國家、航班數量和最低價格
+            如果出錯則返回空列表
         """
         pool = None
         conn = None
         
         try:
-            # 從 constants 導入台灣機場列表
-            from ..scripts.constants import TAIWAN_AIRPORTS
-            
-            # 檢查出發機場是否為台灣機場
-            # 注意：departure_airport 現在是 airport_id，而 TAIWAN_AIRPORTS 是 IATA 代碼
-            # 先檢查是否為常數表中的台灣機場 ID（在此情況下直接通過），否則執行查詢
-            
+            # 獲取連接池
             pool = await init_asyncpg_pool()
-            try:
-                conn = await pool.acquire()
-                
-                # 這裡的 SQL 查詢使用 airport_id 而非 iata_code
+            conn = await pool.acquire()
+            
+            # 轉換參數
+            departure_airport = departure_airport.upper()
+            
+            # 構建 SQL 查詢，根據是否有日期參數調整
+            params = [departure_airport, limit]
+            
+            if date:
+                # 如果提供了日期參數，只返回該日期有航班的目的地
                 sql = """
-                SELECT DISTINCT
+                SELECT DISTINCT 
                     arr.airport_id,
-                    arr.name_zh AS airport_name,
+                    arr.name_zh, -- 改回 name_zh，移除 airport_name 別名
                     arr.city,
                     arr.country,
                     COUNT(f.flight_id) AS flight_count,
-                    MIN(tp.economy_price) AS min_price -- 修改為使用 tp.economy_price
+                    MIN(tp.economy_price) AS min_price
                 FROM 
                     flights f
                 JOIN 
@@ -941,37 +942,71 @@ class SearchService:
                 JOIN 
                     airports arr ON f.arrival_airport_id = arr.airport_id
                 LEFT JOIN
-                    ticket_prices tp ON f.flight_id = tp.flight_id -- 添加 LEFT JOIN
+                    ticket_prices tp ON f.flight_id = tp.flight_id
                 WHERE 
                     dep.airport_id = $1
-                    AND tp.economy_price IS NOT NULL -- 確保經濟艙價格存在
+                    AND tp.economy_price IS NOT NULL
+                    AND DATE(f.scheduled_departure) = $3
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
                     arr.city
                 LIMIT $2
                 """
+                # 將日期字串轉換為 SQL 參數
+                params.append(date)
+            else:
+                # 不過濾日期，返回所有目的地
+                sql = """
+                SELECT DISTINCT
+                    arr.airport_id,
+                    arr.name_zh, -- 改回 name_zh，移除 airport_name 別名
+                    arr.city,
+                    arr.country,
+                    COUNT(f.flight_id) AS flight_count,
+                    MIN(tp.economy_price) AS min_price
+                FROM 
+                    flights f
+                JOIN 
+                    airports dep ON f.departure_airport_id = dep.airport_id
+                JOIN 
+                    airports arr ON f.arrival_airport_id = arr.airport_id
+                LEFT JOIN
+                    ticket_prices tp ON f.flight_id = tp.flight_id
+                WHERE 
+                    dep.airport_id = $1
+                    AND tp.economy_price IS NOT NULL
+                GROUP BY 
+                    arr.airport_id, arr.name_zh, arr.city, arr.country
+                ORDER BY 
+                    arr.city
+                LIMIT $2
+                """
+            
+            # 執行查詢
+            rows = await conn.fetch(sql, *params)
+            destinations = [dict(row) for row in rows]
+            
+            # 添加日誌記錄返回的數據
+            logger.info(f"從機場ID {departure_airport} 查詢到的目的地數據: {destinations}")
+            
+            logger.info(f"成功獲取從機場ID {departure_airport} 出發的目的地，共 {len(destinations)} 個目的地 {' (過濾日期: ' + date + ')' if date else ''}")
+            return destinations
                 
-                rows = await conn.fetch(sql, departure_airport, limit)
-                destinations = [dict(row) for row in rows]
-                
-                logger.info(f"成功獲取從機場ID {departure_airport} 出發的目的地，共 {len(destinations)} 個目的地")
-                return destinations
-                
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略特定異常
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
-                        
         except Exception as e:
             logger.error(f"獲取從機場ID {departure_airport} 出發的目的地時出錯: {e}", exc_info=True)
             return []
+            
+        finally:
+            # 確保連接被釋放，即使發生錯誤
+            if conn and pool:
+                try:
+                    await pool.release(conn)
+                except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
+                    # 忽略特定異常
+                    logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
+                except Exception as e:
+                    logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
 
     @staticmethod
     async def get_flight_details_by_id(flight_id: str) -> Optional[Dict[str, Any]]:
