@@ -262,13 +262,13 @@ class SearchService:
         # 排序條件
         sort_order_sql = ""
         if sort_by == "price":
-            sort_order_sql = " ORDER BY sort_price ASC, f.scheduled_departure ASC" # 價格優先，然後起飛時間
+            sort_order_sql = " ORDER BY sort_price ASC, sort_departure_time ASC" # 價格優先，然後起飛時間
         elif sort_by == "duration":
             sort_order_sql = " ORDER BY sort_duration ASC, sort_price ASC" # 時長優先，然後價格
         elif sort_by == "departure_time":
             sort_order_sql = " ORDER BY sort_departure_time ASC, sort_price ASC" # 起飛時間優先，然後價格
         else: # 默認按價格排序
-            sort_order_sql = " ORDER BY sort_price ASC, f.scheduled_departure ASC"
+            sort_order_sql = " ORDER BY sort_price ASC, sort_departure_time ASC"
 
         # 添加結果數量限制參數
         params.append(max_results)
@@ -292,88 +292,75 @@ class SearchService:
             return []
 
     @staticmethod
-    async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str) -> List[Dict[str, Any]]:
+    async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str = 'ECONOMY') -> List[Dict[str, Any]]:
         """
-        格式化航班列表為API響應格式，並從數據庫獲取票價數據
+        格式化航班信息
         
         Args:
-            flights: 從數據庫獲取的航班列表
-            cabin_class: 目標艙位等級
-        
+            flights: 航班信息
+            cabin_class: 艙位類型
+            
         Returns:
-            List[Dict[str, Any]]: 格式化後的航班列表，包含票價
+            List[Dict[str, Any]]: 格式化後的航班信息
         """
-        formatted = []
-        if not flights:
-            return []
-        
-        # 一次性獲取所有相關航班的票價
-        flight_ids = [f['flight_id'] for f in flights]
-        # 假設有異步方法可以獲取票價
-        from app.services.price_service import PriceService
-        # 修改：調用新的批量方法
-        prices = await PriceService.get_prices_for_flights_batch(flight_ids)
+        result = []
         
         for flight in flights:
-            # 查找此航班和艙位的價格 - 使用批量獲取的結果
-            flight_price_info = prices.get(str(flight['flight_id']), {}).get(cabin_class)
-            
-            # 如果找不到指定艙位價格，則跳過此航班（或設置為None，取決於需求）
-            if not flight_price_info:
-                # logger.debug(f"航班 {flight['flight_number']} ({flight['flight_id']}) 找不到艙位 '{cabin_class}' 的價格信息，跳過。")
-                continue
+            # 獲取價格
+            price = None
+            if cabin_class == 'ECONOMY':
+                price = flight.get('amount')
+            elif cabin_class == 'BUSINESS':
+                price = flight.get('amount')  # 應使用 business_price，但目前 SQL 中使用同一價格欄位
+            elif cabin_class == 'FIRST':
+                price = flight.get('amount')  # 應使用 first_price，但目前 SQL 中使用同一價格欄位
                 
-            # 計算飛行時長（如果數據庫查詢未提供）
-            # 假設 scheduled_departure 和 scheduled_arrival 已經在 flight 字典中
-            duration_minutes = None
-            dep_time = flight.get('scheduled_departure')
-            arr_time = flight.get('scheduled_arrival')
-            if dep_time and arr_time:
-                try:
-                    duration = arr_time - dep_time
-                    duration_minutes = int(duration.total_seconds() / 60)
-                except TypeError as e:
-                    logger.warning(f"無法計算航班 {flight['flight_number']} ({flight['flight_id']}) 的時長: {e}")
+            # 計算飛行時間（分鐘）
+            departure_time = flight.get('scheduled_departure')
+            arrival_time = flight.get('scheduled_arrival')
+            duration_minutes = 0
             
+            if departure_time and arrival_time:
+                duration = arrival_time - departure_time
+                duration_minutes = int(duration.total_seconds() / 60)
+                
             formatted_flight = {
-                'flight_id': str(flight['flight_id']), # 確保是字符串
-                'flight_number': flight['flight_number'],
-                # --- 添加時間日期欄位 --- 
-                'scheduled_departure': flight.get('scheduled_departure'), 
-                'scheduled_arrival': flight.get('scheduled_arrival'),
-                # -----------------------
-                'duration_minutes': duration_minutes,
+                'flight_id': flight.get('flight_id'),
+                'flight_number': flight.get('flight_number'),
                 'airline': {
-                    'code': flight['airline_iata'],
-                    'name_zh': flight['airline_name_zh'],
-                    'name_en': flight['airline_name_en'],
-                    'is_domestic': flight['airline_is_domestic'],
-                    'logo_path': flight['airline_logo_url']
+                    'id': flight.get('airline_id'),
+                    'iata': flight.get('airline_iata', ''),
+                    'name_zh': flight.get('airline_name_zh', ''),
+                    'name_en': flight.get('airline_name_en', ''),
+                    'is_domestic': flight.get('airline_is_domestic', False),
+                    'logo_url': flight.get('airline_logo_url', '')  # 使用正確的欄位名稱
                 },
                 'departure_airport': {
-                    'airport_id': flight.get('departure_airport_id'),
-                    'code': flight.get('departure_iata'),
-                    'name': flight.get('departure_name'),
-                    'city': flight.get('departure_city'),
-                    'country': flight.get('departure_country')
+                    'id': flight.get('departure_airport_id'),
+                    'iata': flight.get('departure_iata', ''),
+                    'name': flight.get('departure_name', ''),
+                    'city': flight.get('departure_city', ''),
+                    'country': flight.get('departure_country', '')
                 },
                 'arrival_airport': {
-                    'airport_id': flight.get('arrival_airport_id'),
-                    'code': flight.get('arrival_iata'),
-                    'name': flight.get('arrival_name'),
-                    'city': flight.get('arrival_city'),
-                    'country': flight.get('arrival_country')
+                    'id': flight.get('arrival_airport_id'),
+                    'iata': flight.get('arrival_iata', ''),
+                    'name': flight.get('arrival_name', ''),
+                    'city': flight.get('arrival_city', ''),
+                    'country': flight.get('arrival_country', '')
                 },
-                'price': { # 使用從 PriceService 獲取的價格信息
-                    'amount': flight_price_info['amount'],
-                    'cabin_class': flight_price_info['cabin_class'],
-                    'available_seats': flight_price_info['available_seats']
-                }
-                # 可以在這裡添加其他需要的字段
+                'departure_time': departure_time.isoformat() if departure_time else None,
+                'arrival_time': arrival_time.isoformat() if arrival_time else None,
+                'duration_minutes': duration_minutes,
+                'price': price,
+                'cabin_class': cabin_class,
+                'available_seats': flight.get('available_seats', 0),
+                'status': flight.get('status', 'UNKNOWN')
             }
-            formatted.append(formatted_flight)
             
-        return formatted
+            result.append(formatted_flight)
+            
+        return result
     
     @staticmethod
     async def get_low_fare_calendar(
@@ -1091,191 +1078,161 @@ class SearchService:
             logger.error(f"獲取航班ID {flight_id} 的詳細信息時出錯: {e}", exc_info=True)
             return None
 
-    @staticmethod
+    @classmethod
     async def search_flights_from_taiwan(
-        arrival_iata: str,
-        date_str: str,
+        cls,
+        arrival_airport_id: Optional[str] = None,
+        date: Optional[datetime.date] = None,
         airlines: Optional[List[str]] = None,
-        price_min: Optional[float] = None, # Use float for price
-        price_max: Optional[float] = None,
-        class_type: str = "經濟",
-        passengers: int = 1, # Added passengers, though not used in query yet
-        max_results_total: int = 50, # Limit total results
-        sort_by: str = "price"
+        price_min: Optional[int] = None, 
+        price_max: Optional[int] = None,
+        cabin_class: str = 'ECONOMY',
+        passengers: int = 1,
+        max_results: int = 10,
+        sort_by: str = 'price',
+        sort_order: str = 'asc'
     ) -> List[Dict[str, Any]]:
         """
-        從所有台灣機場搜索飛往特定目的地的航班
+        從台灣機場出發到指定目的地的航班搜索
         
         Args:
-            arrival_iata: 目的地機場的ID
-            date_str: 日期 (YYYY-MM-DD)
-            airlines: 航空公司ID列表，可選
-            price_min: 最低價格，可選
-            price_max: 最高價格，可選
-            class_type: 艙位類型
-            passengers: 乘客數量 (目前未直接用於 SQL 查詢)
-            max_results_total: 總最大結果數
-            sort_by: 排序方式 ("price", "duration", "departure_time")
+            arrival_airport_id: 到達機場ID
+            date: 出發日期
+            airlines: 航空公司IATA代碼列表
+            price_min: 最低價格
+            price_max: 最高價格
+            cabin_class: 艙位等級，預設為 'ECONOMY'
+            passengers: 乘客數量
+            max_results: 最大結果數
+            sort_by: 排序方式，'price' 或 'departure_time'
+            sort_order: 排序順序，'asc' 或 'desc'
             
         Returns:
-            List[Dict[str, Any]]: 格式化後的航班列表
+            List[Dict[str, Any]]: 航班列表
         """
-        pool = None
-        conn = None
-        final_sql = None # 初始化，用於錯誤日誌
-        params = None # 初始化，用於錯誤日誌
-        
         try:
-            # 解析日期
-            flight_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            start_of_day = datetime.combine(flight_date, datetime.min.time())
-            end_of_day = datetime.combine(flight_date, datetime.max.time())
-            logger.info(f"台灣出發查詢日期範圍: {start_of_day} 到 {end_of_day}")
-        except ValueError:
-            logger.error(f"台灣出發搜索日期格式錯誤: {date_str}")
-            return []
-
-        try:
+            # 獲取台灣機場ID列表
+            taiwan_airports = await cls.get_taiwan_airports()
+            if not taiwan_airports:
+                logger.error("無法獲取台灣機場列表")
+                return []
+            
+            taiwan_airport_ids = [airport['airport_id'] for airport in taiwan_airports]
+            
             pool = await init_asyncpg_pool()
-            try:
-                conn = await pool.acquire()
+            async with pool.acquire() as conn:
+                # 構建查詢條件
+                conditions = ["f.departure_airport_id = ANY($1)"]
+                params = [taiwan_airport_ids]
                 
-                # 從 constants 導入台灣機場列表 (在我們的情況下是airport_id，而非iata_code)
-                from ..scripts.constants import TAIWAN_AIRPORTS
-
-                # 構建 SQL 查詢
-                sql = """
-                WITH RankedFlights AS (
-                    SELECT 
-                        f.flight_id, 
-                        f.flight_number, 
-                        f.scheduled_departure, 
-                        f.scheduled_arrival, 
-                        a_dep.airport_id as departure_airport_id, 
-                        a_dep.name_zh as departure_name,
-                        a_dep.city as departure_city,
-                        a_dep.country as departure_country,
-                        a_arr.airport_id as arrival_airport_id, 
-                        a_arr.name_zh as arrival_name,
-                        a_arr.city as arrival_city,
-                        a_arr.country as arrival_country,
-                        al.airline_id as airline_id, 
-                        al.name_zh as airline_name_zh,
-                        al.name_en as airline_name_en,
-                        al.logo_path as airline_logo_url, 
-                        tp.economy_price,
-                        tp.business_price,
-                        tp.first_price,
-                        tp.price_updated_at as price_last_updated, -- 修正：欄位名稱是 price_updated_at 而非 last_updated
-                        -- 價格排序 (使用 COALESCE 處理 NULL)
-                        CASE $1 -- $1 是 class_type
-                            WHEN '經濟' THEN COALESCE(tp.economy_price, 99999999) -- 修正：欄位名稱是 economy_price
-                            WHEN '商務' THEN COALESCE(tp.business_price, 99999999) -- 修正：欄位名稱是 business_price
-                            WHEN '頭等' THEN COALESCE(tp.first_price, 99999999) -- 修正：欄位名稱是 first_price
-                            ELSE COALESCE(tp.economy_price, 99999999) -- 修正：欄位名稱是 economy_price
-                        END as sort_price,
-                        -- 時間排序
-                        EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
-                        -- f.duration as sort_duration, -- 修改
-                        EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) as sort_duration, -- 計算秒數用於排序
-                        -- 分區排序，取最新價格
-                        ROW_NUMBER() OVER (
-                            PARTITION BY f.flight_number, f.scheduled_departure::date 
-                            ORDER BY tp.price_updated_at DESC -- 修正：欄位名稱是 price_updated_at 而非 last_updated
-                        ) as rn
-                    FROM flights f
-                    JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
-                    JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
-                    JOIN airlines al ON f.airline_id = al.airline_id
-                    LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                    WHERE f.departure_airport_id = ANY($2::text[]) -- $2 是 TAIWAN_AIRPORTS (機場ID陣列)
-                      AND f.arrival_airport_id = $3 -- $3 是 arrival_iata (目的地機場ID)
-                      AND f.scheduled_departure >= $4 -- $4 是 start_of_day
-                      AND f.scheduled_departure <= $5 -- $5 是 end_of_day
-                      {airline_filter}
-                      {price_filter}
-                )
-                SELECT * 
-                FROM RankedFlights 
-                WHERE rn = 1
-                {sort_order}
-                LIMIT $6; -- $6 是 max_results_total
-                """
-
-                params = [class_type, TAIWAN_AIRPORTS, arrival_iata, start_of_day, end_of_day]
-                param_index = 5 # LIMIT 是第6個參數 ($6)
-
-                # 航空公司過濾
-                airline_filter_sql = ""
-                if airlines:
-                    airline_placeholders = ', '.join(f'${i}' for i in range(param_index + 1, param_index + 1 + len(airlines)))
-                    airline_filter_sql = f" AND al.airline_id IN ({airline_placeholders})"
-                    params.extend(airlines)
-                    param_index += len(airlines)
-
-                # 價格過濾 (根據 class_type)
-                price_filter_sql = ""
-                price_col_for_filter = "tp.economy_price" # 默認
-                if class_type == "商務":
-                    price_col_for_filter = "tp.business_price"
-                elif class_type == "頭等":
-                    price_col_for_filter = "tp.first_price"
+                param_index = 2
+                
+                if arrival_airport_id:
+                    conditions.append(f"f.arrival_airport_id = ${param_index}")
+                    params.append(arrival_airport_id)
+                    param_index += 1
+                
+                if date:
+                    conditions.append(f"DATE(f.scheduled_departure) = ${param_index}")
+                    params.append(date)
+                    param_index += 1
+                
+                if airlines and len(airlines) > 0:
+                    placeholders = []
+                    for airline in airlines:
+                        placeholders.append(f"${param_index}")
+                        params.append(airline)
+                        param_index += 1
+                    conditions.append(f"al.airline_id IN ({', '.join(placeholders)})")
                 
                 if price_min is not None:
-                    price_filter_sql += f" AND {price_col_for_filter} >= ${param_index + 1}"
+                    conditions.append(f"tp.economy_price >= ${param_index}")
                     params.append(price_min)
                     param_index += 1
+                
                 if price_max is not None:
-                    price_filter_sql += f" AND {price_col_for_filter} <= ${param_index + 1}"
+                    conditions.append(f"tp.economy_price <= ${param_index}")
                     params.append(price_max)
                     param_index += 1
-                    
-                # 排序條件
-                sort_order_sql = ""
-                if sort_by == "price":
-                    sort_order_sql = " ORDER BY sort_price ASC, sort_departure_time ASC"
-                elif sort_by == "duration":
-                    sort_order_sql = " ORDER BY sort_duration ASC, sort_price ASC"
-                elif sort_by == "departure_time":
-                    sort_order_sql = " ORDER BY sort_departure_time ASC, sort_price ASC"
-                else:
-                    sort_order_sql = " ORDER BY sort_price ASC, sort_departure_time ASC" # 默認價格
-
-                # 添加總結果數限制參數
-                params.append(max_results_total)
-
-                # 格式化最終 SQL
-                final_sql = sql.format(
-                    airline_filter=airline_filter_sql,
-                    price_filter=price_filter_sql,
-                    sort_order=sort_order_sql
+                
+                # 決定排序方式
+                sort_column = "tp.economy_price" if sort_by == 'price' else "f.scheduled_departure"
+                sort_direction = "ASC" if sort_order.lower() == 'asc' else "DESC"
+                
+                # 構建 CTE 查詢，確保在 RankedFlights 中包含所有需要的欄位
+                query = f"""
+                WITH RankedFlights AS (
+                    SELECT 
+                        f.flight_id,
+                        f.flight_number,
+                        f.scheduled_departure,
+                        f.scheduled_arrival,
+                        f.aircraft,
+                        f.departure_terminal,
+                        f.arrival_terminal,
+                        EXTRACT(EPOCH FROM (f.scheduled_arrival - f.scheduled_departure)) / 60 AS duration_minutes,
+                        al.airline_id,
+                        al.iata_code as airline_iata,
+                        al.name_zh as airline_name_zh,
+                        al.name_en as airline_name_en, 
+                        COALESCE(al.is_domestic, FALSE) as airline_is_domestic,
+                        al.logo_path as airline_logo_url,
+                        dep.airport_id as departure_airport_id,
+                        dep.iata_code as departure_iata,
+                        dep.name_zh as departure_name,
+                        dep.city as departure_city,
+                        dep.country as departure_country,
+                        arr.airport_id as arrival_airport_id,
+                        arr.iata_code as arrival_iata,
+                        arr.name_zh as arrival_name,
+                        arr.city as arrival_city,
+                        arr.country as arrival_country,
+                        tp.economy_price as amount,
+                        tp.available_seats,
+                        tp.class_type as cabin_class,
+                        {sort_column} as sort_key,
+                        ROW_NUMBER() OVER (PARTITION BY f.flight_number ORDER BY {sort_column} {sort_direction}) as rank
+                    FROM 
+                        flights f
+                    JOIN 
+                        airports dep ON f.departure_airport_id = dep.airport_id
+                    JOIN 
+                        airports arr ON f.arrival_airport_id = arr.airport_id
+                    JOIN 
+                        airlines al ON f.airline_id = al.airline_id
+                    JOIN 
+                        ticket_prices tp ON f.flight_id = tp.flight_id
+                    WHERE 
+                        {" AND ".join(conditions)}
+                        AND tp.class_type = ${param_index}
+                        AND tp.available_seats >= ${param_index + 1}
                 )
+                SELECT * FROM RankedFlights 
+                WHERE rank = 1
+                ORDER BY sort_key {sort_direction}
+                LIMIT ${param_index + 2};
+                """
                 
-                logger.debug(f"Executing search from Taiwan SQL: {final_sql} with params: {params}")
+                params.extend([cabin_class, passengers, max_results])
                 
-                rows = await conn.fetch(final_sql, *params)
-                logger.info(f"從台灣機場查詢到 {len(rows)} 條飛往 {arrival_iata} 的航班記錄")
-                
-                # 格式化結果
-                formatted_flights = await SearchService._format_flights([dict(row) for row in rows], class_type)
-                return formatted_flights
-                
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略特定異常
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
-
+                try:
+                    rows = await conn.fetch(query, *params)
+                    flights = [dict(row) for row in rows]
+                    
+                    # 格式化航班數據
+                    formatted_flights = await cls._format_flights(flights, cabin_class)
+                    logger.info(f"成功搜索到 {len(formatted_flights)} 個台灣出發航班")
+                    return formatted_flights
+                    
+                except asyncpg.exceptions.PostgresError as e:
+                    logger.error(f"搜索台灣出發航班數據庫錯誤: {e}")
+                    raise
+                except Exception as e:
+                    logger.error(f"搜索台灣出發航班時發生錯誤: {e}")
+                    raise
+        
         except Exception as e:
-            if final_sql and params:
-                logger.error(f"從台灣搜索航班時出錯: {e}\nSQL: {final_sql}\nParams: {params}", exc_info=True)
-            else:
-                logger.error(f"從台灣搜索航班時出錯: {e}", exc_info=True)
+            logger.error(f"搜索台灣出發航班時發生未處理錯誤: {e}")
             return []
 
     @staticmethod
@@ -1303,205 +1260,7 @@ class SearchService:
         logger.warning("調用了 get_flights_from_taiwan，建議使用 search_flights_from_taiwan 以獲得更多過濾選項。")
         # 直接調用更通用的搜索函數，傳遞必要參數
         return await SearchService.search_flights_from_taiwan(
-            arrival_iata=arrival_iata,
-            date_str=date_str,
-            class_type=cabin_class,
-            max_results_total=max_results,
-            sort_by="price" # 默認按價格排序
-        )
-
-    @staticmethod
-    async def get_flights_by_route(dep_airport: str, arr_airport: str, 
-                                   from_date: str = None, to_date: str = None,
-                                   limit: int = 100) -> List[Dict[str, Any]]:
-        """
-        根據出發和到達機場獲取航班信息
-        
-        Args:
-            dep_airport (str): 出發機場 ID
-            arr_airport (str): 到達機場 ID
-            from_date (str, optional): 開始日期 (YYYY-MM-DD)
-            to_date (str, optional): 結束日期 (YYYY-MM-DD)
-            limit (int, optional): 返回結果的最大數量，默認為 100
-            
-        Returns:
-            List[Dict[str, Any]]: 航班信息列表
-        """
-        pool = None
-        conn = None
-        
-        try:
-            pool = await init_asyncpg_pool()
-            try:
-                conn = await pool.acquire()
-                
-                params = [dep_airport, arr_airport]
-                date_condition = ""
-                
-                if from_date:
-                    date_condition += " AND f.scheduled_departure >= $3"
-                    params.append(from_date)
-                
-                if to_date:
-                    date_condition += f" AND f.scheduled_departure <= ${len(params) + 1}"
-                    params.append(to_date)
-                
-                sql = f"""
-                SELECT 
-                    f.flight_id,
-                    f.flight_number,
-                    al.airline_id,
-                    al.name_zh AS airline_name,
-                    a_dep.airport_id AS departure_airport,
-                    a_dep.name_zh AS departure_airport_name,
-                    a_dep.city AS departure_city,
-                    a_arr.airport_id AS arrival_airport,
-                    a_arr.name_zh AS arrival_airport_name,
-                    a_arr.city AS arrival_city,
-                    f.scheduled_departure AS departure_time,
-                    f.scheduled_arrival AS arrival_time,
-                    f.aircraft,
-                    f.duration AS duration_minutes,
-                    tp.economy_price,
-                    tp.business_price,
-                    tp.first_price,
-                    tp.available_seats
-                FROM flights f
-                JOIN airlines al ON f.airline_id = al.airline_id
-                JOIN airports a_dep ON f.departure_airport_id = a_dep.airport_id
-                JOIN airports a_arr ON f.arrival_airport_id = a_arr.airport_id
-                LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-                WHERE a_dep.airport_id = $1 
-                AND a_arr.airport_id = $2
-                {date_condition}
-                ORDER BY f.scheduled_departure
-                LIMIT ${len(params) + 1}
-                """
-                
-                # 添加 limit 參數
-                params.append(limit)
-                
-                rows = await conn.fetch(sql, *params)
-                flights = [dict(row) for row in rows]
-                
-                logger.info(f"成功獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班，共 {len(flights)} 個航班")
-                return flights
-                
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略特定異常
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
-        
-        except Exception as e:
-            logger.error(f"獲取從機場ID {dep_airport} 到機場ID {arr_airport} 的航班時出錯: {e}", exc_info=True)
-            return [] 
-
-    @staticmethod
-    async def get_popular_flights(
-        max_results: int = 20,
-        cabin_class: str = "經濟"
-    ) -> List[Dict[str, Any]]:
-        """
-        獲取預定義的熱門航線的航班信息
-        
-        Args:
-            max_results: 每個熱門航線顯示的最大航班數
-            cabin_class: 用於格式化價格的艙位
-            
-        Returns:
-            List[Dict[str, Any]]: 熱門航班列表，包含航線信息和航班詳情
-        """
-        pool = None
-        conn = None
-        all_popular_flights_details = []
-        
-        # 使用常量中的航線元組 (注意：需要修改為使用 airport_id 而非 iata_code)
-        popular_routes = FRONTEND_POPULAR_ROUTES_TUPLES 
-        today_str = datetime.now().strftime("%Y-%m-%d")
-
-        try:
-            pool = await init_asyncpg_pool()
-            try:
-                conn = await pool.acquire()
-                
-                for dep_id, arr_id in popular_routes:
-                    logger.info(f"正在查詢熱門航線: 機場ID {dep_id} -> 機場ID {arr_id} (日期: {today_str})")
-                    # 調用 _query_flights 獲取當天該航線的航班數據
-                    # 注意: _query_flights 需要 conn
-                    route_flights_raw = await SearchService._query_flights(
-                        conn,
-                        dep_id, 
-                        arr_id, 
-                        today_str, 
-                        max_results=max_results, # 限制每個航線的結果數
-                        sort_by="price" # 按價格排序
-                        # 其他過濾條件可以按需添加
-                    )
-                    
-                    # 格式化查詢到的航班
-                    formatted_route_flights = await SearchService._format_flights(route_flights_raw, cabin_class)
-                    
-                    if formatted_route_flights:
-                        # 添加航線信息到結果中
-                        all_popular_flights_details.append({
-                            "departure_id": dep_id,
-                            "arrival_id": arr_id,
-                            "flights": formatted_route_flights 
-                        })
-                        logger.info(f"找到 {len(formatted_route_flights)} 個從 {dep_id} 到 {arr_id} 的航班")
-                    else:
-                        logger.info(f"未找到從 {dep_id} 到 {arr_id} 的今日航班")
-
-                logger.info(f"共獲取到 {len(all_popular_flights_details)} 個熱門航線的航班數據")
-                return all_popular_flights_details
-                
-            finally:
-                # 確保連接被釋放，即使發生錯誤
-                if conn:
-                    try:
-                        await pool.release(conn)
-                    except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                        # 忽略特定異常
-                        logger.warning(f"在釋放連接時發生可忽略的異常: {e}")
-                    except Exception as e:
-                        logger.error(f"在釋放連接時發生未預期的異常: {e}", exc_info=True)
-
-        except Exception as e:
-            logger.error(f"獲取熱門航班時出錯: {e}", exc_info=True)
-            return [] # 返回空列表表示錯誤
-
-    @staticmethod
-    async def get_flights_from_taiwan(
-        arrival_iata: str,
-        date_str: str,
-        max_results: int = 50,
-        cabin_class: str = "經濟"
-    ) -> List[Dict[str, Any]]:
-        """
-        從所有台灣機場獲取飛往特定目的地的航班
-        
-        注意: 此方法與 search_flights_from_taiwan 功能重疊，建議使用後者以獲得更多過濾選項。
-        保留此方法是為了向後兼容性。
-        
-        Args:
-            arrival_iata (str): 目的地機場ID
-            date_str (str): 日期 (YYYY-MM-DD)
-            max_results (int, optional): 最大結果數，默認為50
-            cabin_class (str, optional): 艙位類型，默認為"經濟"
-            
-        Returns:
-            List[Dict[str, Any]]: 格式化後的航班列表
-        """
-        logger.warning("調用了 get_flights_from_taiwan，建議使用 search_flights_from_taiwan 以獲得更多過濾選項。")
-        # 直接調用更通用的搜索函數，傳遞必要參數
-        return await SearchService.search_flights_from_taiwan(
-            arrival_iata=arrival_iata,
+            arrival_airport_id=arrival_iata,
             date_str=date_str,
             class_type=cabin_class,
             max_results_total=max_results,
