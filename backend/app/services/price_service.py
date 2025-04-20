@@ -3,12 +3,14 @@
 處理機票價格相關的業務邏輯
 """
 from datetime import datetime, timedelta
+# 從 ..database.db 導入異步連接池初始化函數
+from ..database.db import init_asyncpg_pool 
 from ..models import TicketPrice, Flight, Airline, PriceHistory
 from ..models.base import db
 from sqlalchemy import func, desc, exc as sqlalchemy_exc
 from flask import current_app
 import logging
-from sqlalchemy import text
+import asyncpg # 確保導入 asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +23,7 @@ class PriceService:
     @staticmethod
     async def get_price_by_flight(flight_id, class_type=None):
         """
-        獲取航班的票價信息
+        獲取航班的票價信息 (使用 asyncpg)
         
         Args:
             flight_id: 航班ID
@@ -30,40 +32,45 @@ class PriceService:
         Returns:
             list: 票價列表
         """
-        db = None  # Initialize db to None
+        pool = await init_asyncpg_pool() # 獲取連接池
         try:
-            from ..database.db import get_db, release_db
-            db = await get_db()
-            query = text("""
-                SELECT class_type, base_price, available_seats, price_updated_at
-                FROM ticket_prices
-                WHERE flight_id = :flight_id
-                """ + (" AND class_type = :class_type" if class_type else ""))
+            async with pool.acquire() as conn: # 從連接池獲取連接
+                # 構建基礎查詢字符串
+                base_query = """
+                    SELECT class_type, base_price, available_seats, price_updated_at
+                    FROM ticket_prices
+                    WHERE flight_id = $1
+                """ # 修正: SQL 內容移到下一行並正確縮排
+                
+                params = [flight_id] # 參數列表
+                query_string = base_query # 初始化查詢字符串
+                
+                # 如果提供了艙等，添加條件
+                if class_type:
+                    query_string += " AND class_type = $2" # 修正: 字串使用雙引號包覆
+                    params.append(class_type)
 
-            params = {"flight_id": flight_id}
-            if class_type:
-                params["class_type"] = class_type
+                # 使用 conn.fetch 執行查詢
+                results = await conn.fetch(query_string, *params) # 傳遞查詢字符串和參數
+                prices = results
 
-            results = await db.fetch(query, params)
-            prices = results
-
-            return [{
-                'class_type': price['class_type'],
-                'price': float(price['base_price']) if price['base_price'] is not None else None,
-                'available_seats': price['available_seats'],
-                'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
-            } for price in prices]
-        except Exception as e:
-            logger.error(f"Error fetching price for flight {flight_id}: {e}", exc_info=True)
+                return [{
+                    'class_type': price['class_type'],
+                    'price': float(price['base_price']) if price['base_price'] is not None else None,
+                    'available_seats': price['available_seats'],
+                    'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
+                } for price in prices]
+        except asyncpg.PostgresError as pg_err: # 捕捉 asyncpg 錯誤
+            logger.error(f"Error fetching price for flight {flight_id} using asyncpg: {pg_err}", exc_info=True)
             return []
-        finally:
-            if db:
-                await release_db(db)
+        except Exception as e:
+            logger.error(f"Unexpected error fetching price for flight {flight_id}: {e}", exc_info=True)
+            return []
     
     @staticmethod
     async def get_prices_for_flights_batch(flight_ids: list[str]) -> dict[str, dict[str, dict]]:
         """
-        批量獲取多個航班的所有艙位價格信息。
+        批量獲取多個航班的所有艙位價格信息 (使用 asyncpg)。
 
         Args:
             flight_ids: 航班 ID 列表。
@@ -76,52 +83,46 @@ class PriceService:
         if not flight_ids:
             return {}
 
-        db = None
         prices_map = {}
+        pool = await init_asyncpg_pool() # 獲取連接池
         try:
-            from ..database.db import get_db, release_db
-            db = await get_db()
-
-            # 確保 flight_ids 中的 ID 是 UUID 對象或兼容的字符串格式
-            # 如果 flight_ids 是字符串列表，且確定它們是有效的 UUID 格式，可以直接使用
-
-            # 修改：移除 currency 欄位
-            price_query = text("""
-            SELECT flight_id, class_type, base_price, available_seats, price_updated_at 
-            FROM ticket_prices
-            WHERE flight_id = ANY($1)  -- 使用 $1
-            """)
-            
-            # 修改：直接傳遞 flight_ids 列表作為參數
-            price_records = await db.fetch(str(price_query), flight_ids)
-            
-            for record in price_records:
-                flight_id_str = str(record['flight_id'])
-                cabin_class = record['class_type']
-                if flight_id_str not in prices_map:
-                    prices_map[flight_id_str] = {}
+            async with pool.acquire() as conn: # 從連接池獲取連接
+                # SQL 查詢字符串
+                price_query_str = """
+                SELECT flight_id, class_type, base_price, available_seats, price_updated_at
+                FROM ticket_prices
+                WHERE flight_id = ANY($1::uuid[])
+                """ # 修正: SQL 內容移到下一行並正確縮排
                 
-                prices_map[flight_id_str][cabin_class] = {
-                    'amount': float(record['base_price']) if record['base_price'] is not None else None,
-                    'available_seats': record['available_seats'],
-                    'cabin_class': cabin_class,
-                    'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
-                }
-            logger.info(f"批量獲取了 {len(flight_ids)} 個航班的 {len(price_records)} 條票價記錄")
+                # 直接傳遞 flight_ids 列表作為參數
+                price_records = await conn.fetch(price_query_str, flight_ids)
+                
+                for record in price_records:
+                    flight_id_str = str(record['flight_id']) # 確保轉換為字符串
+                    cabin_class = record['class_type']
+                    if flight_id_str not in prices_map:
+                        prices_map[flight_id_str] = {}
+                    
+                    prices_map[flight_id_str][cabin_class] = {
+                        'amount': float(record['base_price']) if record['base_price'] is not None else None,
+                        'available_seats': record['available_seats'],
+                        'cabin_class': cabin_class,
+                        'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
+                    }
+                logger.info(f"批量獲取了 {len(flight_ids)} 個航班的 {len(price_records)} 條票價記錄")
 
+        except asyncpg.PostgresError as pg_err: # 捕捉 asyncpg 特定錯誤
+            logger.error(f"批量查詢票價時出錯: {pg_err}", exc_info=True)
         except Exception as e:
-            logger.error(f"批量查詢票價時出錯: {e}", exc_info=True)
+            logger.error(f"批量查詢票價時發生未知錯誤: {e}", exc_info=True)
             # 即使出錯，也可能返回部分獲取的數據
-        finally:
-            if db:
-                await release_db(db)
         
         return prices_map
     
     @staticmethod
     def get_lowest_prices(departure_iata, arrival_iata, start_date, end_date=None):
         """
-        獲取指定日期範圍內的最低票價
+        獲取指定日期範圍內的最低票價 (使用同步 SQLAlchemy Session)
         
         Args:
             departure_iata: 出發機場IATA代碼
@@ -132,26 +133,38 @@ class PriceService:
         Returns:
             dict: 日期和最低票價的映射
         """
-        from ..models import Airport
+        from ..models import Airport # Keep local import if only used here
         
         # 處理日期格式
         if isinstance(start_date, str):
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            try:
+                start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except ValueError:
+                logger.error(f"Invalid start_date format: {start_date}")
+                return {"error": "Invalid start date format"}
             
-        if not end_date:
+        if end_date is None:
             end_date = start_date + timedelta(days=30)
         elif isinstance(end_date, str):
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            try:
+                end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            except ValueError:
+                 logger.error(f"Invalid end_date format: {end_date}")
+                 return {"error": "Invalid end date format"}
+        elif not isinstance(end_date, datetime.date): # Check if it's a date object
+             logger.error(f"Invalid end_date type: {type(end_date)}")
+             return {"error": "Invalid end date type"}
             
-        # 查詢機場ID
-        departure_airport = Airport.get_by_iata(departure_iata)
-        arrival_airport = Airport.get_by_iata(arrival_iata)
+        # 查詢機場ID (使用同步方法)
+        # 注意：Airport.get_by_iata 需要是同步方法
+        departure_airport = Airport.query.filter_by(airport_id=departure_iata).first()
+        arrival_airport = Airport.query.filter_by(airport_id=arrival_iata).first()
         
         if not departure_airport or not arrival_airport:
             logger.warning(f"找不到機場: {departure_iata} 或 {arrival_iata}")
             return {"error": "找不到指定的機場"}
             
-        # 構建SQL查詢
+        # 構建SQL查詢 (使用同步 SQLAlchemy Session)
         try:
             logger.info(f"開始查詢最低票價: {departure_iata}->{arrival_iata} from {start_date} to {end_date}")
             results = db.session.query(
@@ -164,7 +177,7 @@ class PriceService:
                 Flight.arrival_airport_id == arrival_airport.airport_id,
                 func.date(Flight.scheduled_departure) >= start_date,
                 func.date(Flight.scheduled_departure) <= end_date,
-                TicketPrice.class_type == '經濟艙'  # 預設查詢經濟艙
+                TicketPrice.class_type == '經濟'  # 確保使用 '經濟' 而非 '經濟艙'
             ).group_by(
                 func.date(Flight.scheduled_departure)
             ).order_by(
@@ -173,10 +186,15 @@ class PriceService:
             logger.info(f"最低票價查詢完成，找到 {len(results)} 個日期的數據")
         except sqlalchemy_exc.SQLAlchemyError as db_err:
             logger.error(f"查詢最低票價時數據庫出錯: {db_err}", exc_info=True)
+            db.session.rollback() # 回滾事務
             return {"error": "查詢最低票價時發生數據庫錯誤"}
         except Exception as e:
             logger.error(f"查詢最低票價時發生未知錯誤: {e}", exc_info=True)
             return {"error": "查詢最低票價時發生未知錯誤"}
+        finally:
+             # 同步方法不需要手動釋放連接池連接，但 session 需要處理
+             # Flask-SQLAlchemy 通常會自動管理 session 的生命週期
+             pass
         
         # 格式化結果
         price_map = {}
@@ -187,9 +205,9 @@ class PriceService:
         return price_map
     
     @staticmethod
-    def get_price_history(flight_id, class_type='經濟艙', days=30):
+    def get_price_history(flight_id, class_type='經濟', days=30): # 改為 '經濟'
         """
-        獲取航班的歷史票價
+        獲取航班的歷史票價 (使用同步 SQLAlchemy Session)
         
         Args:
             flight_id: 航班ID
@@ -200,15 +218,15 @@ class PriceService:
             list: 歷史票價列表
         """
         # 計算時間範圍
-        end_date = datetime.now(datetime.UTC)
+        end_date = datetime.now() # 移除 UTC 以匹配 created_at (如果不是 UTC)
         start_date = end_date - timedelta(days=days)
         
-        # 查詢歷史票價
+        # 查詢歷史票價 (使用同步方法)
         try:
             logger.info(f"查詢航班 {flight_id} ({class_type}) 最近 {days} 天的歷史票價")
             history = PriceHistory.query.filter(
                 PriceHistory.flight_id == flight_id,
-                PriceHistory.class_type == class_type,
+                PriceHistory.class_type == class_type, # 使用傳入的 class_type
                 PriceHistory.created_at >= start_date,
                 PriceHistory.created_at <= end_date
             ).order_by(
@@ -222,17 +240,20 @@ class PriceService:
         except Exception as e:
             logger.error(f"查詢歷史票價時發生未知錯誤: {e}", exc_info=True)
             return []
+        finally:
+            # 同步方法 session 會自動管理
+             pass
         
         # 格式化結果
         return [{
             'date': record.created_at.isoformat(),
-            'price': float(record.price)
+            'price': float(record.price) if record.price is not None else None
         } for record in history]
     
     @staticmethod
-    def analyze_price_trend(flight_id, class_type='經濟艙'):
+    def analyze_price_trend(flight_id, class_type='經濟'): # 改為 '經濟'
         """
-        分析票價趨勢並提供購買建議
+        分析票價趨勢並提供購買建議 (使用同步方法)
         
         Args:
             flight_id: 航班ID
@@ -241,7 +262,7 @@ class PriceService:
         Returns:
             dict: 分析結果
         """
-        # 獲取歷史票價
+        # 獲取歷史票價 (調用修改後的同步方法)
         history = PriceService.get_price_history(flight_id, class_type, days=60)
         
         if not history:
@@ -251,7 +272,7 @@ class PriceService:
             }
             
         # 計算簡單趨勢
-        prices = [item['price'] for item in history]
+        prices = [item['price'] for item in history if item['price'] is not None] # 過濾 None 值
         
         if len(prices) < 3:
             return {
@@ -266,7 +287,10 @@ class PriceService:
             recent_changes.append(change)
             
         # 計算平均變化
-        avg_change = sum(recent_changes) / len(recent_changes)
+        if not recent_changes: # 如果只有一個有效價格
+            avg_change = 0
+        else:
+            avg_change = sum(recent_changes) / len(recent_changes)
         
         # 當前價格與最低價格的比較
         current_price = prices[-1]
@@ -280,13 +304,13 @@ class PriceService:
             price_position = (current_price - min_price) / price_range
             
         # 根據分析結果提供建議
-        if avg_change > 0:
+        if avg_change > 0.01: # 添加一個閾值避免微小波動被判斷為趨勢
             trend = "上漲"
             if price_position < 0.3:
                 recommendation = "價格趨勢上漲，但當前價格接近歷史最低點，建議購買"
             else:
                 recommendation = "價格呈上漲趨勢，建議等待價格回落"
-        elif avg_change < 0:
+        elif avg_change < -0.01: # 添加一個閾值
             trend = "下跌"
             if price_position > 0.7:
                 recommendation = "價格趨勢下跌，但當前價格仍然較高，建議等待"
@@ -307,5 +331,5 @@ class PriceService:
             "current_price": current_price,
             "min_price": min_price,
             "max_price": max_price,
-            "avg_change": avg_change
+            "avg_change": round(avg_change, 2)
         } 
