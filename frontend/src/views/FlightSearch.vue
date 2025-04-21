@@ -212,14 +212,18 @@ export default {
         console.log('[FlightSearch] Starting data extraction from response.');
         let flightsData = [];
         try {
+            // *** 添加額外日誌 ***
+            console.log('[FlightSearch] Before check: Type of response is:', typeof response);
+            console.log('[FlightSearch] Before check: Is response truly an array?', Array.isArray(response));
+            console.log('[FlightSearch] Before check: Response content snippet:', JSON.stringify(response)?.substring(0, 200)); // 打印片段
+
             // *** 最終修正：直接檢查 response 是否為陣列 ***
-            // 因為 flightService.searchFlights 已經處理過，直接返回了航班列表陣列
             if (Array.isArray(response)) { 
                 flightsData = response; // 直接賦值
-                console.log('[FlightSearch] Extracted flights directly from response array');
+                console.log('[FlightSearch] Check PASSED: response is an array. Assigning flightsData.');
             } else {
                 // 如果收到的不是預期的陣列，記錄警告
-                console.warn('[FlightSearch] Unexpected response format: Expected an array, but received:', response);
+                console.warn('[FlightSearch] Check FAILED: response is NOT an array. Received:', response);
                 flightsData = []; // 確保清空
             }
         } catch (extractionError) {

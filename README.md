@@ -63,7 +63,7 @@
     
     航班真資料調用 TDX、FlightStats API 導入資料庫
     ```bash
-    python app/scripts/sync_flight_data.py flights-only
+    python -m backend.app.scripts.sync_flight_data flights-only
     ```
 
     目前還沒有票價資料，先用腳本模擬資料
