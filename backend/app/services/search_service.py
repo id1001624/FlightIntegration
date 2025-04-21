@@ -150,18 +150,18 @@ class SearchService:
             SELECT 
                 f.flight_id, 
                 f.flight_number, 
-                f.scheduled_departure, 
-                f.scheduled_arrival, 
+                f.scheduled_departure,
+                f.scheduled_arrival,
                 f.aircraft, 
                 f.departure_terminal, 
                 f.arrival_terminal, 
                 a_dep.airport_id as departure_airport_id, 
-                a_dep.airport_id as departure_iata, -- Use airport_id as IATA
+                a_dep.airport_id as departure_code,
                 a_dep.name_zh as departure_name,
                 a_dep.city as departure_city,
                 a_dep.country as departure_country,
                 a_arr.airport_id as arrival_airport_id, 
-                a_arr.airport_id as arrival_iata, -- Use airport_id as IATA
+                a_arr.airport_id as arrival_code,
                 a_arr.name_zh as arrival_name,
                 a_arr.city as arrival_city,
                 a_arr.country as arrival_country,
@@ -324,42 +324,36 @@ class SearchService:
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
                 'aircraft': flight.get('aircraft'),
-                'departure_terminal': flight.get('departure_terminal'),
-                'arrival_terminal': flight.get('arrival_terminal'),
                 'available_seats': flight.get('available_seats'),
-                # 傳遞原始 datetime 對象給 Schema (如果 Schema 定義為 DateTime)
-                # 或傳遞 ISO 格式字符串 (如果 Schema 定義為 String)
-                # FlightSearchResultSchema 定義為 String，所以這裡轉換
-                'departure_time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None,
-                'arrival_time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None,
                 'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None,
                 'duration_minutes': duration_minutes,
-                'price': price,
-                'cabin_class': cabin_class,
-                # 準備嵌套字典 - 鍵名需匹配嵌套 Schema 的 attribute 或字段名
+                'price': {
+                    'amount': price,
+                    'currency': 'TWD',
+                    'cabin_class': cabin_class
+                },
                 'airline': {
-                    # AirlineBasicSchema 沒有 attribute，直接用字段名
-                    'code': flight.get('airline_iata'), # 假設 'code' 對應 IATA
+                    'code': flight.get('airline_iata'),
                     'name_zh': flight.get('airline_name_zh'),
                     'name_en': flight.get('airline_name_en'),
                     'logo_path': flight.get('logo_path'),
                     'is_domestic': flight.get('airline_is_domestic')
                 },
-                'departure_airport': {
-                    # AirportBasicSchema 使用 attribute
-                    'airport_id': flight.get('departure_airport_id'), # 對應 schema 的 code
-                    'name_zh': flight.get('departure_name'),        # 對應 schema 的 name
-                    'city': flight.get('departure_city'),           # 直接匹配
-                    'country': flight.get('departure_country')     # 直接匹配
-                    # 注意： 'iata' 和 'terminal' 不在 AirportBasicSchema 中
+                'departure': {
+                    'code': flight.get('departure_code'),
+                    'name_zh': flight.get('departure_name'),
+                    'city': flight.get('departure_city'),
+                    'country': flight.get('departure_country'),
+                    'terminal': flight.get('departure_terminal'),
+                    'time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None
                 },
-                'arrival_airport': {
-                    # AirportBasicSchema 使用 attribute
-                    'airport_id': flight.get('arrival_airport_id'), # 對應 schema 的 code
-                    'name_zh': flight.get('arrival_name'),        # 對應 schema 的 name
-                    'city': flight.get('arrival_city'),           # 直接匹配
-                    'country': flight.get('arrival_country')     # 直接匹配
-                    # 注意： 'iata' 和 'terminal' 不在 AirportBasicSchema 中
+                'arrival': {
+                    'code': flight.get('arrival_code'),
+                    'name_zh': flight.get('arrival_name'),
+                    'city': flight.get('arrival_city'),
+                    'country': flight.get('arrival_country'),
+                    'terminal': flight.get('arrival_terminal'),
+                    'time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None
                 }
             }
             prepared_data.append(data_for_schema)

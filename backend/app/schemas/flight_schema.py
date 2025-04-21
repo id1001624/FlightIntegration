@@ -3,6 +3,12 @@ from decimal import Decimal # 導入 Decimal
 from .airline_schema import AirlineBasicSchema # 注意導入路徑
 from .airport_schema import AirportBasicSchema # 注意導入路徑
 
+# *** 新增: 定義用於嵌套的 PriceSchema ***
+class PriceSchema(Schema):
+    amount = fields.Float(allow_none=True)
+    currency = fields.Str(load_default='TWD')
+    cabin_class = fields.Str()
+
 class FlightSearchArgsSchema(Schema):
     """用於驗證 /search 的請求參數"""
     departure = fields.Str(required=True, error_messages={'required': '缺少出發機場參數'})
@@ -46,23 +52,31 @@ class FlightSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
 
+# *** 修改: 更新 FlightSearchResultSchema 以匹配新的嵌套結構 ***
 class FlightSearchResultSchema(Schema):
     """用於序列化航班搜索結果列表中的單個航班"""
     flight_id = fields.UUID(dump_only=True)
     flight_number = fields.Str()
     aircraft = fields.Str(allow_none=True)
-    scheduled_departure = fields.String(attribute="departure_time", allow_none=True)
-    scheduled_arrival = fields.String(attribute="arrival_time", allow_none=True)
-    departure_terminal = fields.Str(allow_none=True)
-    arrival_terminal = fields.Str(allow_none=True)
-    airline = fields.Nested(AirlineBasicSchema, dump_only=True)
-    departure_airport = fields.Nested(AirportBasicSchema, dump_only=True)
-    arrival_airport = fields.Nested(AirportBasicSchema, dump_only=True)
     duration_minutes = fields.Int(allow_none=True)
-    price = fields.Float(allow_none=True)
     available_seats = fields.Int(allow_none=True)
-    cabin_class = fields.Str(allow_none=True)
     price_updated_at = fields.String(allow_none=True)
+    
+    # 嵌套字段
+    airline = fields.Nested(AirlineBasicSchema, dump_only=True) # 保持不變
+    price = fields.Nested(PriceSchema, dump_only=True)         # 使用新的 PriceSchema
+    departure = fields.Nested(AirportBasicSchema, dump_only=True) # 使用更新後的 AirportBasicSchema
+    arrival = fields.Nested(AirportBasicSchema, dump_only=True)   # 使用更新後的 AirportBasicSchema
+    
+    # 移除舊的、現在已嵌套的字段
+    # scheduled_departure = fields.String(attribute="departure_time", allow_none=True)
+    # scheduled_arrival = fields.String(attribute="arrival_time", allow_none=True)
+    # departure_terminal = fields.Str(allow_none=True)
+    # arrival_terminal = fields.Str(allow_none=True)
+    # departure_airport = fields.Nested(AirportBasicSchema, dump_only=True)
+    # arrival_airport = fields.Nested(AirportBasicSchema, dump_only=True)
+    # price = fields.Float(allow_none=True)
+    # cabin_class = fields.Str(allow_none=True)
 
 # --- 新增用於 /from_taiwan 端點的請求參數 Schema ---
 class FlightsFromTaiwanArgsSchema(Schema):

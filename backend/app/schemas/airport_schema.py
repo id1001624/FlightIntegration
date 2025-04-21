@@ -19,6 +19,8 @@ class AirportBasicSchema(Schema):
     name = fields.Str(attribute="name_zh")    # 映射回 name_zh
     city = fields.Str() # 保留 city
     country = fields.Str(allow_none=True) # 保留 country，允許為空
+    terminal = fields.Str(allow_none=True)
+    time = fields.Str(allow_none=True) # 時間以 ISO 格式字符串表示
 
 airport_schema = AirportSchema()
 airports_schema = AirportSchema(many=True)
