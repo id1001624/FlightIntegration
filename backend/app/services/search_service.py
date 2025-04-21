@@ -327,29 +327,29 @@ class SearchService:
                 'available_seats': flight.get('available_seats'),
                 'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None,
                 'duration_minutes': duration_minutes,
-                'price': {
+                'price': { # 價格嵌套
                     'amount': price,
                     'currency': 'TWD',
                     'cabin_class': cabin_class
                 },
-                'airline': {
-                    'code': flight.get('airline_iata'),
+                'airline': { # 航空公司嵌套
+                    'code': flight.get('airline_iata'), # Schema 期望 'code'
                     'name_zh': flight.get('airline_name_zh'),
                     'name_en': flight.get('airline_name_en'),
                     'logo_path': flight.get('logo_path'),
                     'is_domestic': flight.get('airline_is_domestic')
                 },
-                'departure': {
+                'departure': { # 出發地嵌套
                     'code': flight.get('departure_code'),
-                    'name_zh': flight.get('departure_name'),
+                    'name': flight.get('departure_name'), # *** 修改：使用 'name' 鍵 ***
                     'city': flight.get('departure_city'),
                     'country': flight.get('departure_country'),
                     'terminal': flight.get('departure_terminal'),
                     'time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None
                 },
-                'arrival': {
+                'arrival': { # 目的地嵌套
                     'code': flight.get('arrival_code'),
-                    'name_zh': flight.get('arrival_name'),
+                    'name': flight.get('arrival_name'), # *** 修改：使用 'name' 鍵 ***
                     'city': flight.get('arrival_city'),
                     'country': flight.get('arrival_country'),
                     'terminal': flight.get('arrival_terminal'),

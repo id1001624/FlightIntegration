@@ -245,43 +245,41 @@ export default {
         const processedFlights = flightsData.map((flight, index) => {
           // 添加日誌：打印每個原始 flight 對象
           console.log(`[FlightSearch] Processing original flight ${index}:`, JSON.stringify(flight));
-          console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
-          console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
+          // 移除錯誤的日誌
+          // console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
+          // console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
 
-          // *** 修正價格映射 ***
-          // API 直接返回價格數字 flight.price
-          // 我們需要將其放入 newFlight.price.amount
-          const priceAmount = typeof flight.price === 'number' ? flight.price : null;
+          const priceAmount = typeof flight.price?.amount === 'number' ? flight.price.amount : null;
 
           // 構建 FlightCard 需要的嵌套結構
           const newFlight = {
-            flight_id: flight.flight_id, // 確保 flight_id 在頂層
+            flight_id: flight.flight_id,
             flight_number: flight.flight_number,
             duration_minutes: flight.duration_minutes,
-            airline: flight.airline || { 
-              code: flight.airline_code || 'N/A', 
-              name_zh: flight.airline_name_zh || '未知航空',
-              logo_path: flight.airline_logo_path || null // 確保 logo_path 傳遞
+            aircraft: flight.aircraft, // 從頂層讀取 aircraft
+            airline: flight.airline || { // airline 已經是嵌套好的
+              code: 'N/A',
+              name_zh: '未知航空',
+              logo_path: null
             },
             departure: {
-              code: flight.departure_airport?.code || 'N/A', // 主要使用 API 返回的 code
-              airport_id: flight.departure_airport?.code || null, // 將 code 也存為 airport_id 作為備用
-              time: flight.scheduled_departure || null, // scheduled_departure 在頂層
-              terminal: flight.departure_terminal || null // departure_terminal 在頂層（需要確認API響應）
+              code: flight.departure?.code || 'N/A',       // *** 修正：從 flight.departure 讀取 code ***
+              airport_id: flight.departure?.code || null, // *** 修正：從 flight.departure 讀取 code ***
+              time: flight.departure?.time || null,        // *** 修正：從 flight.departure 讀取 time ***
+              terminal: flight.departure?.terminal || null // *** 修正：從 flight.departure 讀取 terminal ***
             },
             arrival: {
-              code: flight.arrival_airport?.code || 'N/A',   // 主要使用 API 返回的 code
-              airport_id: flight.arrival_airport?.code || null,   // 將 code 也存為 airport_id 作為備用
-              time: flight.scheduled_arrival || null,   // scheduled_arrival 在頂層
-              terminal: flight.arrival_terminal || null   // arrival_terminal 在頂層（需要確認API響應）
+              code: flight.arrival?.code || 'N/A',         // *** 修正：從 flight.arrival 讀取 code ***
+              airport_id: flight.arrival?.code || null,   // *** 修正：從 flight.arrival 讀取 code ***
+              time: flight.arrival?.time || null,          // *** 修正：從 flight.arrival 讀取 time ***
+              terminal: flight.arrival?.terminal || null   // *** 修正：從 flight.arrival 讀取 terminal ***
             },
-            price: { // 保持 price 為嵌套對象
-              amount: priceAmount, // *** 直接使用提取的數字價格 ***
-              available_seats: flight.available_seats ?? null, // 從頂層獲取
-              cabin_class: flight.cabin_class || '洽詢', // 從頂層獲取，預設洽詢
-              currency: 'TWD' // 假設貨幣固定
+            price: { // price 已經是嵌套好的
+              amount: priceAmount,
+              available_seats: flight.price?.available_seats ?? flight.available_seats ?? null, // 優先從嵌套price讀，再從頂層讀
+              cabin_class: flight.price?.cabin_class || '洽詢',
+              currency: flight.price?.currency || 'TWD'
             }
-            // 可以添加其他需要的頂層屬性
           };
 
           console.log(`Mapped flight ${index}:`, JSON.parse(JSON.stringify(newFlight)));

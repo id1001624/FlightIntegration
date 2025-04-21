@@ -14,11 +14,12 @@ class AirportSchema(Schema):
 
 class AirportBasicSchema(Schema):
     """用於下拉選單等簡化場景，以及嵌套在 FlightSearchResult 中"""
-    # 恢復 attribute 映射
-    code = fields.Str(attribute="airport_id") # 映射回 airport_id
-    name = fields.Str(attribute="name_zh")    # 映射回 name_zh
-    city = fields.Str() # 保留 city
-    country = fields.Str(allow_none=True) # 保留 country，允許為空
+    # --- 修改：移除 attribute 映射，直接使用鍵名 ---
+    code = fields.Str() # 直接使用 'code'
+    name = fields.Str() # 直接使用 'name' (我們在 _format_flights 中會提供 'name_zh')
+    # --- 結束修改 ---
+    city = fields.Str()
+    country = fields.Str(allow_none=True)
     terminal = fields.Str(allow_none=True)
     time = fields.Str(allow_none=True) # 時間以 ISO 格式字符串表示
 
