@@ -203,10 +203,42 @@ export default {
 
     // 台灣機場列表
     const taiwanAirports = computed(() => {
-      return props.airports.filter(airport => 
+      // 定義期望的排序順序
+      const desiredOrder = [
+        'TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 
+        'HUN', 'TTT', 'KNH', 'MZG', 'GNI', 
+        'KYD', 'CYI', 'MFK', 'LZN', 'WOT', 
+        'CMJ'
+      ];
+
+      const filteredAirports = props.airports.filter(airport => 
         airport.country === 'Taiwan' || 
-        ['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF'].includes(airport.code)
+        // 包含所有已知台灣機場代碼以防萬一 country 資訊缺失
+        ['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF', 'WOT', 'CMJ'].includes(airport.code)
       );
+
+      // 根據 desiredOrder 排序
+      filteredAirports.sort((a, b) => {
+        const indexA = desiredOrder.indexOf(a.code);
+        const indexB = desiredOrder.indexOf(b.code);
+
+        // 如果兩個都在 desiredOrder 中，按其索引排序
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        // 如果只有 a 在 desiredOrder 中，a 排前面
+        if (indexA !== -1) {
+          return -1;
+        }
+        // 如果只有 b 在 desiredOrder 中，b 排前面
+        if (indexB !== -1) {
+          return 1;
+        }
+        // 如果都不在 desiredOrder 中，按名稱排序 (備用)
+        return (a.name || '').localeCompare(b.name || '');
+      });
+
+      return filteredAirports;
     });
 
     // 熱門目的地
@@ -224,10 +256,17 @@ export default {
     const searchResults = computed(() => {
       if (!searchQuery.value) return [];
       
-      return props.airports.filter(airport => 
-        airport.code.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        airport.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-      );
+      const lowerCaseQuery = searchQuery.value.toLowerCase();
+
+      return props.airports.filter(airport => {
+        // 確保 airport.code 和 airport.name 存在且為字符串
+        const codeMatch = airport.code && typeof airport.code === 'string' && 
+                          airport.code.toLowerCase().includes(lowerCaseQuery);
+        const nameMatch = airport.name && typeof airport.name === 'string' && 
+                          airport.name.toLowerCase().includes(lowerCaseQuery); // 檢查中文名稱
+                          
+        return codeMatch || nameMatch;
+      });
     });
 
     // 按地區分組機場
