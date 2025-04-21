@@ -271,7 +271,11 @@ export default {
       emit('select-flight', props.flight);
     };
     
-    const toggleDetails = () => {
+    const toggleDetails = (event) => {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
       showDetails.value = !showDetails.value;
     };
     
