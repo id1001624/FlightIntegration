@@ -1,7 +1,6 @@
 <template>
   <div class="flight-card-wrapper relative">
-    <!-- Start: Temporarily replaced router-link with div for testing -->
-    <!-- 
+    <!-- Start: Restore original router-link -->
     <router-link 
       v-if="flight && flight.flight_id" 
       :to="detailLinkTarget"             
@@ -14,82 +13,83 @@
       class="flight-card-link" 
       @click.prevent="selectFlight" 
     >
-    -->
-    <div
-        v-if="flight && flight.flight_id"
+    <!-- 
+      <div 
+        v-if="flight && flight.flight_id" 
         :class="{
           'flight-card-active': isActive
         }"
-        class="flight-card-link"
+        class="flight-card-link" 
         style="cursor: pointer;"
         @click="selectFlight"
       >
-        <div class="flight-card" >
-          <div class="flight-card-inner">
-            <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
-            <div class="flight-card-header">
-              <div class="airline-info">
-                <div class="airline-logo-container">
-                  <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
-                  <div v-else class="airline-logo-placeholder">
-                    <span>{{ airlineName.charAt(0) }}</span>
-                  </div>
-                </div>
-                <div class="airline-details">
-                  <h3 class="airline-name">{{ airlineName }}</h3>
-                  <p class="flight-number">{{ flightNumber }}</p>
+    -->
+      <div class="flight-card" >
+        <div class="flight-card-inner">
+          <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
+          <div class="flight-card-header">
+            <div class="airline-info">
+              <div class="airline-logo-container">
+                <img v-if="airlineLogoUrl" :src="airlineLogoUrl" :alt="airlineName" class="airline-logo" />
+                <div v-else class="airline-logo-placeholder">
+                  <span>{{ airlineName.charAt(0) }}</span>
                 </div>
               </div>
-              <div class="flight-price">
-                <p class="price-amount">NT$ {{ displayPrice }}</p>
-                <p class="cabin-type">{{ flightClassType }}</p>
+              <div class="airline-details">
+                <h3 class="airline-name">{{ airlineName }}</h3>
+                <p class="flight-number">{{ flightNumber }}</p>
+              </div>
+            </div>
+            <div class="flight-price">
+              <p class="price-amount">NT$ {{ displayPrice }}</p>
+              <p class="cabin-type">{{ flightClassType }}</p>
+            </div>
+          </div>
+          
+          <!-- 行程視覺化 -->
+          <div class="journey-visualization">
+            <!-- 出發資訊 -->
+            <div class="departure-info">
+              <p class="time">{{ formattedDepartureTime }}</p>
+              <p class="airport-code">{{ getDepartureAirportCode }}</p>
+            </div>
+
+            <!-- 旅程線條與時長 -->
+            <div class="journey-line-container">
+              <p class="flight-duration">{{ flightDuration }}</p>
+              <div class="journey-line-wrapper">
+                <div class="journey-line" ref="journeyLine"></div>
+                <div class="airplane-icon" ref="airplaneIcon"></div>
+                <div class="departure-dot"></div>
+                <div class="arrival-dot"></div>
               </div>
             </div>
 
-            <!-- 行程視覺化 -->
-            <div class="journey-visualization">
-              <!-- 出發資訊 -->
-              <div class="departure-info">
-                <p class="time">{{ formattedDepartureTime }}</p>
-                <p class="airport-code">{{ getDepartureAirportCode }}</p>
-              </div>
-
-              <!-- 旅程線條與時長 -->
-              <div class="journey-line-container">
-                <p class="flight-duration">{{ flightDuration }}</p>
-                <div class="journey-line-wrapper">
-                  <div class="journey-line" ref="journeyLine"></div>
-                  <div class="airplane-icon" ref="airplaneIcon"></div>
-                  <div class="departure-dot"></div>
-                  <div class="arrival-dot"></div>
-                </div>
-              </div>
-
-              <!-- 到達資訊 -->
-              <div class="arrival-info">
-                <p class="time">{{ formattedArrivalTime }}</p>
-                <p class="airport-code">{{ getArrivalAirportCode }}</p>
-              </div>
+            <!-- 到達資訊 -->
+            <div class="arrival-info">
+              <p class="time">{{ formattedArrivalTime }}</p>
+              <p class="airport-code">{{ getArrivalAirportCode }}</p>
             </div>
+          </div>
 
-            <!-- 額外資訊 -->
-            <div class="flight-meta">
-              <span class="flight-date">{{ formattedDepartureDate }}</span>
-              <button
-                @click.stop.prevent="toggleDetails"
-                class="details-button"
-                title="查看詳細資訊"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </div>
+          <!-- 額外資訊 -->
+          <div class="flight-meta">
+            <span class="flight-date">{{ formattedDepartureDate }}</span>
+            <button 
+              @click.stop.prevent="toggleDetails"
+              class="details-button"
+              title="查看詳細資訊"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
-    <!-- </router-link> --> <!-- Closing tag for the original router-link -->
-    <!-- End: Temporarily replaced router-link -->
+    </router-link> <!-- Closing tag restored -->
+    <!-- </div> --> <!-- Closing tag for the temporary div -->
+    <!-- End: Restore original router-link -->
 
     <!-- 詳細資訊小卡片 (疊加層) -->
     <transition name="details-fade">
@@ -110,7 +110,7 @@
   </div>
 </template>
 <script>
-import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { computed, ref, onMounted, onUnmounted, nextTick, onUpdated } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 // **讀取環境變數並移除 /api**
@@ -330,6 +330,12 @@ export default {
         }
       });
     };
+
+    // --- Debugging Hook ---
+    onUpdated(() => {
+      console.log(`[FlightCard ${props.flight.flight_id}] updated. showDetails: ${showDetails.value}`);
+    });
+    // --- End Debugging Hook ---
 
     onMounted(() => {
       // 啟動旅程線條動畫

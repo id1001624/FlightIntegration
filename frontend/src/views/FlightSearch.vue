@@ -55,7 +55,7 @@
           <!-- 航班結果列表 -->
           <div class="flights-panel">
             <FlightResults
-              :flights="flights"
+              :flights="filteredFlights"
               :searched="hasSearched"
             />
           </div>
@@ -302,7 +302,7 @@ export default {
         filters.priceRange.min = 0;
 
         // 初次搜索後，filteredFlights 等於 flights
-        // filteredFlights.value = [...flights.value]; 
+        filteredFlights.value = [...flights.value]; 
 
       } catch (error) {
         // 添加錯誤日誌
@@ -353,7 +353,7 @@ export default {
         filters.priceRange.min = newFilters.priceRange.min;
         filters.priceRange.max = newFilters.priceRange.max;
       }
-      // applyFilters(); 
+      applyFilters(); 
     };
 
     // 監聽原始航班數據變化，以更新篩選器（例如價格範圍）
