@@ -97,7 +97,7 @@
 </template>
 
 <script>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 
 // **讀取環境變數並移除 /api**
@@ -123,6 +123,7 @@ export default {
     const airplaneIcon = ref(null);
     let animationFrame = null;
     const showDetails = ref(false);
+    const detailToggleInProgress = ref(false); // Flag to prevent navigation during toggle
     
     // --- 移除 Logo Mapping ---
     // const airlineLogos = {
@@ -263,6 +264,12 @@ export default {
     });
 
     const selectFlight = () => {
+      // Prevent navigation if the detail toggle was just clicked
+      if (detailToggleInProgress.value) {
+          console.log('[FlightCard] Detail toggle in progress, skipping navigation.');
+          return; 
+      }
+
       if (props.flight && props.flight.flight_id) {
           router.push({ name: 'FlightDetail', params: { flight_id: props.flight.flight_id } });
       } else {
@@ -276,7 +283,14 @@ export default {
         event.stopPropagation();
         event.preventDefault();
       }
+      
+      detailToggleInProgress.value = true; // Set the flag
       showDetails.value = !showDetails.value;
+      
+      // Reset the flag after the current event loop cycle
+      nextTick(() => {
+          detailToggleInProgress.value = false;
+      });
     };
     
     // 旅程線條動畫
