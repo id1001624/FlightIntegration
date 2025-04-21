@@ -67,6 +67,7 @@
               @click.stop.prevent="toggleDetails"
               class="details-button"
               title="查看詳細資訊"
+              ref="detailsButtonRef" 
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -79,7 +80,7 @@
 
     <!-- 詳細資訊小卡片 (疊加層) -->
     <transition name="details-fade">
-      <div v-if="showDetails" class="details-overlay card">
+      <div v-if="showDetails" class="details-overlay card" ref="detailsOverlayRef">
         <h5 class="details-title">航班資訊</h5>
         <div class="details-content">
           <p><span class="details-label">機型:</span> {{ flight.aircraft || 'N/A' }}</p>
@@ -123,6 +124,8 @@ export default {
     const airplaneIcon = ref(null);
     let animationFrame = null;
     const showDetails = ref(false);
+    const detailsOverlayRef = ref(null);
+    const detailsButtonRef = ref(null);
     
     // --- 移除 Logo Mapping ---
     // const airlineLogos = {
@@ -278,6 +281,21 @@ export default {
       }
       showDetails.value = !showDetails.value;
     };
+
+    // Click outside handler
+    const handleClickOutside = (event) => {
+      // Check if the overlay exists and is visible
+      if (showDetails.value && detailsOverlayRef.value) {
+        // Check if the click target is inside the overlay or on the button
+        const clickedInsideOverlay = detailsOverlayRef.value.contains(event.target);
+        const clickedOnButton = detailsButtonRef.value?.contains(event.target); // Use optional chaining
+
+        if (!clickedInsideOverlay && !clickedOnButton) {
+          console.log('[FlightCard] Clicked outside, closing details.');
+          showDetails.value = false; // Close the overlay
+        }
+      }
+    };
     
     // 旅程線條動畫
     const animateJourneyLine = () => {
@@ -307,6 +325,9 @@ export default {
     onMounted(() => {
       // 啟動旅程線條動畫
       setTimeout(animateJourneyLine, 300); // 稍微延遲以確保DOM已渲染
+      
+      // Add click outside listener
+      document.addEventListener('click', handleClickOutside, true); // Use capture phase
     });
     
     onUnmounted(() => {
@@ -314,6 +335,8 @@ export default {
       if (animationFrame) {
         cancelAnimationFrame(animationFrame);
       }
+      // Remove click outside listener
+      document.removeEventListener('click', handleClickOutside, true);
     });
 
     return {
@@ -334,7 +357,9 @@ export default {
       selectFlight,
       journeyLine,
       airplaneIcon,
-      detailLinkTarget
+      detailLinkTarget,
+      detailsOverlayRef,
+      detailsButtonRef
     };
   }
 }
