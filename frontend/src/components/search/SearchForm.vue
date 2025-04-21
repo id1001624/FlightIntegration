@@ -182,10 +182,11 @@ export default {
 
         if (destinations && destinations.length > 0) {
           const mappedDestinations = destinations.map(airport => {
+            const code = airport.code || 'N/A';
+            const name = airport.name || '未知名稱';
             const country = airport.country || '';
-            const code = airport.airport_id || airport.id || airport.iata_code || airport.code || 'N/A';
+
             let region = '其他';
-            
             if (['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF'].includes(code) || country === 'Taiwan') {
               region = '台灣';
             } else if (country === 'China' || ['PEK', 'SHA', 'PVG', 'CAN', 'CTU', 'SZX', 'XIY', 'KMG', 'HGH', 'CSX', 'TAO', 'NKG', 'DLC', 'TSN'].some(c => code.includes(c))) {
@@ -206,10 +207,8 @@ export default {
               region = '大洋洲';
             }
             
-            const name = airport.name_zh || airport.name_en || airport.name || '未知名稱';
-            
             return {
-              id: airport.airport_id || airport.id,
+              id: airport.id,
               code: code,
               name: name,
               city: airport.city,
@@ -262,8 +261,8 @@ export default {
         errors.departureAirport = '請選擇出發機場';
         isValid = false;
       }
-      if (!formData.arrivalAirport) {
-        errors.arrivalAirport = '請選擇目的地機場';
+      if (!formData.arrivalAirport || !formData.arrivalAirport.code || formData.arrivalAirport.code === 'N/A') {
+        errors.arrivalAirport = '請選擇有效的目的地機場';
         isValid = false;
       }
       if (!formData.departureDate) {
@@ -282,20 +281,20 @@ export default {
     };
 
     const submitSearch = () => {
-      if (!validateForm() || props.isSearching || loadingTaiwanAirports.value || loadingDestinations.value) {
+      if (!validateForm() || props.isSearching || loadingTaiwanAirports.value || loadingDestinations.value || !formData.arrivalAirport || !formData.arrivalAirport.code || formData.arrivalAirport.code === 'N/A') {
+        if(!formData.arrivalAirport || !formData.arrivalAirport.code || formData.arrivalAirport.code === 'N/A') {
+          errors.arrivalAirport = '請選擇有效的目的地機場';
+        }
         return;
       }
-      // *** 構建符合 API 要求的參數對象 ***
       const searchParams = {
           departure: formData.departureAirport ? formData.departureAirport.code : null,
-          arrival: formData.arrivalAirport ? formData.arrivalAirport.code : null,
+          arrival: formData.arrivalAirport.code,
           date: formData.departureDate,
-          return_date: formData.returnDate || null, // 如果為空字符串，設為 null
+          return_date: formData.returnDate || null,
           class_type: formData.classType
-          // 可以按需添加其他參數，例如 price_min, price_max 等
       };
       
-      // *** 傳遞構建好的參數對象 ***
       emit('search', searchParams);
     };
 

@@ -256,9 +256,20 @@ async def get_available_destinations(departure_code):
 
         # 調用服務獲取目的地，不再強制要求日期參數
         destinations_data = await SearchService.get_available_destinations(departure_code.upper(), date_str)
-        
-        # 序列化結果
-        serialized_data = airports_basic_schema.dump(destinations_data)
+
+        # *** 新增：預處理數據以匹配 AirportBasicSchema ***
+        preprocessed_data = []
+        for airport in destinations_data:
+            preprocessed_data.append({
+                'code': airport.get('airport_id'), # 從 airport_id 映射到 code
+                'name': airport.get('name_zh'),    # 從 name_zh 映射到 name
+                'city': airport.get('city'),
+                'country': airport.get('country')
+                # terminal 和 time 在此 API 中不相關
+            })
+
+        # 序列化預處理後的結果
+        serialized_data = airports_basic_schema.dump(preprocessed_data)
         return _success_response(serialized_data)
     except BadRequest as e:
         return _error_response(str(e), 400)
