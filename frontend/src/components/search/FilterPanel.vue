@@ -119,24 +119,12 @@ export default {
       emitFilterChange();
     }, { deep: true });
     
-    // 當航班數據變化時重置價格範圍
+    // 當計算出的價格範圍變化時，更新本地的選定範圍
     watch(minMaxPrices, (newValue) => {
-      if (newValue && (
-        priceRange.value.min === defaultPriceRange.value.min || 
-        priceRange.value.max === defaultPriceRange.value.max
-      )) {
+        console.log('[FilterPanel] minMaxPrices changed, updating priceRange ref:', newValue);
         priceRange.value = { ...newValue };
-      }
-    });
-    
-    // 初始化時設置價格範圍
-    watch(() => props.flights, (newFlights) => {
-      if (newFlights && newFlights.length > 0) {
-        // 設置初始價格範圍
-        priceRange.value = { ...minMaxPrices.value };
-        defaultPriceRange.value = { ...minMaxPrices.value };
-      }
-    }, { immediate: true });
+        defaultPriceRange.value = { ...newValue }; // 如果重置邏輯需要，也更新 default
+    }, { immediate: true }); // immediate 確保初始計算完成後立即設置
 
     return {
       selectedAirlines,
