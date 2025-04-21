@@ -1,8 +1,8 @@
 <template>
   <div class="flex flex-col gap-4">
     <div 
-      v-for="(flight, index) in flights" 
-      :key="flight.flight_id || index"  
+      v-for="flight in flights" 
+      :key="flight.flight_id" 
       class="transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
     >
       <FlightCard :flight="flight" />
