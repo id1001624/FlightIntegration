@@ -248,10 +248,10 @@ export default {
           console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
           console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
 
-          // 直接使用 API 返回的 price 對象 (如果存在且 amount 不為 null)
-          const priceObject = flight.price && flight.price.amount !== null
-                            ? flight.price
-                            : { amount: null, available_seats: flight.available_seats ?? null, cabin_class: flight.cabin_class || '洽詢', currency: 'TWD' }; // 使用API的座位數和艙等，預設洽詢
+          // *** 修正價格映射 ***
+          // API 直接返回價格數字 flight.price
+          // 我們需要將其放入 newFlight.price.amount
+          const priceAmount = typeof flight.price === 'number' ? flight.price : null;
 
           // 構建 FlightCard 需要的嵌套結構
           const newFlight = {
@@ -276,10 +276,10 @@ export default {
               terminal: flight.arrival_terminal || null   // arrival_terminal 在頂層（需要確認API響應）
             },
             price: { // 保持 price 為嵌套對象
-              amount: priceObject.amount,
-              available_seats: priceObject.available_seats,
-              cabin_class: priceObject.cabin_class,
-              currency: priceObject.currency
+              amount: priceAmount, // *** 直接使用提取的數字價格 ***
+              available_seats: flight.available_seats ?? null, // 從頂層獲取
+              cabin_class: flight.cabin_class || '洽詢', // 從頂層獲取，預設洽詢
+              currency: 'TWD' // 假設貨幣固定
             }
             // 可以添加其他需要的頂層屬性
           };

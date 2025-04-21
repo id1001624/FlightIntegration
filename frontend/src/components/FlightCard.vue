@@ -198,10 +198,10 @@ export default {
       return '經濟艙';
     };
 
-    const formattedDepartureTime = computed(() => formatTime(props.flight.scheduled_departure));
-    const formattedArrivalTime = computed(() => formatTime(props.flight.scheduled_arrival));
+    const formattedDepartureTime = computed(() => formatTime(props.flight.departure?.time));
+    const formattedArrivalTime = computed(() => formatTime(props.flight.arrival?.time));
     const formattedDepartureDate = computed(() => {
-        const dateStr = props.flight.scheduled_departure;
+        const dateStr = props.flight.departure?.time;
         console.log(`[FlightCard] formattedDepartureDate computed with: ${dateStr}`);
         if (!dateStr) return '--/--';
         try {
@@ -217,26 +217,24 @@ export default {
         }
     });
 
-    const getDepartureAirportCode = computed(() => props.flight.departure_airport?.code || 'N/A');
-    const getArrivalAirportCode = computed(() => props.flight.arrival_airport?.code || 'N/A');
+    const getDepartureAirportCode = computed(() => props.flight.departure?.code || 'N/A');
+    const getArrivalAirportCode = computed(() => props.flight.arrival?.code || 'N/A');
 
     const airlineName = computed(() => props.flight.airline?.name_zh || props.flight.airline?.name || '未知航空');
     const flightNumber = computed(() => props.flight.flight_number || 'N/A');
 
     const displayPrice = computed(() => {
-      if (props.flight.price !== null && props.flight.price !== undefined) {
-          return formatPrice(props.flight.price);
-      }
-      if (props.flight.price?.amount && typeof props.flight.price.amount === 'number') {
+      if (props.flight.price?.amount !== null && typeof props.flight.price?.amount === 'number') {
         return formatPrice(props.flight.price.amount);
-      }
-      if (props.flight.ticket_price) {
-          return formatPrice(props.flight.ticket_price);
-      }
+      } 
+      // 可以保留其他備用邏輯，但主要應該讀取 amount
+      // if (props.flight.ticket_price) {
+      //     return formatPrice(props.flight.ticket_price);
+      // }
       return '洽詢';
     });
 
-    const flightClassType = computed(() => formatClassType(props.flight.cabin_class));
+    const flightClassType = computed(() => formatClassType(props.flight.price?.cabin_class));
 
     const flightDuration = computed(() => {
       if (props.flight.duration_minutes != null) {
