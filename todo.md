@@ -36,7 +36,7 @@
 - [√] 實現首頁和主要導航結構
 - [√] 開發航班查詢表單介面
 - [√] 建立航班結果顯示頁面
-- [ ] 實現前端篩選和排序功能
+- [√] 實現前端篩選和排序功能
 - [ ] 前端美化bug調適
 **總結:** 前端已完成主要頁面開發，包括美觀的首頁(`Home.vue`)、完整的航班搜尋頁面(`FlightSearch.vue`)以及相關組件(`SearchForm.vue`, `FilterPanel.vue`, `FlightResults.vue`)。前端API服務(`flightService.js`)已實現與後端的完整整合，包含緩存機制。
 

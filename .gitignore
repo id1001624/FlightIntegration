@@ -7,7 +7,6 @@ backend/app/config.py
 backend/config/
 *.pem
 *.key
-.cursor/
 tests/
 debug/
 

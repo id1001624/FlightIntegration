@@ -1,0 +1,132 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# LINE Bot 整合指南
+
+## 1. 架構概述
+
+LINE Bot 整合是台灣航班整合系統的核心功能之一，透過 LINE 平台提供使用者便捷的航班查詢、狀態追蹤和旅遊資訊服務。系統採用 Python Flask 後端連接 LINE Messaging API，實現各種互動功能。
+
+```
+架構圖:
+
+[使用者] <-> [LINE App] <-> [LINE Platform] <-> [Webhook/Flask後端] <-> [資料庫/API]
+```
+
+## 2. 核心功能
+
+### 2.1 基礎功能 (已實現)
+- Webhook 接收與處理
+- Rich Menu 設置與顯示
+- 基本文字訊息回應
+- 連結至前端網站
+
+### 2.2 待開發功能
+- 航班查詢指令處理
+- 常用旅遊詞彙查詢
+- 航班狀態變更通知
+- 票價追蹤提醒
+- 旅遊行程推薦
+
+## 3. 技術實現
+
+### 3.1 LINE Messaging API SDK (v3)
+使用 LINE 官方 Python SDK v3 版本進行開發：
+```python
+from linebot.v3 import WebhookHandler
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.messaging import Configuration, ApiClient, MessagingApi, ReplyMessageRequest
+from linebot.v3.webhooks import MessageEvent, TextMessageContent, FollowEvent
+```
+
+### 3.2 Webhook 實現
+位於 `backend/app/controllers/line_controller.py`，處理來自 LINE 平台的事件：
+```python
+@app.route("/line/callback", methods=['POST'])
+def line_callback():
+    signature = request.headers.get('X-Line-Signature')
+    body = request.get_data(as_text=True)
+    
+    try:
+        handler.handle(body, signature)
+    except InvalidSignatureError:
+        abort(400)
+    
+    return 'OK'
+```
+
+### 3.3 事件處理器
+使用 `@handler.add` 裝飾器路由不同事件：
+```python
+@handler.add(MessageEvent, message=TextMessageContent)
+def handle_text_message(event):
+    # 處理文字訊息
+    
+@handler.add(FollowEvent)
+def handle_follow(event):
+    # 處理加入好友事件
+```
+
+## 4. Rich Menu 設計
+
+### 4.1 主選單設計規範
+- 寬度：2500px，高度：1686px
+- 含可點擊區域 (6個主要功能)
+- 背景風格：與前端保持一致的Structured Journey Minimalism風格
+- 點擊區域背景使用輕微漸層，突出功能分類
+
+### 4.2 功能區塊
+- 航班查詢：引導用戶發送航班查詢指令
+- 查看延誤：查詢航班延誤資訊
+- 詞彙翻譯：提供旅遊常用詞翻譯
+- 行程推薦：根據地點推薦行程
+- 價格追蹤：追蹤機票價格變動
+- 前往網站：連結至完整網站
+
+## 5. 訊息處理流程
+
+### 5.1 指令解析
+設計前綴式指令系統，例如：
+- `/flight TPE-HKG 2025-12-25` 查詢特定日期從台北到香港的航班
+- `/track TPE-HKG 2025-12` 追蹤特定月份台北到香港的票價變動
+- `/term 登機證` 查詢「登機證」的英文及相關說明
+
+### 5.2 狀態追蹤
+使用 Redis 或資料庫暫存用戶對話狀態，實現多輪對話：
+```python
+# 偽代碼示例
+user_state = get_user_state(user_id)
+if user_state == "AWAITING_DESTINATION":
+    # 處理用戶剛才提供的目的地
+    save_user_state(user_id, "AWAITING_DATE")
+```
+
+## 6. 訊息類型運用
+
+### 6.1 基本訊息類型
+- 文字訊息（TextMessage）
+- 圖片訊息（ImageMessage）
+- 按鈕模板（ButtonsTemplate）
+- 輪播模板（CarouselTemplate）
+
+### 6.2 進階訊息類型
+- Flex Message：用於航班資訊的精美展示
+- Quick Reply：提供常用查詢選項的快速回覆按鈕
+
+## 7. 開發優先順序
+
+1. 添加 FollowEvent 處理，發送歡迎訊息
+2. 實現基本航班查詢指令解析
+3. 開發常用詞彙查詢功能
+4. 構建 Flex Message 航班資訊卡片
+5. 整合航班狀態變更通知系統
+
+## 8. 測試策略
+
+- 使用 ngrok 進行本地開發測試
+- 建立測試用戶對話流程腳本
+- 針對關鍵功能編寫自動化測試
+- 實施分階段部署與監控
+

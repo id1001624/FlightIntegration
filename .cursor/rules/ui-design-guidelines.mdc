@@ -1,0 +1,433 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 台灣航班整合系統UI設計指南：Structured Journey Minimalism
+
+## 1. 設計理念
+
+「Structured Journey Minimalism」是本系統的核心設計語言，融合了清晰的結構化佈局與輕量化的旅程視覺元素。這種設計風格在保持極簡主義的基礎上，通過巧妙的結構安排和微妙的視覺元素，創造出專業、直觀且具有「旅程感」的用戶體驗。
+
+### 1.1 核心原則
+- **清晰：** 內容清晰易讀，層次分明，界面清爽不擁擠
+- **結構化：** 嚴謹的網格布局提供專業感與導向性
+- **極簡：** 減少視覺干擾，專注於核心功能與內容
+- **旅程感：** 透過輕量化視覺元素暗示航班旅行體驗
+
+## 2. 色彩系統
+
+### 2.1 主要色彩
+- **基礎色 (Base):** `#FFFFFF` (純白) / `#F8F9FA` (淺灰)
+  - *用途：* 頁面背景、卡片背景，確保內容清晰度
+  
+- **主強調色 (Primary Accent):** `#005F73` (深青藍)
+  - *用途：* 主要按鈕、活動狀態、重要標題、關鍵數據
+
+- **次強調色 (Secondary Accent):** `#F4A261` (桑迪棕)
+  - *用途：* 次要提示、裝飾元素、次要按鈕
+
+### 2.2 功能色彩
+- **成功 (Success):** `#38B000` (綠色)
+- **警告 (Warning):** `#FFB703` (黃色)
+- **危險 (Danger):** `#DC2F02` (紅色)
+- **信息 (Info):** `#219EBC` (藍色)
+
+### 2.3 中性色彩
+- **文字主色:** `#212529` (深灰)
+- **文字次色:** `#6C757D` (中灰)
+- **邊框色:** `#E9ECEF` (淺灰)
+- **背景淺灰:** `#F8F9FA` (極淺灰)
+
+### 2.4 漸層應用
+- 僅在特定功能區域應用**極其柔和**的線性漸層
+- 漸層組合推薦：主強調色 → 透明 或 次強調色 → 透明
+- 重要原則：漸層必須非常輕微，不可影響文字可讀性
+
+```css
+/* 建議的漸層示例 */
+.hero-background {
+  background: linear-gradient(135deg, rgba(0, 95, 115, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.card-hover:hover {
+  background: linear-gradient(135deg, rgba(244, 162, 97, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
+}
+```
+
+## 3. 排版系統
+
+### 3.1 字體選擇
+- **標題字體:** Inter
+  - 特點：現代、清晰、幾何感強的無襯線字體
+  - 權重：600-700 (標題)，500 (副標題)
+  
+- **內文字體:** Noto Sans TC / Inter
+  - 特點：高度易讀，繁體中文優化，支援多種字重
+  - 權重：400 (正文)，500 (強調)，300 (次要文字)
+
+### 3.2 文字尺寸
+
+| 用途 | 尺寸 | 權重 | 行高 |
+|------|------|------|------|
+| 大標題 (h1) | 2rem (32px) | 700 | 1.2 |
+| 中標題 (h2) | 1.5rem (24px) | 600 | 1.25 |
+| 小標題 (h3) | 1.25rem (20px) | 600 | 1.3 |
+| 基本文字 | 1rem (16px) | 400 | 1.5 |
+| 次要文字 | 0.875rem (14px) | 400 | 1.5 |
+| 微型文字 | 0.75rem (12px) | 400 | 1.5 |
+
+### 3.3 文字層次
+
+- 透過字體大小、權重、顏色和間距建立清晰的視覺層次
+- 確保標題與內文形成有效對比
+- 使用適當留白強化文字層次感
+
+```css
+/* 標題與內文的層次對比示例 */
+h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+p {
+  font-size: 1rem;
+  font-weight: 400;
+  color: #495057;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+```
+
+## 4. 元件設計
+
+### 4.1 按鈕設計
+
+#### 主要按鈕 (Primary)
+- 背景色：主強調色 `#005F73`
+- 文字色：純白 `#FFFFFF`
+- 邊框：無
+- 圓角：4px
+- 懸停效果：背景色輕微加深，微小縮放或輕微內陰影
+
+#### 次要按鈕 (Secondary)
+- 背景色：透明
+- 文字色：主強調色 `#005F73`
+- 邊框：1px 主強調色 `#005F73`
+- 圓角：4px
+- 懸停效果：文字色和邊框色輕微加深
+
+#### 文字按鈕 (Text)
+- 背景色：透明
+- 文字色：主強調色 `#005F73`
+- 邊框：無
+- 懸停效果：文字加粗或加下劃線
+
+#### 禁用狀態 (Disabled)
+- 透明度：0.6
+- 鼠標指針：not-allowed
+
+```html
+<!-- 按鈕示例 (使用 Tailwind CSS 類名) -->
+<button class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-all">
+  搜尋航班
+</button>
+
+<button class="px-4 py-2 bg-transparent text-primary border border-primary rounded hover:text-primary-dark hover:border-primary-dark transition-all">
+  更多選項
+</button>
+
+<button class="text-primary hover:font-medium transition-all">
+  查看詳情
+</button>
+```
+
+### 4.2 卡片設計
+
+#### 標準卡片
+- 背景色：純白 `#FFFFFF`
+- 邊框：可選，1px `#E9ECEF`
+- 圓角：8px
+- 陰影：輕微，例如 `0 2px 4px rgba(0,0,0,0.05)`
+- 內邊距：16px-24px (一致)
+- 懸停效果：可選，輕微陰影增強或極淺背景色變化
+
+#### 航班卡片
+- 結構：三段式（航空公司資訊、航班時間資訊、價格操作資訊）
+- 強調元素：出發/到達時間、價格
+- 視覺元素：使用簡化的箭頭或線條連接起飛與降落資訊
+
+```html
+<!-- 航班卡片結構示例 -->
+<div class="p-4 bg-white rounded-lg shadow-sm hover:shadow transition-all">
+  <!-- 航空公司資訊 -->
+  <div class="flex items-center mb-3">
+    <img src="/airlines/logo.svg" alt="航空公司標誌" class="h-8 w-8 mr-2">
+    <div>
+      <h3 class="font-medium">中華航空</h3>
+      <p class="text-sm text-gray-600">CI-601</p>
+    </div>
+  </div>
+  
+  <!-- 航班時間資訊 -->
+  <div class="flex justify-between mb-3">
+    <div class="text-center">
+      <p class="text-xl font-semibold">14:30</p>
+      <p class="text-sm">TPE</p>
+    </div>
+    
+    <div class="flex-1 flex items-center justify-center px-4">
+      <div class="w-full h-px bg-gray-300 relative">
+        <span class="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xs text-gray-500">2h 15m</span>
+      </div>
+    </div>
+    
+    <div class="text-center">
+      <p class="text-xl font-semibold">16:45</p>
+      <p class="text-sm">HKG</p>
+    </div>
+  </div>
+  
+  <!-- 價格操作資訊 -->
+  <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+    <p class="text-lg font-semibold text-primary">NT$ 4,280</p>
+    <button class="px-3 py-1 bg-primary text-white text-sm rounded">選擇</button>
+  </div>
+</div>
+```
+
+### 4.3 表單元素
+
+#### 輸入框
+- 外觀：簡潔，輕微邊框 `#E9ECEF`
+- 狀態：預設、聚焦、錯誤、禁用
+- 聚焦效果：主強調色邊框，可選輕微背景色變化
+- 標籤：清晰可見，聚焦時可考慮使用上浮動畫
+
+#### 選擇器
+- 下拉菜單：與輸入框風格一致
+- 單選/複選框：簡潔現代設計，使用主強調色表示選中狀態
+- 風格：一致性優先，避免過度自定義導致使用者困惑
+
+#### 日期選擇器
+- 確保與整體設計風格一致
+- 強調當前日期和選定日期
+- 提供良好的移動設備支持和可訪問性
+
+## 5. 頁面佈局與結構
+
+### 5.1 網格系統
+- 採用12列網格系統
+- 使用一致的 gutter 寬度（建議16px-24px）
+- 確保對齊精確，不出現視覺偏移
+- 響應式斷點：
+  - 手機: < 768px
+  - 平板: 768px - 1024px
+  - 桌面: > 1024px
+
+### 5.2 關鍵頁面佈局
+
+#### 首頁 / 搜索頁
+- 非對稱設計：一側為醒目標題和搜索表單，另一側為輕量化視覺元素
+- 搜索表單置於視覺焦點位置
+- 清晰的動作引導
+
+#### 搜索結果頁
+- 左側篩選面板（可摺疊）
+- 右側結果列表（卡片式）
+- 頂部顯示搜索摘要和排序選項
+- 確保加載狀態良好處理
+
+#### 航班詳情頁
+- 分段信息卡片展示航班詳情
+- 使用極簡曲線連接起點和終點
+- 票價比較清晰呈現
+
+### 5.3 空間使用
+- 留白：充分利用留白創造舒適的視覺體驗
+- 分組：相關元素通過間距和邊框明確分組
+- 密度：控制信息密度，避免頁面過於擁擠
+
+## 6. 互動與微動效
+
+### 6.1 微交互原則
+- 目的性：每個動畫都應有明確目的，增強用戶體驗
+- 輕量性：動畫應輕量化，不干擾核心體驗
+- 一致性：整個應用保持一致的動畫風格和速度
+
+### 6.2 常見微交互
+- 按鈕：懸停和點擊反饋
+- 表單：焦點、驗證反饋
+- 卡片：懸停效果
+- 頁面切換：平滑過渡
+- 載入狀態：骨架屏或進度指示
+
+### 6.3 旅程元素建議
+從以下三個選項中**選擇一個**實現：
+
+#### 選項A：Hero Section動態背景
+- 在首頁 Hero Section 背景中使用由簡單幾何形狀組成的抽象圖案
+- 圖案緩慢移動，暗示雲層、地平線或旅程路徑
+- 使用 CSS 或輕量 SVG 動畫實現，確保性能
+
+```css
+/* Hero背景動畫示例 */
+.hero-background {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-background:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    rgba(0,95,115,0.02) 0%, 
+    rgba(244,162,97,0.03) 50%, 
+    rgba(0,95,115,0.02) 100%);
+  animation: slide 30s linear infinite;
+  z-index: 0;
+}
+
+@keyframes slide {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(33.33%); }
+}
+```
+
+#### 選項B：線條路徑載入動畫
+- 設計一個簡單的載入動畫，展示一條線沿著抽象路徑前進
+- 可代替傳統的旋轉圖標，增加品牌特色
+- 保持動畫輕量化，避免過度複雜
+
+#### 選項C：航班路徑視覺化
+- 在搜索結果卡片或詳情頁中，使用極簡曲線連接起飛和降落機場
+- 可考慮簡單繪製動畫，使曲線"飛行"形成
+- 確保視覺簡潔，不過度裝飾
+
+## 7. 響應式設計
+
+### 7.1 通用原則
+- 採用移動優先設計策略
+- 優先考慮核心內容和功能
+- 確保觸控友好（足夠大的點擊區域）
+- 使用相對單位（rem, em, %, vh/vw）而非固定像素
+
+### 7.2 特定響應調整
+
+#### 手機版 (< 768px)
+- 單列卡片佈局
+- 篩選器轉為底部抽屜或頂部下拉
+- 導航簡化為漢堡菜單
+- 確保表單元素適合手指操作
+
+#### 平板版 (768px - 1024px)
+- 兩列卡片佈局
+- 篩選面板可折疊但仍可見
+- 優化水平和垂直空間使用
+
+#### 桌面版 (> 1024px)
+- 多列卡片佈局
+- 左側篩選面板常駐
+- 充分利用寬屏優勢展示更多信息
+
+## 8. 圖標與視覺元素
+
+### 8.1 圖標系統
+- 使用輕量、現代、簡潔的線型圖標
+- 保持一致的視覺風格和尺寸
+- 航空相關圖標（飛機、行李、票務等）應特別注重識別性
+
+### 8.2 航空公司Logo
+- 統一尺寸和呈現方式
+- 確保高品質圖像，優先使用SVG
+- 適當處理不同背景下的顯示效果
+
+### 8.3 圖像使用
+- 選擇清晰、專業的圖像
+- 機場、城市圖像應體現目的地特色
+- 確保圖像加載優化，考慮使用漸進式加載
+
+## 9. 技術實現建議
+
+### 9.1 CSS框架與工具
+- **推薦:** Tailwind CSS 或 UnoCSS
+  - 優點：高度可定制，易於維護，不生成多餘CSS
+  - 使用方式：設定自定義主題以匹配設計系統
+
+```javascript
+// tailwind.config.js 示例
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#005F73',
+        'primary-dark': '#004E5F',
+        secondary: '#F4A261',
+        'gray-light': '#F8F9FA',
+        'gray-medium': '#E9ECEF',
+      },
+      fontFamily: {
+        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+      },
+      borderRadius: {
+        DEFAULT: '4px',
+        'md': '8px',
+      },
+      boxShadow: {
+        'sm': '0 2px 4px rgba(0,0,0,0.05)',
+        DEFAULT: '0 4px 6px rgba(0,0,0,0.07)',
+      }
+    }
+  }
+}
+```
+
+### 9.2 組件實現
+- 使用 Vue 3 的組合式 API 構建可重用組件
+- 確保組件接口靈活但不過度複雜
+- 使用 Props 和插槽提供足夠的定制性
+
+### 9.3 動畫實現
+- 對於簡單過渡：使用 Vue Transition 和 CSS transitions
+- 對於較複雜動畫：考慮 CSS animations 或輕量級的 GSAP
+- 性能注意事項：動畫僅變換 transform 和 opacity 屬性，避免觸發布局重繪
+
+## 10. 可訪問性考量
+
+### 10.1 顏色對比
+- 確保文本與背景色對比度符合 WCAG AA 標準（至少 4.5:1）
+- 不僅依靠顏色傳達信息，搭配形狀、文本或圖標
+
+### 10.2 鍵盤導航
+- 確保所有交互元素可通過鍵盤訪問
+- 提供明確的焦點狀態
+- 保持邏輯的 Tab 順序
+
+### 10.3 螢幕閱讀器支持
+- 使用語義化 HTML 元素
+- 提供適當的 ARIA 屬性
+- 確保表單元素有關聯的標籤
+
+## 11. 品牌保持與一致性
+
+### 11.1 審查表
+在實施設計時，請檢查以下要點：
+- 色彩使用是否符合系統規範
+- 排版是否遵循層次系統
+- 間距是否一致且良好
+- 圓角、陰影是否統一
+- 動畫是否輕量且有目的
+- 響應式行為是否合理
+
+### 11.2 設計資源
+- 維護設計系統組件庫
+- 建立共享的設計標記系統
+- 定期審查和更新設計指南
+
