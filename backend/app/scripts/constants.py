@@ -195,6 +195,9 @@ ALL_DOMESTIC_ROUTES_TUPLES = [
     ('TSA', 'MFK'), ('MFK', 'TSA'),
     ('TSA', 'LZN'), ('LZN', 'TSA'),
 
+    # *** 新增 TPE-KHH 國內航線 ***
+    ('TPE', 'KHH'), ('KHH', 'TPE'),
+
     # From/To KHH (Kaohsiung)
     ('KHH', 'MZG'), ('MZG', 'KHH'),
     ('KHH', 'KNH'), ('KNH', 'KHH'),
@@ -268,8 +271,21 @@ TPE_INTERNATIONAL_ROUTES = [
     # 美洲
     'SFO', 'LAX', 'JFK', 'HNL', 'SEA', 'YVR'
 ]
-# 創建國際航線元組 (可以擴展 KHH, RMQ 等)
-ALL_INTERNATIONAL_ROUTES_TUPLES = [('TPE', dest) for dest in TPE_INTERNATIONAL_ROUTES]
+
+# --- 新增：其他機場的國際航線目的地 ---
+TSA_INTERNATIONAL_ROUTES = ['HND', 'HKG', 'GMP', 'PVG', 'SHA', 'ITM', 'OKA', 'CTS', 'ICN']
+KHH_INTERNATIONAL_ROUTES = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
+RMQ_INTERNATIONAL_ROUTES = ['HKG', 'MFM', 'SGN', 'KIX', 'NRT', 'OKA', 'ICN']
+HUN_INTERNATIONAL_ROUTES = ['HKG'] # 花蓮主要是包機
+
+# --- 修改：創建包含所有機場的國際航線元組 ---
+ALL_INTERNATIONAL_ROUTES_TUPLES = []
+ALL_INTERNATIONAL_ROUTES_TUPLES.extend([('TPE', dest) for dest in TPE_INTERNATIONAL_ROUTES])
+ALL_INTERNATIONAL_ROUTES_TUPLES.extend([('TSA', dest) for dest in TSA_INTERNATIONAL_ROUTES])
+ALL_INTERNATIONAL_ROUTES_TUPLES.extend([('KHH', dest) for dest in KHH_INTERNATIONAL_ROUTES])
+ALL_INTERNATIONAL_ROUTES_TUPLES.extend([('RMQ', dest) for dest in RMQ_INTERNATIONAL_ROUTES])
+ALL_INTERNATIONAL_ROUTES_TUPLES.extend([('HUN', dest) for dest in HUN_INTERNATIONAL_ROUTES])
+# --- 結束修改 ---
 
 # 3. 合併國內與國際航線
 ALL_ROUTES_TUPLES = sorted(list(set(ALL_DOMESTIC_ROUTES_TUPLES + ALL_INTERNATIONAL_ROUTES_TUPLES)))
