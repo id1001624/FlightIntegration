@@ -67,7 +67,7 @@ FlightIntegration/
 - **腳本新增**
   - 刪除flights、ticket_prices資料庫舊資料。
 
-> 詳細的已完成功能和待開發項目請參考 [項目狀態文檔](mdc:project-status.mdc)，如果已完成請更新 [project-status.mdc](mdc:.cursor/rules/project-status.mdc)
+> 詳細的已完成功能和待開發項目請參考 [activeContext.md](mdc:memory-bank/activeContext.md)，任務追蹤請用 [tasks.md](mdc:memory-bank/tasks.md) 工作完成請更新檔案確保進度追蹤，以memory-bank/去記憶
 
 ## 5. 開發指南
 
@@ -121,27 +121,35 @@ FlightIntegration/
 ### 前端輸入驗證
 - 在前端（例如 `SearchForm.vue` 的 `validateForm` 和 `submitSearch`）驗證用戶輸入和選擇，然後再將數據發送到後端。這可以防止無效請求（例如使用 'N/A' 作為機場代碼搜索）並提高健壯性。
 
-## 7. 潛在問題與關注點
+## 7. 目前問題與關注點
 
+### 7.1 前端整合挑戰
 - 前端 `flightService.js` 中的 `_handleResponse` 邏輯可能需要簡化以適應一致的後端響應
 - 機場區域分類邏輯依賴API返回的國家(country)資訊
+
+### 7.2 後端API契約遵守
+- 確保API響應嚴格符合前端期望的數據結構
+- 後端控制器需負責在序列化前預處理數據，確保API響應遵循商定的模式
+
+### 7.3 其他考量
 - 機場按航班數量排序可能需要顯著的後端更改以有效聚合航班數據
 - 需要確保中文搜索功能在各元件間的一致實現
 
-## 8. 資源連結
+## 7.4 資源連結
 
 ### 8.1 項目文檔
-- **[項目狀態](mdc:project-status.mdc)** - 已完成功能和待開發項目的詳細清單
+- ** [activeContext.md](mdc:memory-bank/activeContext.md) ** - 已完成功能和待開發項目的詳細清單
 - **[UI設計指南](mdc:ui-design-guidelines.mdc)** - Structured Journey Minimalism 設計系統
 - **[LINE Bot整合指南](mdc:line-bot-integration.mdc)** - LINE Bot 功能實現規範
 
 ### 8.2 參考指南
+- **系統架構**: [systemPatterns.md](mdc:memory-bank/systemPatterns.md)
 - **[後端架構設計](mdc:backend-architecture.mdc)**
 - **[前端設計指南](mdc:frontend-guidelines.mdc)**
 - **[安全指南](mdc:owasp_critical.mdc)**
 - **[提交規範](mdc:commit_rules.mdc)**
-- **[產品需求](mdc:product-requirements.mdc)**
-- **[技術棧](mdc:tech-stack.mdc)**
+- **[產品需求](mdc:product-requirements.mdc)** [productContext.md](mdc:memory-bank/productContext.md)
+- **[技術棧](mdc:tech-stack.mdc)** [techContext.md](mdc:memory-bank/techContext.md)
 
 
 

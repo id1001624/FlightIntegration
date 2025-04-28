@@ -21,6 +21,7 @@ class Flight(Base):
     aircraft = db.Column(db.String, nullable=False)
     departure_terminal = db.Column(db.String(10), nullable=True)
     arrival_terminal = db.Column(db.String(10), nullable=True)
+    is_test_data = db.Column(db.Boolean, default=False, nullable=False)
     
     # 使用應用程式所在時區的當前時間，而非UTC時間
     created_at = db.Column(db.DateTime, default=datetime.now, nullable=True)

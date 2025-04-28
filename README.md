@@ -71,6 +71,16 @@
     python backend/app/scripts/generate_fake_prices.py
     ```
 
+    模擬航班資料
+    - 生成3天的資料，每天約200個航班，從今天開始
+        python app/scripts/generate_dummy_flight_data.py
+
+    - 生成7天的資料，每天約500個航班，從2023-12-01開始
+        python app/scripts/generate_dummy_flight_data.py --days 7 --flights-per-day 500 --start-date 2023-12-01
+
+    - 生成資料前清空現有的航班資料
+        python app/scripts/generate_dummy_flight_data.py --clear-existing
+
 ### 前端設定
 
 1.  **進入前端目錄**: `cd ../frontend` (假設您在 backend 目錄)

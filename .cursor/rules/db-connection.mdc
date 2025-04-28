@@ -1,7 +1,7 @@
 ---
 description: 
-globs: 
-alwaysApply: true
+globs: project-cursor-rules.mdc
+alwaysApply: false
 ---
 # 資料庫與後端開發檢查規則
 

@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # 台灣航班整合系統項目狀態
 
@@ -48,8 +48,20 @@ alwaysApply: false
 - 🔄 審查UI是否符合 `frontend-guidelines` 風格要求
 - 🔄 評估 `FlightDetailCard.vue` 中的動畫效果
 
-### 2.2 資料管理優化
-- 🔄 刪除flights、ticket_prices資料庫舊資料的腳本開發
+## 進行中功能
+
+- 🔄 優化起飛機場排序（依據航班數量）
+- 🔄 實現中文名稱搜索功能
+- 🔄 搜索後自動滾動功能
+- 🔄 航班卡片詳情彈窗持續顯示修復
+- 🔄 保留搜尋結果（關閉彈窗後保持搜尋狀態）
+- 🔄 自動刪除flights、ticket_prices資料庫舊資料的腳本
+
+### 4. LINE Bot功能擴展
+- 🔄 FollowEvent處理，發送歡迎訊息
+- 🔄 基於文字指令的航班查詢功能
+- 🔄 常用詞彙查詢功能
+- 🔄 Flex Message航班資訊卡片
 
 ## 3. 待開發功能
 
@@ -87,17 +99,5 @@ alwaysApply: false
 - 💤 資料緩存策略優化
 - 💤 資料庫查詢效能提升
 
-## 5. 目前問題與關注點
 
-### 5.1 前端整合挑戰
-- 前端 `flightService.js` 中的 `_handleResponse` 邏輯可能需要簡化以適應一致的後端響應
-- 機場區域分類邏輯依賴API返回的國家(country)資訊
-
-### 5.2 後端API契約遵守
-- 確保API響應嚴格符合前端期望的數據結構
-- 後端控制器需負責在序列化前預處理數據，確保API響應遵循商定的模式
-
-### 5.3 其他考量
-- 機場按航班數量排序可能需要顯著的後端更改以有效聚合航班數據
-- 需要確保中文搜索功能在各元件間的一致實現
 

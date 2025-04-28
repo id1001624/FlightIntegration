@@ -97,37 +97,9 @@ class FlightStatsApiClient(BaseAPIClient):
             
         return params
     
-    @cached(ttl=7200, key_prefix="flightstats_flights")
-    def get_flights(self, dep_airport: str, arr_airport: str, date: str) -> List[Dict]:
-        """
-        獲取特定出發地、目的地和日期的航班信息，只使用 schedules 端點
-        
-        Args:
-            dep_airport: 出發機場IATA代碼
-            arr_airport: 到達機場IATA代碼
-            date: 日期字符串，格式為YYYY-MM-DD
-            
-        Returns:
-            航班信息列表
-        """
-        if not dep_airport or not arr_airport or not date:
-            self.logger.error("獲取航班信息的參數不完整")
-            return []
-            
-        dep_airport = dep_airport.strip().upper()
-        arr_airport = arr_airport.strip().upper()
-        
-        # 解析日期
-        try:
-            dt = datetime.strptime(date, '%Y-%m-%d')
-            year, month, day = dt.year, dt.month, dt.day
-        except ValueError:
-            self.logger.error(f"日期格式無效: {date}")
-            return []
-            
-        self.logger.info(f"獲取航班: {dep_airport} → {arr_airport}, 日期: {date}")
-        
-        # 使用 schedules 端點獲取航班信息
+    def _get_single_day_flights(self, dep_airport: str, arr_airport: str, year: int, month: int, day: int) -> List[Dict]:
+        """獲取特定單日的航班信息"""
+        self.logger.info(f"從 FlightStats 獲取單日航班: {dep_airport} → {arr_airport}, 日期: {year}-{month:02d}-{day:02d}")
         url = f"{self.base_url}/schedules/rest/v1/json/from/{dep_airport}/to/{arr_airport}/departing/{year}/{month}/{day}"
         
         response = self.make_request(
@@ -139,50 +111,95 @@ class FlightStatsApiClient(BaseAPIClient):
         )
         
         flights = []
-            
         if response and 'scheduledFlights' in response:
-            self.logger.info(f"接收到 scheduledFlights 回應，包含 {len(response['scheduledFlights'])} 個航班")
+            # self.logger.debug(f"單日回應包含 {len(response['scheduledFlights'])} 個航班") # 可選：更詳細的日誌
             try:
                 for item in response['scheduledFlights']:
-                    # 篩選目標航空公司
                     airline_code = item.get('carrierFsCode', '')
-                    if airline_code not in self.target_airlines and len(self.target_airlines) > 0:
+                    if airline_code not in self.target_airlines:
                         continue
-                    # 解析日期時間
-                    dep_time = None
-                    arr_time = None
-                    try:
-                        dep_time_str = item.get('departureTime', '')
-                        if dep_time_str:
-                            dep_time = parse_datetime(dep_time_str)
-                        arr_time_str = item.get('arrivalTime', '')
-                        if arr_time_str:
-                            arr_time = parse_datetime(arr_time_str)
-                    except Exception as e:
-                        self.logger.warning(f"解析日期時間出錯: {str(e)}")
-                    # 創建航班信息字典，只包含資料庫中存在的欄位
-                    # 並移除 UUID 的生成
+                    
+                    dep_time = parse_datetime(item.get('departureTime'))
+                    arr_time = parse_datetime(item.get('arrivalTime'))
+                    
                     flight = {
                         'flight_number': item.get('carrierFsCode', '') + item.get('flightNumber', ''),
-                        'airline_id': item.get('carrierFsCode', ''),
+                        'airline_id': airline_code,
                         'departure_airport_id': dep_airport,
                         'arrival_airport_id': arr_airport,
                         'scheduled_departure': format_datetime(dep_time) if dep_time else None,
                         'scheduled_arrival': format_datetime(arr_time) if arr_time else None,
                         'aircraft': item.get('flightEquipmentIataCode', ''),
-                        # 確保提取航廈資訊，如果為 None 或空字串則設為 None
                         'departure_terminal': item.get('departureTerminal') or None,
                         'arrival_terminal': item.get('arrivalTerminal') or None,
                     }
                     flights.append(flight)
-                self.logger.info(f"成功從schedules接口獲取並處理 {len(flights)} 個航班信息") 
             except Exception as e:
-                self.logger.error(f"解析schedules數據時出錯: {str(e)}")
-
-        if not flights:
-            self.logger.warning(f"最終未獲取到航班信息: {dep_airport} → {arr_airport}, 日期: {date}")
-
+                self.logger.error(f"解析單日({year}-{month:02d}-{day:02d})航班數據時出錯: {str(e)}")
+        # else:
+            # self.logger.debug(f"單日({year}-{month:02d}-{day:02d})無航班數據或回應格式錯誤") # 可選：更詳細的日誌
+            
         return flights
+
+    @cached(ttl=7200, key_prefix="flightstats_flights_7day") # 更新快取鍵
+    def get_flights(self, dep_airport: str, arr_airport: str, date: str, days_to_fetch: int = 7) -> List[Dict]:
+        """
+        獲取特定出發地、目的地從指定日期開始未來 N 天的航班信息。
+        內部會調用 API N 次。
+        
+        Args:
+            dep_airport: 出發機場IATA代碼
+            arr_airport: 到達機場IATA代碼
+            date: 起始日期字符串，格式為YYYY-MM-DD
+            days_to_fetch: 從起始日期開始獲取的天數，預設為 7
+            
+        Returns:
+            N 天內的航班信息列表
+        """
+        if not dep_airport or not arr_airport or not date:
+            self.logger.error("獲取航班信息的參數不完整")
+            return []
+            
+        dep_airport = dep_airport.strip().upper()
+        arr_airport = arr_airport.strip().upper()
+        
+        all_flights = []
+        
+        try:
+            start_dt = datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            self.logger.error(f"起始日期格式無效: {date}")
+            return []
+
+        self.logger.info(f"開始獲取航班: {dep_airport} → {arr_airport}, 從 {date} 開始，共 {days_to_fetch} 天")
+        
+        for i in range(days_to_fetch):
+            current_dt = start_dt + timedelta(days=i)
+            year, month, day = current_dt.year, current_dt.month, current_dt.day
+            
+            try:
+                daily_flights = self._get_single_day_flights(dep_airport, arr_airport, year, month, day)
+                if daily_flights:
+                    all_flights.extend(daily_flights)
+                    self.logger.info(f"日期 {current_dt.strftime('%Y-%m-%d')} 獲取了 {len(daily_flights)} 個航班")
+                else:
+                    self.logger.info(f"日期 {current_dt.strftime('%Y-%m-%d')} 未找到航班")
+                
+                # 在每次 API 調用後添加延遲
+                time.sleep(self.request_interval)
+                
+            except Exception as e:
+                self.logger.error(f"獲取日期 {current_dt.strftime('%Y-%m-%d')} 的航班時發生錯誤: {e}")
+                # 即使某一天出錯，也繼續獲取下一天
+                continue
+                
+        total_flights = len(all_flights)
+        if total_flights > 0:
+            self.logger.info(f"總共獲取了 {total_flights} 個航班 ({dep_airport} → {arr_airport}, {days_to_fetch} 天)")
+        else:
+             self.logger.warning(f"在指定的 {days_to_fetch} 天內未獲取到任何航班信息: {dep_airport} → {arr_airport}")
+
+        return all_flights
     
     def get_airports(self) -> List[Dict]:
         """獲取所有機場信息"""

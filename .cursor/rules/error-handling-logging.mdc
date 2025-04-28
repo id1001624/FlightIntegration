@@ -1,6 +1,6 @@
 ---
 description: 
-globs: 
+globs: project-cursor-rules.mdc
 alwaysApply: false
 ---
 # 錯誤處理與日誌記錄指南

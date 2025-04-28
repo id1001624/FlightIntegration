@@ -2,6 +2,25 @@
 共享常量模組 - 存儲所有腳本和客戶端共用的常量
 """
 
+import os
+import sys
+import uuid
+import io
+import gzip
+import json
+import logging
+import datetime
+import base64
+from datetime import datetime as dt_datetime
+from datetime import timedelta as dt_timedelta
+from typing import Dict, List, Optional, Any, Union, Tuple 
+# *** Logger 配置 (添加) ***
+logger = logging.getLogger(__name__) # 在頂層定義 logger
+
+
+
+# --- 常量定義 --- (以下保持不變)
+
 # 台灣機場IATA代碼
 TAIWAN_AIRPORTS = [
     'TPE',  # 台灣桃園國際機場
@@ -150,8 +169,10 @@ POPULAR_INTERNATIONAL_ROUTES_TUPLES = [
     ('HUN', 'HKG')
 ]
 
-# --- 前端熱門航線 --- 
+# --- 新增：合併後的熱門航線 (用於前端或統一邏輯) ---
+COMBINED_POPULAR_ROUTES_TUPLES = sorted(list(set(POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES)))
 
+# --- 前端熱門航線 (可以保留或移除，取決於是否還需要獨立定義) --- 
 # 根據用戶提供的表格定義前端熱門航線
 _fe_tpe_dest = ['HKG', 'NRT', 'HND', 'KIX', 'ICN', 'BKK', 'SIN', 'PVG', 'MNL', 'SGN', 'KUL', 'MFM', 'NGO', 'CTS', 'FUK', 'LAX', 'SFO', 'YVR', 'JFK', 'LHR', 'CDG']
 _fe_tsa_dest = ['HKG', 'HND', 'GMP', 'PVG', 'SHA'] # GMP 代表首爾金浦, SHA 代表上海虹橋
@@ -159,18 +180,77 @@ _fe_khh_dest = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
 _fe_rmq_dest = ['HKG', 'MFM', 'SGN']
 _fe_hun_dest = ['HKG'] # 花蓮包機
 
-FRONTEND_POPULAR_ROUTES_TUPLES: list[tuple[str, str]] = [
-    ("TPE", "NRT"), ("TPE", "KIX"), ("TPE", "ICN"), ("TPE", "SIN"), ("TPE", "BKK"),
-    ("TPE", "HKG"), ("TPE", "PVG"), ("TPE", "SFO"), ("TPE", "LAX"), ("TPE", "JFK"),
-    ("TSA", "HND"), ("TSA", "GMP"), ("TSA", "SHA"),
-    ("RMQ", "HKG"), ("RMQ", "KIX"),
-    ("KHH", "NRT"), ("KHH", "KIX"), ("KHH", "ICN"), ("KHH", "HKG"), ("KHH", "SIN")
+# --- 所有航線資料 (修改) ---
+
+# 1. 直接定義所有已知的國內航線元組 (包含雙向)
+ALL_DOMESTIC_ROUTES_TUPLES = [
+    # From/To TSA (Taipei Songshan)
+    ('TSA', 'KHH'), ('KHH', 'TSA'),
+    ('TSA', 'RMQ'), ('RMQ', 'TSA'),
+    ('TSA', 'TNN'), ('TNN', 'TSA'),
+    ('TSA', 'MZG'), ('MZG', 'TSA'),
+    ('TSA', 'HUN'), ('HUN', 'TSA'),
+    ('TSA', 'TTT'), ('TTT', 'TSA'),
+    ('TSA', 'KNH'), ('KNH', 'TSA'),
+    ('TSA', 'MFK'), ('MFK', 'TSA'),
+    ('TSA', 'LZN'), ('LZN', 'TSA'),
+
+    # From/To KHH (Kaohsiung)
+    ('KHH', 'MZG'), ('MZG', 'KHH'),
+    ('KHH', 'KNH'), ('KNH', 'KHH'),
+    ('KHH', 'WOT'), ('WOT', 'KHH'),
+    ('KHH', 'CMJ'), ('CMJ', 'KHH'),
+    ('KHH', 'LZN'), ('LZN', 'KHH'), 
+    ('KHH', 'HUN'), ('HUN', 'KHH'),
+
+    # From/To RMQ (Taichung)
+    ('RMQ', 'KNH'), ('KNH', 'RMQ'),
+    ('RMQ', 'MZG'), ('MZG', 'RMQ'),
+    ('RMQ', 'LZN'), ('LZN', 'RMQ'),
+    ('RMQ', 'HUN'), ('HUN', 'RMQ'),
+
+    # From/To TNN (Tainan)
+    ('TNN', 'MZG'), ('MZG', 'TNN'),
+    ('TNN', 'KNH'), ('KNH', 'TNN'),
+
+    # From/To TTT (Taitung)
+    ('TTT', 'GNI'), ('GNI', 'TTT'),
+    ('TTT', 'KYD'), ('KYD', 'TTT'),
+
+    # From/To KNH (Kinmen)
+    ('KNH', 'CYI'), ('CYI', 'KNH'),
+    ('KNH', 'MZG'), ('MZG', 'KNH'),
+
+    # From/To MZG (Magong/Penghu)
+    ('MZG', 'CYI'), ('CYI', 'MZG'),
+    ('MZG', 'CMJ'), ('CMJ', 'MZG'),
+
+    # From/To GNI (Green Island)
+    # (Included above)
+
+    # From/To KYD (Lanyu)
+    # (Included above)
+
+    # From/To CYI (Chiayi)
+    # (Included above)
+
+    # From/To MFK (Matsu Beigan)
+    # (Included above)
+
+    # From/To LZN (Matsu Nangan)
+    # (Included above)
+
+    # From/To WOT (Wangan)
+    # (Included above)
+
+    # From/To CMJ (Qimei)
+    # (Included above)
 ]
+# 去重並排序
+ALL_DOMESTIC_ROUTES_TUPLES = sorted(list(set(ALL_DOMESTIC_ROUTES_TUPLES)))
 
-# --- 所有航線資料 ---
-
-# 台灣桃園國際機場 (TPE) 直飛航線
-TPE_ROUTES = [
+# 2. 定義國際航線 (目前主要從 TPE)
+TPE_INTERNATIONAL_ROUTES = [
     # 日本
     'NRT', 'HND', 'KIX', 'NGO', 'CTS', 'FUK', 'OKA', 'SDJ',
     # 韓國
@@ -188,105 +268,24 @@ TPE_ROUTES = [
     # 美洲
     'SFO', 'LAX', 'JFK', 'HNL', 'SEA', 'YVR'
 ]
+# 創建國際航線元組 (可以擴展 KHH, RMQ 等)
+ALL_INTERNATIONAL_ROUTES_TUPLES = [('TPE', dest) for dest in TPE_INTERNATIONAL_ROUTES]
 
-# 台北松山機場 (TSA) 直飛航線
-TSA_ROUTES = [
-    # 日本
-    'HND', 'ITM', 'OKA', 'CTS',
-    # 韓國
-    'GMP', 'ICN',
-    # 中國大陸
-    'PVG', 'SHA', 'XMN', 'FOC', 'WUH', 'CKG', 'TSN', 'TFU',
-    # 港澳
-    'HKG',
-    # 台灣國內
-    'KHH', 'RMQ', 'TNN', 'MZG', 'KNH', 'LZN', 'MFK', 'TTT', 'HUN'
-]
+# 3. 合併國內與國際航線
+ALL_ROUTES_TUPLES = sorted(list(set(ALL_DOMESTIC_ROUTES_TUPLES + ALL_INTERNATIONAL_ROUTES_TUPLES)))
 
-# 高雄國際機場 (KHH) 直飛航線
-KHH_ROUTES = [
-    # 日本
-    'NRT', 'KIX', 'FUK', 'OKA', 'KMJ',
-    # 韓國
-    'ICN', 'GMP', 'PUS',
-    # 中國大陸
-    'PVG', 'SZX', 'CKG', 'NKG',
-    # 港澳
-    'HKG', 'MFM',
-    # 東南亞
-    'BKK', 'SIN', 'MNL', 'KUL', 'BKI',
-    # 台灣國內
-    'TSA', 'KNH', 'MZG', 'CMJ', 'WOT'
-]
-
-# 台中清泉崗機場 (RMQ) 直飛航線
-RMQ_ROUTES = [
-    # 日本
-    'KIX', 'NRT', 'OKA', 'TAK', 'UKB',
-    # 韓國
-    'ICN', 'PUS',
-    # 中國大陸
-    'NKG',
-    # 港澳
-    'HKG', 'MFM',
-    # 東南亞
-    'SGN', 'HAN', 'DAD', 'PQC',
-    # 台灣國內
-    'TSA', 'KNH', 'MZG', 'LZN', 'HUN'
-]
-
-# 台南機場 (TNN) 直飛航線
-TNN_ROUTES = [
-    # 台灣國內
-    'TSA', 'MZG'
-]
-
-# 花蓮機場 (HUN) 直飛航線
-HUN_ROUTES = [
-    # 港澳
-    'HKG',
-    # 台灣國內
-    'TSA', 'RMQ'
-]
-
-# 所有台灣直飛航線元組
-ALL_ROUTES_TUPLES = []
-
-# 從 TPE 出發的航線
-for dest in TPE_ROUTES:
-    if dest not in TAIWAN_AIRPORTS:  # 國際航線
-        ALL_ROUTES_TUPLES.append(('TPE', dest))
-
-# 從 TSA 出發的航線
-for dest in TSA_ROUTES:
-    ALL_ROUTES_TUPLES.append(('TSA', dest))
-
-# 從 KHH 出發的航線
-for dest in KHH_ROUTES:
-    ALL_ROUTES_TUPLES.append(('KHH', dest))
-
-# 從 RMQ 出發的航線
-for dest in RMQ_ROUTES:
-    ALL_ROUTES_TUPLES.append(('RMQ', dest))
-
-# 從 TNN 出發的航線
-for dest in TNN_ROUTES:
-    ALL_ROUTES_TUPLES.append(('TNN', dest))
-
-# 從 HUN 出發的航線
-for dest in HUN_ROUTES:
-    ALL_ROUTES_TUPLES.append(('HUN', dest))
-
-# 確保熱門航線是所有航線的子集
+# 4. 確保熱門航線包含在內 (作為安全檢查)
 def ensure_routes_included(routes_to_check, all_routes):
     """確保指定的航線集合是所有航線的子集，若不是則添加"""
     for route in routes_to_check:
         if route not in all_routes:
+            logger.warning(f"警告：熱門航線 {route} 未包含在 ALL_ROUTES_TUPLES 中，已自動添加。請檢查定義。")
             all_routes.append(route)
 
-# 確保熱門國內和國際航線都包含在所有航線中
+# 執行檢查與最終去重排序
 ensure_routes_included(POPULAR_DOMESTIC_ROUTES_TUPLES, ALL_ROUTES_TUPLES)
 ensure_routes_included(POPULAR_INTERNATIONAL_ROUTES_TUPLES, ALL_ROUTES_TUPLES)
+ALL_ROUTES_TUPLES = sorted(list(set(ALL_ROUTES_TUPLES))) # 最終排序和去重
 
 # --- API 查詢與前端顯示輔助函數 ---
 
@@ -301,8 +300,8 @@ def get_all_direct_routes():
     return ALL_ROUTES_TUPLES
 
 def get_popular_routes():
-    """取得所有熱門航線（國內+國際）"""
-    return POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
+    """取得所有合併後的熱門航線（國內+國際）"""
+    return COMBINED_POPULAR_ROUTES_TUPLES # 返回合併後的列表
 
 def get_routes_for_frontend():
     """
@@ -315,9 +314,13 @@ def get_routes_for_frontend():
     all_routes = []
     popular_routes = []
     
+    # 創建一個熱門航線的集合以便快速查找
+    popular_set = set(COMBINED_POPULAR_ROUTES_TUPLES) # 使用合併後的集合
+    
     # 處理所有航線
     for dep, arr in ALL_ROUTES_TUPLES:
-        is_popular = is_popular_route(dep, arr)
+        # --- 修改：使用合併後的 popular_set 判斷 --- 
+        is_popular = (dep, arr) in popular_set 
         route_info = {
             'departure': dep,
             'arrival': arr,
@@ -326,12 +329,15 @@ def get_routes_for_frontend():
         }
         all_routes.append(route_info)
         
-        # 如果是熱門航線，也加入熱門航線列表
-        if is_popular:
-            # 移除 is_popular 欄位，因為熱門航線列表中所有航線都是熱門的
-            popular_route_info = route_info.copy()
-            popular_route_info.pop('is_popular', None)
-            popular_routes.append(popular_route_info)
+    # --- 修改：基於合併後的 COMBINED_POPULAR_ROUTES_TUPLES 生成前端熱門列表 --- 
+    for dep, arr in COMBINED_POPULAR_ROUTES_TUPLES:
+        popular_route_info = {
+            'departure': dep,
+            'arrival': arr,
+            'name': _get_route_name(dep, arr),
+        }
+        popular_routes.append(popular_route_info)
+    # --- 結束修改 --- 
     
     return {
         'all_routes': all_routes,

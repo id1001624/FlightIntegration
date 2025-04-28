@@ -53,53 +53,38 @@ def format_tdx_flight(raw_flight: Dict) -> Optional[Dict]:
     try:
         # --- 使用正確的 snake_case 鍵名 ---
         airline_id = raw_flight.get('airline_id')
+        # flight_number 來自 tdx_client 的組合 flight_number
         flight_number = raw_flight.get('flight_number')
-        flight_date = raw_flight.get('flight_date')
         
         # 確保關鍵字段存在
-        if not airline_id or not flight_number or not flight_date:
-             logger.warning(f"TDX 原始數據缺少關鍵字段 (檢查 airline_id, flight_number, flight_date): {raw_flight}")
+        if not airline_id or not flight_number:
+             logger.warning(f"TDX 原始數據缺少關鍵字段 (檢查 airline_id, flight_number): {raw_flight}")
              return None
              
         # --- 使用正確的 snake_case 鍵名 ---
-        scheduled_dep = raw_flight.get('scheduled_departure')
-        scheduled_arr = raw_flight.get('scheduled_arrival')
+        scheduled_dep = raw_flight.get('scheduled_departure') # 應為 ISO 8601 字符串或 None
+        scheduled_arr = raw_flight.get('scheduled_arrival')   # 應為 ISO 8601 字符串或 None
         departure_airport_id = raw_flight.get('departure_airport_id')
         arrival_airport_id = raw_flight.get('arrival_airport_id')
-        aircraft_type = raw_flight.get('aircraft') # 假設 tdx_client 返回的是 'aircraft'
-        departure_terminal = raw_flight.get('departure_terminal')
-        arrival_terminal = raw_flight.get('arrival_terminal')
-
-        # --- 移除臨時測試日誌 ---
-        # if not scheduled_dep or not scheduled_dep.strip():
-        #     logging.warning(f"TDX 原始數據檢查: 航班 {airline_id}{flight_number} 的 scheduled_dep 為空或空白: '{scheduled_dep}'")
-        # if not scheduled_arr or not scheduled_arr.strip():
-        #     logging.warning(f"TDX 原始數據檢查: 航班 {airline_id}{flight_number} 的 scheduled_arr 為空或空白: '{scheduled_arr}'")
-        # --- 臨時測試日誌結束 ---
+        aircraft_type = raw_flight.get('aircraft') # 直接讀取 aircraft
 
         # --- 格式化返回的字典，確保鍵名與模型一致 --- 
         formatted_flight = {
-            'flight_number': flight_number, # 使用從 raw_flight 獲取的 flight_number
+            'flight_number': flight_number, # 使用從 tdx_client 處理過的 flight_number
             'airline_id': airline_id,
             'departure_airport_id': departure_airport_id,
             'arrival_airport_id': arrival_airport_id,
-            # 這裡的 scheduled_dep/arr 是上面 get 到的值，可能已經是 datetime 或 None
-            'scheduled_departure': scheduled_dep,
-            'scheduled_arrival': scheduled_arr,
-            # --- 使用 aircraft 而非 AircraftType --- 
-            'aircraft': aircraft_type if aircraft_type else '', # 確保 aircraft 鍵存在且有值
-            'departure_terminal': departure_terminal,
-            'arrival_terminal': arrival_terminal,
+            'scheduled_departure': scheduled_dep, # 直接使用 tdx_client 返回的格式化時間或 None
+            'scheduled_arrival': scheduled_arr,   # 直接使用 tdx_client 返回的格式化時間或 None
+            'aircraft': aircraft_type if aircraft_type else '', # 使用 aircraft
+            # 移除 status, actual_departure, actual_arrival
+            # 由於 TDX 不再提供，設置為 None，依賴 FlightStats (如果可用)
+            'departure_terminal': None, 
+            'arrival_terminal': None, 
         }
         
-        # --- 再次檢查時間格式化 (如果 tdx_client 返回的是字符串) ---
-        # 如果 scheduled_dep/arr 是字符串，需要解析和格式化
-        if isinstance(scheduled_dep, str):
-             dt_dep = parse_datetime(scheduled_dep)
-             formatted_flight['scheduled_departure'] = format_datetime(dt_dep) if dt_dep else None
-        if isinstance(scheduled_arr, str):
-             dt_arr = parse_datetime(scheduled_arr)
-             formatted_flight['scheduled_arrival'] = format_datetime(dt_arr) if dt_arr else None
+        # --- 移除多餘的時間格式化檢查 --- 
+        # tdx_client 應該已經返回了正確格式或 None
              
         return formatted_flight
         
@@ -235,42 +220,65 @@ class ApiSyncManager:
     
     def sync_flights(self, departure: str, arrival: str, date: Union[dt_datetime, str], days: int = 1) -> List[Dict]:
         """
-        同步航班數據
+        同步航班數據。
+        如果提供了日期，則獲取指定日期的數據 (TDX過濾, FlightStats取1天)。
+        如果未提供日期，則獲取所有未來的TDX數據和未來7天的FlightStats數據。
         
         Args:
             departure: 出發機場 IATA 代碼
             arrival: 目的機場 IATA 代碼
-            date: 起始日期，可以是 datetime 對象或 "YYYY-MM-DD" 格式的字符串
-            days: 查詢天數
+            date: 起始日期 (可選)，可以是 datetime 對象或 "YYYY-MM-DD" 格式的字符串。
+                   如果為 None，則獲取未來數據。
             
         Returns:
             航班數據列表
         """
-        if isinstance(date, str):
-            try:
-                date = dt_datetime.strptime(date, "%Y-%m-%d")
-            except ValueError:
-                logger.error(f"提供的日期字串格式錯誤: {date}")
-                return [] # 返回空列表如果日期無效
+        target_date_str: Optional[str] = None # 用於過濾 TDX 或傳遞給 FlightStats 的單日日期
+        days_to_fetch_fs = 7 # FlightStats 預設獲取天數
+        
+        # 處理傳入的 date 參數
+        if date:
+            if isinstance(date, str):
+                try:
+                    target_dt = dt_datetime.strptime(date, "%Y-%m-%d")
+                    target_date_str = date # 格式正確，直接使用
+                    days_to_fetch_fs = 1 # 指定日期時，FlightStats 只取 1 天
+                except ValueError:
+                    logger.error(f"提供的日期字串格式錯誤: {date}")
+                    return []
+            elif isinstance(date, dt_datetime):
+                target_dt = date
+                target_date_str = date.strftime("%Y-%m-%d")
+                days_to_fetch_fs = 1
+            else:
+                logger.error(f"未知的日期參數類型: {type(date)}")
+                return []
+        else:
+            # 未提供日期，獲取未來數據，設置 FlightStats 的起始日期為今天
+            target_dt = dt_datetime.now()
+            target_date_str = target_dt.strftime("%Y-%m-%d")
+            # days_to_fetch_fs 保持預設 7
+            logger.info(f"未指定日期，將獲取 {departure}->{arrival} 的未來航班 (TDX: 所有未來, FlightStats: 未來 {days_to_fetch_fs} 天從 {target_date_str})")
+
+        # -- (後面邏輯使用 target_date_str 和 days_to_fetch_fs) --
         
         flights = []
-        flight_keys = set()  # 用於去重的集合，存儲flight_number+departure_date
-        tdx_processed_flights = [] # 用於存儲從 TDX 獲取並格式化後的航班
+        flight_keys = set()  
+        tdx_processed_flights = [] 
         
-        # 檢查起飛機場是否為台灣機場 (如果不是台灣出發，只用 FlightStats)
+        # --- 檢查非台灣出發邏輯 --- 
         if departure not in TAIWAN_AIRPORTS:
             logger.warning(f"出發機場 {departure} 不在台灣機場列表中，僅使用FlightStats API獲取數據")
             if self.flightstats_api:
                 try:
+                    # 使用 target_date_str 和 days_to_fetch_fs 調用 FlightStats
                     fs_flights = self.flightstats_api.get_flights(
-                        departure, arrival, date.strftime('%Y-%m-%d')
+                        departure, arrival, target_date_str, days_to_fetch=days_to_fetch_fs
                     )
                     if fs_flights:
-                        # 篩選目標航空公司
                         filtered_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
                         if filtered_flights:
                             logger.info(f"已從 FlightStats 獲取並篩選出 {len(filtered_flights)} 個目標航空公司航班")
-                            # 假設 FlightStats 返回的是內部格式或兼容格式
                             self._add_unique_flights(flights, filtered_flights, flight_keys)
                         else:
                             logger.warning(f"從 FlightStats 獲取航班後未找到目標航空公司航班")
@@ -278,79 +286,77 @@ class ApiSyncManager:
                     logger.error(f"從 FlightStats 獲取非台灣出發航班數據失敗: {str(e)}")
             return flights
         
-        # --- 以下為台灣出發的處理邏輯 ---
+        # --- 台灣出發的處理邏輯 --- 
         is_domestic = self.is_domestic_route(departure, arrival)
-        use_tdx = self.should_use_tdx_for_airport(departure, date)
-        date_str = date.strftime('%Y-%m-%d')
+        # use_tdx 判斷依賴機場，與日期無關（除非特殊機場 WOT）
+        use_tdx = self.should_use_tdx_for_airport(departure, target_dt)
         
-        # --- TDX API 邏輯 --- 
+        # --- TDX API 邏輯 (修改後) ---
         if self.tdx_api and use_tdx:
-            tdx_raw_flights_filtered = [] # 存放篩選後的原始TDX航班
             try:
-                logger.info(f"嘗試從 TDX FIDS 獲取 {departure} 在 {date_str} 的所有航班")
-                # 統一調用 FIDS 接口
-                raw_data = self.tdx_api.get_domestic_flight_schedules(departure, date_str)
-                
-                if isinstance(raw_data, list):
-                    logger.info(f"TDX FIDS 返回 {len(raw_data)} 筆 {departure} 的原始記錄，開始篩選...")
-                    # 根據國內/國際進行篩選
-                    if is_domestic:
-                        # --- Restore original list comprehension ---
-                        tdx_raw_flights_filtered = [
-                            f for f in raw_data
-                            # 使用正確的 snake_case 鍵名
-                            if f.get('departure_airport_id') == departure and
-                               f.get('arrival_airport_id') == arrival and
-                               self.is_tdx_target_airline(f.get('airline_id'))
-                        ]
-                        logger.info(f"篩選國內航線 {departure}->{arrival} (AE, B7, DA) 結果: {len(tdx_raw_flights_filtered)} 個航班")
-                    else: # 國際航線
-                        # --- Restore original list comprehension for international too, using correct keys ---
-                        tdx_raw_flights_filtered = [
-                            f for f in raw_data
-                            if f.get('departure_airport_id') == departure and
-                               f.get('arrival_airport_id') == arrival and
-                               f.get('airline_id') in TARGET_AIRLINES # Use correct key
-                        ]
-                        logger.info(f"篩選國際航線 {departure}->{arrival} (TARGET_AIRLINES) 結果: {len(tdx_raw_flights_filtered)} 個航班")
-                else:
-                    logger.warning(f"TDX FIDS 未返回列表: {type(raw_data)}")
-                
-                # 格式化篩選後的 TDX 航班
-                for raw_flight in tdx_raw_flights_filtered:
+                DOMESTIC_AIRLINES = ['AE', 'B7', 'DA'] # 國內航空公司列表
+                all_tdx_flights_raw = [] # 用於收集所有航空公司的原始數據
+
+                logger.info(f"嘗試從 TDX DailySchedule 獲取以下航空公司的所有未來航班: {DOMESTIC_AIRLINES}")
+
+                for airline_iata in DOMESTIC_AIRLINES:
+                    try:
+                        # 為每個國內航空公司調用 API
+                        flights_for_airline = self.tdx_api.get_domestic_flight_schedules(airline_iata)
+                        if isinstance(flights_for_airline, list):
+                            all_tdx_flights_raw.extend(flights_for_airline)
+                            logger.debug(f"從 TDX ({airline_iata}) 獲取了 {len(flights_for_airline)} 筆記錄")
+                        else:
+                            logger.warning(f"TDX DailySchedule ({airline_iata}) 未返回列表: {type(flights_for_airline)}")
+                        time.sleep(0.1) # 短暫延遲避免過快請求
+                    except Exception as airline_ex:
+                        logger.error(f"調用 TDX DailySchedule ({airline_iata}) 時出錯: {airline_ex}", exc_info=False) # 避免過多堆棧追蹤
+                        continue
+
+                logger.info(f"從 TDX (所有國內航司) 共獲取 {len(all_tdx_flights_raw)} 筆原始未來記錄，準備篩選航線 {departure}->{arrival}")
+
+                # --- 在這裡對合併後的 all_tdx_flights_raw 進行篩選 ---
+                flights_to_format = []
+                for flight_data in all_tdx_flights_raw:
+                    # 篩選條件：出發機場匹配 + 到達機場匹配
+                    if flight_data.get('departure_airport_id') == departure and flight_data.get('arrival_airport_id') == arrival:
+                        # (可選) 再次確認航空公司是否在國內列表中，雖然理論上應該是的
+                        if flight_data.get('airline_id') in DOMESTIC_AIRLINES:
+                             flights_to_format.append(flight_data)
+
+                logger.info(f"篩選 TDX 所有未來數據和航線 {departure}->{arrival} 結果: {len(flights_to_format)} 個航班")
+                # --- 結束篩選 ---
+
+                # 格式化篩選後的 TDX 航班 (這部分邏輯不變)
+                for raw_flight in flights_to_format:
                     formatted = format_tdx_flight(raw_flight)
                     if formatted:
                         tdx_processed_flights.append(formatted)
                         
                 if tdx_processed_flights:
                     logger.info(f"已格式化 {len(tdx_processed_flights)} 個來自 TDX 的航班")
-                    # 將格式化後的 TDX 航班添加到主列表 (去重)
                     self._add_unique_flights(flights, tdx_processed_flights, flight_keys)
                 else:
-                    # --- 移除冗餘日誌，因為篩選結果為0時已有日誌 --- 
-                    # logger.warning(f"從 TDX API 獲取 {departure}->{arrival} 的航班篩選/格式化後為空") 
-                    pass # 篩選結果為0時，上面已有篩選日誌，這裡無需再警告
+                    pass # 沒有從 TDX 獲取到符合條件的航班
 
             except Exception as e:
                 logger.error(f"處理 TDX 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
         # --- 結束 TDX API 邏輯 ---
         
-        # --- FlightStats API 邏輯 (補充或作為主要來源) ---
+        # --- FlightStats API 邏輯 --- 
         if self.flightstats_api:
             try:
                 time.sleep(self.request_delay)
-                logger.info(f"嘗試從 FlightStats 獲取 {departure}->{arrival} 的航班 (日期: {date_str})")
-                # 假設 get_flights 返回內部格式的列表
-                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, date_str) 
+                 # 使用 target_date_str 和 days_to_fetch_fs
+                logger.info(f"嘗試從 FlightStats 獲取 {departure}->{arrival} 的航班 (起始日期: {target_date_str}, 天數: {days_to_fetch_fs})")
+                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, target_date_str, days_to_fetch=days_to_fetch_fs) 
                 
-                fs_processed_flights = [] # 存放格式化後的 FlightStats 航班
+                fs_processed_flights = [] 
                 if fs_flights_raw:
-                    logger.info(f"FlightStats 返回 {len(fs_flights_raw)} 筆原始記錄，開始篩選...")
-                    # --- 恢復 FlightStats 的原始篩選邏輯 --- 
+                    logger.info(f"FlightStats 返回 {len(fs_flights_raw)} 筆原始記錄 ({days_to_fetch_fs}天)，開始篩選...")
                     for flight in fs_flights_raw:
                         airline_id = flight.get('airline_id')
                         if airline_id in TARGET_AIRLINES:
-                            # 生成 flight_key 以檢查是否已從 TDX 添加
                             flight_number = flight.get('flight_number', '')
                             dep_dt_str = flight.get('scheduled_departure')
                             dep_date = dep_dt_str[:10] if isinstance(dep_dt_str, str) and len(dep_dt_str) >= 10 else ''
@@ -360,70 +366,58 @@ class ApiSyncManager:
 
                             if is_new:
                                 fs_processed_flights.append(flight)
-                                # logger.debug(f"[FS Included] {flight_key}") # 可選的精簡日誌
-                            # else:
-                            #     logger.debug(f"[FS Excluded] Target: {airline_id in TARGET_AIRLINES}, New: {is_new}, Key: {flight_key}")
                                 
                     if fs_processed_flights:
                         logger.info(f"從 FlightStats 篩選出 {len(fs_processed_flights)} 個新的目標航班")
-                        # 將格式化後的 FlightStats 航班添加到主列表 (去重)
                         self._add_unique_flights(flights, fs_processed_flights, flight_keys)
                     else:
                         logger.info(f"從 FlightStats 未篩選出需要補充的新航班")
                 else:
-                    logger.warning(f"從 FlightStats 獲取 {departure}->{arrival} 航班返回空結果")
+                    logger.warning(f"從 FlightStats 獲取 {departure}->{arrival} 航班返回空結果 (起始: {target_date_str}, 天數: {days_to_fetch_fs})")
             except Exception as e:
                 logger.error(f"從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
         # --- 結束 FlightStats API 邏輯 ---
         
-        # --- 假設 DB 操作在 _add_unique_flights 之外 --- 
-        # --- 我們需要在這裡循環處理格式化後的 flights 列表 --- 
-        flights_to_process = flights # 假設這是從 API 獲取的原始數據列表
-        
-        # 直接返回從 API 獲取的、經過格式化的數據
-        # 注意：這裡可能還需要調用 _add_unique_flights 等邏輯
-        # 但最終目標是返回 API 數據，讓 DbManager 處理數據庫寫入
-        # 示例：假設 flights 已經是最終需要的 API 數據
-        return flights_to_process
+        logger.info(f"航線 {departure}->{arrival} 同步完成，共獲得 {len(flights)} 個唯一航班。")
+        return flights # 返回合併去重後的結果
     
-    def _add_unique_flights(self, target_list: List[Dict], source_flights: List[Dict], flight_keys: set):
+    def _add_unique_flights(self, target_list: List[Dict], source_flights: List[Dict], flight_dict: Dict[str, Dict]):
         """
-        將新航班添加到目標列表中，避免重複。假設 source_flights 中的數據已格式化。
+        將新航班添加到目標列表中，或合併信息到現有航班，避免重複。
+        現在使用字典來快速查找和更新現有記錄。
         
         Args:
-            target_list: 目標航班列表
+            target_list: 目標航班列表 (會被直接修改)
             source_flights: 來源航班列表 (應為內部格式)
-            flight_keys: 已存在航班鍵的集合
+            flight_dict: 已存在航班鍵到航班字典的映射 (會被修改)
         """
         added_count = 0
+        merged_count = 0
+        skipped_invalid_count = 0
+        skipped_no_key_count = 0
+        
         for flight in source_flights:
-            # 確保 flight 是字典並且非空
             if not isinstance(flight, dict) or not flight:
                 logger.warning(f"跳過無效的航班數據: {flight}")
+                skipped_invalid_count += 1
                 continue
                 
-            # 使用內部格式的鍵生成去重鍵
             flight_number = flight.get('flight_number', '')
-            # 優先使用 scheduled_departure
-            departure_dt_str = flight.get('scheduled_departure') or flight.get('departure_time') # 兼容舊鍵
+            departure_dt_str = flight.get('scheduled_departure') or flight.get('departure_time')
             if isinstance(departure_dt_str, dt_datetime):
-                # 如果是 datetime 物件，格式化為 YYYY-MM-DD
                 departure_date = departure_dt_str.strftime('%Y-%m-%d')
             elif isinstance(departure_dt_str, str) and len(departure_dt_str) >= 10:
-                # 如果是足夠長的字串，取前10個字符
                 departure_date = departure_dt_str[:10]
             else:
-                # 其他情況（None 或格式不符）設為空字串
                 departure_date = ''
             
-            # 確保 flight_number 和 departure_date 都存在
             if not flight_number or not departure_date:
                  logger.warning(f"無法為航班生成唯一鍵，缺少 flight_number 或 departure_date: {flight}")
+                 skipped_no_key_count += 1
                  continue
                  
             flight_key = f"{flight_number}_{departure_date}"
             
-            # 確保 flight_id 是 UUID 物件而非字串
             if 'flight_id' in flight and not isinstance(flight['flight_id'], uuid.UUID):
                 try:
                     if isinstance(flight['flight_id'], str):
@@ -431,81 +425,166 @@ class ApiSyncManager:
                     else:
                         flight['flight_id'] = uuid.uuid4()
                 except ValueError:
-                    # 如果無法轉換為 UUID，生成新的 UUID
+                    flight['flight_id'] = uuid.uuid4()
+            elif 'flight_id' not in flight:
                     flight['flight_id'] = uuid.uuid4()
                 
-            # 移除可能不存在於資料庫中的欄位 (不再移除航廈和登機門)
-            keys_to_remove = [
-                'status', 
-                'departure_gate', 'arrival_gate', 'source' # 保留 departure_terminal, arrival_terminal
-            ]
+            keys_to_remove = ['status', 'departure_gate', 'arrival_gate', 'source']
             for key in keys_to_remove:
                 if key in flight:
                     flight.pop(key)
             
-            # 如果航班不重複，添加到目標列表
-            if flight_key not in flight_keys:
-                flight_keys.add(flight_key)
+            if flight_key not in flight_dict:
                 target_list.append(flight)
+                flight_dict[flight_key] = flight
                 added_count += 1
-            # else:
-            #     logger.debug(f"跳過重複航班: {flight_key}")
-        # logger.info(f"添加了 {added_count} 個唯一航班") # 可以取消註釋以調試
-        logger.info(f"在 _add_unique_flights 中添加了 {added_count} 個唯一航班到目標列表")
+            else:
+                existing_flight = flight_dict[flight_key]
+                merged_this_flight = False
+                
+                new_dep_terminal = flight.get('departure_terminal')
+                if not existing_flight.get('departure_terminal') and new_dep_terminal:
+                    existing_flight['departure_terminal'] = new_dep_terminal
+                    logger.debug(f"合併 {flight_key}: 更新 departure_terminal 為 {new_dep_terminal}")
+                    merged_this_flight = True
+                    
+                new_arr_terminal = flight.get('arrival_terminal')
+                if not existing_flight.get('arrival_terminal') and new_arr_terminal:
+                    existing_flight['arrival_terminal'] = new_arr_terminal
+                    logger.debug(f"合併 {flight_key}: 更新 arrival_terminal 為 {new_arr_terminal}")
+                    merged_this_flight = True
+                    
+                new_aircraft = flight.get('aircraft')
+                if not existing_flight.get('aircraft') and new_aircraft:
+                    existing_flight['aircraft'] = new_aircraft
+                    logger.debug(f"合併 {flight_key}: 更新 aircraft 為 {new_aircraft}")
+                    merged_this_flight = True
+                    
+                if merged_this_flight:
+                    merged_count += 1
+            
+        logger.info(f"處理 {len(source_flights)} 筆來源航班：新增 {added_count}, 合併 {merged_count}, 跳過(無效) {skipped_invalid_count}, 跳過(無鍵) {skipped_no_key_count}")
     
-    def sync_popular_routes(self, date: Union[dt_datetime, str] = None, days: int = 1) -> Dict[Tuple[str, str], List[Dict]]:
+    # --- 新增方法：獲取指定航線的所有未來航班 --- 
+    def sync_future_flights(self, departure: str, arrival: str) -> List[Dict]:
         """
-        同步熱門航線的航班數據（例如：TPE-NRT, TSA-HND 等）
+        獲取指定航線的所有未來航班數據。
+        TDX 獲取所有未來數據，FlightStats 獲取未來 7 天數據。
         
         Args:
-            date: 起始日期，默認為今天
-            days: 從起始日期開始，連續查詢的天數
+            departure: 出發機場 IATA 代碼
+            arrival: 目的機場 IATA 代碼
+            
+        Returns:
+            合併後的未來航班數據列表
+        """
+        logger.info(f"開始獲取航線 {departure}->{arrival} 的所有未來航班數據 (FlightStats 限未來 7 天)")
+        
+        flights = []
+        processed_flights_dict: Dict[str, Dict] = {}
+        tdx_processed_flights = []
+        fs_processed_flights = []
+        
+        today_date_str = dt_datetime.now().strftime("%Y-%m-%d")
+        target_dt_for_tdx_check = dt_datetime.now()
+        is_domestic = self.is_domestic_route(departure, arrival)
+        use_tdx = self.should_use_tdx_for_airport(departure, target_dt_for_tdx_check)
+        
+        if self.tdx_api and use_tdx:
+            try:
+                logger.info(f"[Future] 嘗試從 TDX DailySchedule 獲取 {departure} 的所有未來航班")
+                all_future_tdx_flights = self.tdx_api.get_domestic_flight_schedules(departure)
+                
+                if isinstance(all_future_tdx_flights, list):
+                    logger.info(f"[Future] TDX 返回 {len(all_future_tdx_flights)} 筆 {departure} 的未來記錄，篩選航線 {arrival}...")
+                    flights_to_format = []
+                    for flight_data in all_future_tdx_flights:
+                        if is_domestic and self.is_tdx_target_airline(flight_data.get('airline_id')) and flight_data.get('arrival_airport_id') == arrival:
+                            flights_to_format.append(flight_data)
+                        elif not is_domestic and self.is_target_airline(flight_data.get('airline_id')) and flight_data.get('arrival_airport_id') == arrival:
+                            flights_to_format.append(flight_data)
+                            
+                    logger.info(f"[Future] 篩選 TDX 航線 {departure}->{arrival} 結果: {len(flights_to_format)} 個航班")
+                    for raw_flight in flights_to_format:
+                        formatted = format_tdx_flight(raw_flight)
+                        if formatted:
+                            tdx_processed_flights.append(formatted)
+                else:
+                    logger.warning(f"[Future] TDX DailySchedule 未返回列表: {type(all_future_tdx_flights)}")
+                    
+                if tdx_processed_flights:
+                    logger.info(f"[Future] 已格式化 {len(tdx_processed_flights)} 個來自 TDX 的航班")
+                    self._add_unique_flights(flights, tdx_processed_flights, processed_flights_dict)
+
+            except Exception as e:
+                logger.error(f"[Future] 處理 TDX 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
+        
+        if self.flightstats_api:
+            try:
+                time.sleep(self.request_delay)
+                logger.info(f"[Future] 嘗試從 FlightStats 獲取 {departure}->{arrival} 的未來 7 天航班 (從 {today_date_str})")
+                fs_flights_raw = self.flightstats_api.get_flights(departure, arrival, today_date_str, days_to_fetch=7) 
+                
+                if fs_flights_raw:
+                    logger.info(f"[Future] FlightStats 返回 {len(fs_flights_raw)} 筆原始記錄 (7天)，開始篩選...")
+                    for flight in fs_flights_raw:
+                        airline_id = flight.get('airline_id')
+                        if airline_id in TARGET_AIRLINES:
+                            flight_number = flight.get('flight_number', '')
+                            dep_dt_str = flight.get('scheduled_departure')
+                            dep_date = dep_dt_str[:10] if isinstance(dep_dt_str, str) and len(dep_dt_str) >= 10 else ''
+                            flight_key = f"{flight_number}_{dep_date}" if flight_number and dep_date else None
+                            
+                            is_new = flight_key and flight_key not in processed_flights_dict
+                            if is_new:
+                                fs_processed_flights.append(flight)
+                                
+                    if fs_processed_flights:
+                        logger.info(f"[Future] 從 FlightStats 篩選出 {len(fs_processed_flights)} 個新的目標航班")
+                        self._add_unique_flights(flights, fs_processed_flights, processed_flights_dict)
+                    else:
+                        logger.info(f"[Future] 從 FlightStats 未篩選出需要補充的新航班")
+                else:
+                    logger.warning(f"[Future] 從 FlightStats 獲取 {departure}->{arrival} 航班返回空結果 (未來 7 天)")
+            except Exception as e:
+                logger.error(f"[Future] 從 FlightStats 獲取 {departure}->{arrival} 航班數據失敗: {str(e)}")
+        
+        logger.info(f"[Future] 航線 {departure}->{arrival} 同步完成，共獲得 {len(flights)} 個唯一/合併後航班。")
+        return flights
+    # --- 結束新增方法 --- 
+    
+    # 修改 sync_popular_routes：移除 date/days 參數，調用新方法
+    def sync_popular_routes(self) -> Dict[Tuple[str, str], List[Dict]]:
+        """
+        同步熱門航線的所有未來航班數據。
+        TDX 獲取所有未來數據，FlightStats 獲取未來 7 天數據。
             
         Returns:
             一個字典，鍵是 (departure, arrival) 的元組，值是該航線的航班列表
         """
-        if date is None:
-            date = dt_datetime.now().date()
-        elif isinstance(date, str):
-            try:
-                date = dt_datetime.strptime(date, "%Y-%m-%d").date()
-            except ValueError:
-                logger.error(f"提供的日期字串格式錯誤: {date}")
-                return {}
-
-        all_flights = {}
+        all_flights_by_route = {} 
         popular_routes = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
 
-        logger.info(f"開始同步 {len(popular_routes)} 條熱門航線，從 {date} 開始，共 {days} 天")
+        logger.info(f"開始同步 {len(popular_routes)} 條熱門航線的所有未來航班數據 (FlightStats 限未來 7 天)")
 
         for dep, arr in popular_routes:
             logger.info(f"正在處理熱門航線: {dep} -> {arr}")
-            route_flights = []
-            for i in range(days):
-                current_date = date + dt_timedelta(days=i)
-                try:
-                    logger.debug(f"同步航班數據 {dep}->{arr} 日期: {current_date.strftime('%Y-%m-%d')}")
-                    flights_for_day = self.sync_flights(dep, arr, current_date)
-                    if flights_for_day:
-                        logger.info(f"為 {dep}->{arr} 在 {current_date.strftime('%Y-%m-%d')} 找到 {len(flights_for_day)} 個航班")
-                        route_flights.extend(flights_for_day)
-                    else:
-                        logger.warning(f"為 {dep}->{arr} 在 {current_date.strftime('%Y-%m-%d')} 未找到航班")
-                    # 避免過於頻繁的請求
-                    time.sleep(self.request_delay)
-                except Exception as e:
-                    logger.error(f"同步航線 {dep}->{arr} 日期 {current_date.strftime('%Y-%m-%d')} 時發生錯誤: {e}")
-                    # 即使某一天出錯，也繼續處理下一天或下一航線
-                    continue
+            try:
+                # 調用新的 sync_future_flights 方法
+                route_flights = self.sync_future_flights(dep, arr) 
+                if route_flights:
+                    logger.info(f"為 {dep}->{arr} 找到 {len(route_flights)} 個未來航班")
+                    all_flights_by_route[(dep, arr)] = route_flights 
+                else:
+                    logger.warning(f"為 {dep}->{arr} 未找到未來航班")
+                
+                time.sleep(self.request_delay)
+            except Exception as e:
+                logger.error(f"同步熱門航線 {dep}->{arr} 時發生錯誤: {e}")
+                continue
 
-            if route_flights:
-                logger.info(f"航線 {dep}->{arr} 共找到 {len(route_flights)} 個航班 (共 {days} 天)")
-                all_flights[(dep, arr)] = route_flights
-            else:
-                 logger.warning(f"航線 {dep}->{arr} 在指定的 {days} 天內未找到任何航班")
-
-        logger.info(f"熱門航線同步完成，共處理 {len(all_flights)} 條有效航線")
-        return all_flights
+        logger.info(f"熱門航線同步完成，共處理 {len(all_flights_by_route)} 條有效航線")
+        return all_flights_by_route 
 
 def main():
     """主函數，處理命令行參數並執行相應操作"""
@@ -545,11 +624,11 @@ def main():
         print(json.dumps(airlines, ensure_ascii=False, indent=2))
     
     elif args.command == 'flights':
-        flights = sync_manager.sync_flights(args.departure, args.arrival, args.date, args.days)
+        flights = sync_manager.sync_flights(args.departure, args.arrival, args.date)
         print(json.dumps(flights, ensure_ascii=False, indent=2))
     
     elif args.command == 'popular':
-        popular_routes = sync_manager.sync_popular_routes(args.date, args.days)
+        popular_routes = sync_manager.sync_popular_routes()
         # 轉換結果為可序列化的格式
         result = {}
         for route, flights in popular_routes.items():

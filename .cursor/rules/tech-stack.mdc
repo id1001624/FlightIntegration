@@ -1,6 +1,6 @@
 ---
 description: 
-globs: 
+globs: project-cursor-rules.mdc
 alwaysApply: false
 ---
 # **台灣航班整合系統技術棧規範**
@@ -163,10 +163,10 @@ alwaysApply: false
   - 資源使用複數名詞 (`/flights` 而非 `/flight`)
   - 使用適當的HTTP動詞 (GET, POST, PUT, DELETE)
   - 統一響應格式:
-    ```json
-    {
+   ```json
+   {
       "success": true,
-      "data": [...],
+     "data": [...],
       "message": "操作成功",
       "metadata": {"total": 100, "page": 1, "per_page": 20}
     }
@@ -411,4 +411,5 @@ alwaysApply: false
 - 設計系統維護模式頁面
 - 實現平滑維護切換機制
 - 提供維護期間的最小可用功能
+
    

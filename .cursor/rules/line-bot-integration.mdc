@@ -1,6 +1,6 @@
 ---
 description: 
-globs: 
+globs: project-cursor-rules.mdc
 alwaysApply: false
 ---
 # LINE Bot 整合指南

@@ -12,6 +12,9 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set, Tuple
 
+# *** 導入 date_utils ***
+from ..utils.date_utils import parse_datetime, format_datetime
+
 # 配置日誌
 logging.basicConfig(
     level=logging.INFO,
@@ -285,117 +288,153 @@ class DbManager:
             return []
 
         conn = None
-        processed_flights = []
-        success_count = 0
+        processed_flights_with_id = [] # 新增：用於存儲帶 flight_id 的處理後航班
         update_count = 0
         insert_count = 0
         error_count = 0
+        skipped_count = 0 # 新增：初始化 skipped_count
 
         try:
             conn = self.get_db_connection()
             with conn.cursor() as cursor:
                 logger.info(f"準備將 {len(flights)} 筆航班數據導入數據庫...")
 
+                # 使用集合來跟踪處理過的航班鍵，避免重複處理
+                processed_flight_keys: Set[str] = set()
+
                 for flight in flights:
-                    # 準備插入/更新的數據 (不包含 flight_id)
-                    # 需要確保所有來自 flight 字典的鍵都存在，即使是 None
-                    scheduled_departure = flight.get('scheduled_departure')
-                    scheduled_arrival = flight.get('scheduled_arrival')
-                    aircraft = flight.get('aircraft', 'Unknown') # 提供默認值
-                    departure_terminal = flight.get('departure_terminal')
-                    arrival_terminal = flight.get('arrival_terminal')
-                    flight_number = flight.get('flight_number')
-                    airline_id = flight.get('airline_id')
-                    dep_airport_id = flight.get('departure_airport_id')
-                    arr_airport_id = flight.get('arrival_airport_id')
-
-                    # 檢查關鍵外鍵是否存在
-                    if not all([flight_number, airline_id, dep_airport_id, arr_airport_id, scheduled_departure, scheduled_arrival]):
-                        logger.warning(f"跳過不完整的航班數據: {flight}")
-                        error_count += 1
-                        continue
-                    
-                    # --- 票價信息提取 (移到後面，在獲取 flight_id 後處理) ---
-                    # price_economy = flight.get('price_economy')
-                    # price_business = flight.get('price_business')
-                    # price_first = flight.get('price_first')
-
-                    sql = """
-                        INSERT INTO flights (
-                            flight_number, airline_id, departure_airport_id, arrival_airport_id, 
-                            scheduled_departure, scheduled_arrival, aircraft, 
-                            departure_terminal, arrival_terminal, created_at, updated_at
-                            --, flight_id  -- 不再從這裡插入 flight_id
-                        )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
-                        ON CONFLICT (flight_number, scheduled_departure) 
-                        DO UPDATE SET 
-                            airline_id = EXCLUDED.airline_id,
-                            departure_airport_id = EXCLUDED.departure_airport_id,
-                            arrival_airport_id = EXCLUDED.arrival_airport_id,
-                            scheduled_arrival = EXCLUDED.scheduled_arrival,
-                            aircraft = EXCLUDED.aircraft,
-                            departure_terminal = EXCLUDED.departure_terminal,
-                            arrival_terminal = EXCLUDED.arrival_terminal,
-                            updated_at = NOW()
-                        RETURNING flight_id, xmax; -- xmax > 0 表示執行了 UPDATE
-                    """
-                    
                     try:
-                        cursor.execute(sql, (
-                            flight_number, airline_id, dep_airport_id, arr_airport_id,
-                            scheduled_departure, scheduled_arrival, aircraft,
-                            departure_terminal, arrival_terminal
-                        ))
+                        # 創建唯一鍵，例如：航班號 + 出發時間日期部分
+                        scheduled_departure = flight.get('scheduled_departure')
+                        if not scheduled_departure:
+                            logger.warning(f"跳過航班，缺少 scheduled_departure: {flight.get('flight_number')}")
+                            continue
                         
-                        # 獲取返回的 flight_id 和 xmax
-                        result = cursor.fetchone()
-                        if result:
-                            db_flight_id = result[0]
-                            xmax = result[1] # xmax is the transaction ID of the update/insert
-                            
-                            # 將穩定的 flight_id 添加回 flight 字典
-                            flight['flight_id'] = db_flight_id 
-                            processed_flights.append(flight) # 添加到成功處理的列表
-                            success_count += 1
-                            
-                            # 判斷是插入還是更新 (xmax=0 for INSERT, >0 for UPDATE)
-                            if xmax == 0:
-                                insert_count += 1
-                                logger.debug(f"成功插入新航班 {flight_number} ({dep_airport_id}->{arr_airport_id}), DB ID: {db_flight_id}")
-                                # 為新航班添加票價
-                                # self._add_flight_prices(cursor, str(db_flight_id), price_economy, price_business, price_first)
-                            else:
-                                update_count += 1
-                                logger.debug(f"成功更新現有航班 {flight_number} ({dep_airport_id}->{arr_airport_id}), DB ID: {db_flight_id}")
-                                # 更新現有航班的票價
-                                # self._update_flight_prices(cursor, str(db_flight_id), price_economy, price_business, price_first)
-                                
-                            # --- 在這裡處理票價 (如果有的話) ---
-                            # 注意：原始 flight 字典中可能沒有 price 信息，需要確認來源
-                            # 假設 price 信息在 flight 字典中 (需要 ApiSyncManager 提供)
-                            price_economy = flight.get('price_economy')
-                            price_business = flight.get('price_business')
-                            price_first = flight.get('price_first')
-                            
-                            if xmax == 0:
-                                self._add_flight_prices(cursor, str(db_flight_id), price_economy, price_business, price_first)
-                            else:
-                                self._update_flight_prices(cursor, str(db_flight_id), price_economy, price_business, price_first)
-                            # --- 結束票價處理 ---
-                                
+                        # 確保 scheduled_departure 是 datetime 對象
+                        if isinstance(scheduled_departure, str):
+                            departure_dt = parse_datetime(scheduled_departure) # 假設 parse_datetime 返回 datetime
+                            if not departure_dt:
+                                 logger.warning(f"無法解析 scheduled_departure: {scheduled_departure}, 跳過航班: {flight.get('flight_number')}")
+                                 continue
+                            departure_date_str = departure_dt.strftime('%Y-%m-%d')
+                        elif isinstance(scheduled_departure, datetime):
+                            departure_date_str = scheduled_departure.strftime('%Y-%m-%d')
+                            departure_dt = scheduled_departure # 直接使用 datetime 對象
                         else:
-                            logger.error(f"插入/更新航班 {flight_number} 後未能獲取 flight_id")
-                            error_count += 1
+                             logger.warning(f"未知的 scheduled_departure 類型: {type(scheduled_departure)}, 跳過航班: {flight.get('flight_number')}")
+                             continue
+                            
+                        flight_key = f"{flight.get('flight_number', '')}-{departure_date_str}"
+                        
+                        # 如果這個鍵已經處理過，跳過
+                        if flight_key in processed_flight_keys:
+                            continue
+                        
+                        # 添加到已處理集合
+                        processed_flight_keys.add(flight_key)
+                        
+                        # 提取其他欄位，使用 .get() 並提供默認值 None
+                        airline_id = flight.get('airline_id')
+                        flight_number = flight.get('flight_number')
+                        departure_airport_id = flight.get('departure_airport_id')
+                        arrival_airport_id = flight.get('arrival_airport_id')
+                        scheduled_arrival = flight.get('scheduled_arrival')
+                        # 新增：獲取 aircraft
+                        aircraft = flight.get('aircraft') 
+                        # 航廈可能為 None
+                        departure_terminal = flight.get('departure_terminal')
+                        arrival_terminal = flight.get('arrival_terminal')
+                        
+                        # 檢查必要的 ID 是否存在
+                        if not all([airline_id, flight_number, departure_airport_id, arrival_airport_id]):
+                            logger.warning(f"跳過航班，缺少必要的 ID 資訊: {flight}")
+                            continue
+
+                        # 查找現有航班
+                        cursor.execute("""
+                            SELECT flight_id FROM flights 
+                            WHERE flight_number = %s AND departure_airport_id = %s AND arrival_airport_id = %s AND scheduled_departure = %s
+                        """, (flight_number, departure_airport_id, arrival_airport_id, departure_dt))
+                        existing_flight = cursor.fetchone()
+                        
+                        # 生成UUID
+                        flight_id_str = str(uuid.uuid4())
+
+                        # 獲取價格信息 (假設在 flight 字典中) - 修正縮排
+                        price_economy = flight.get('price_economy')
+                        price_business = flight.get('price_business')
+                        price_first = flight.get('price_first')
+
+                        if existing_flight:
+                            # 更新現有航班 (只更新特定字段，例如 aircraft, terminal)
+                            flight_id_str = str(existing_flight[0]) # 使用現有的UUID
+                            update_parts = []
+                            update_values = []
+                            # 如果提供了 aircraft，則更新
+                            if aircraft is not None:
+                                update_parts.append("aircraft = %s")
+                                update_values.append(aircraft)
+                            # 如果提供了 departure_terminal，則更新 (即使是 None)
+                            if 'departure_terminal' in flight:
+                                update_parts.append("departure_terminal = %s")
+                                update_values.append(departure_terminal)
+                             # 如果提供了 arrival_terminal，則更新 (即使是 None)
+                            if 'arrival_terminal' in flight:
+                                update_parts.append("arrival_terminal = %s")
+                                update_values.append(arrival_terminal)
+                            # 如果 scheduled_arrival 提供了，也更新
+                            if scheduled_arrival is not None:
+                                 update_parts.append("scheduled_arrival = %s")
+                                 update_values.append(scheduled_arrival)
+                            
+                            if update_parts:
+                                update_sql = f"UPDATE flights SET {', '.join(update_parts)}, updated_at = NOW() WHERE flight_id = %s"
+                                update_values.append(flight_id_str)
+                                cursor.execute(update_sql, tuple(update_values))
+                                update_count += 1 # 統一使用 update_count
+                                logger.debug(f"更新航班: {flight_number} ({flight_id_str})")
+                            else:
+                                skipped_count += 1 # 沒有需要更新的字段
+                                
+                            # 更新或添加票價信息
+                            self._update_flight_prices(cursor, flight_id_str, price_economy, price_business, price_first)
+                        else:
+                            # 插入新航班
+                            insert_sql = """
+                            INSERT INTO flights (
+                                flight_id, flight_number, airline_id, 
+                                departure_airport_id, arrival_airport_id, 
+                                scheduled_departure, scheduled_arrival, 
+                                aircraft, departure_terminal, arrival_terminal, 
+                                created_at, updated_at
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                            """
+                            cursor.execute(insert_sql, (
+                                flight_id_str, flight_number, airline_id, 
+                                departure_airport_id, arrival_airport_id, 
+                                departure_dt, scheduled_arrival, 
+                                aircraft, departure_terminal, arrival_terminal
+                            ))
+                            insert_count += 1 # 統一使用 insert_count
+                            logger.debug(f"插入新航班: {flight_number} ({flight_id_str})")
+                            
+                            # 添加票價信息
+                            self._add_flight_prices(cursor, flight_id_str, price_economy, price_business, price_first)
+                            
+                        # 將成功處理的數據（更新或插入）添加到列表，並包含 flight_id
+                        processed_flight_data = flight.copy() # 複製原始數據
+                        processed_flight_data['flight_id'] = flight_id_str # 添加/確保 flight_id 存在
+                        processed_flights_with_id.append(processed_flight_data) 
 
                     except Exception as e:
-                        error_count += 1
-                        logger.error(f"導入航班 {flight.get('flight_number')} 時數據庫操作失敗: {str(e)}")
-                        conn.rollback() # 回滾當前事務中的失敗操作
-                
-                # 循環結束後提交事務
+                        conn.rollback() # 回滾當前事務中的單個錯誤
+                        logger.error(f"處理單個航班數據時出錯: {flight}, 錯誤: {str(e)}")
+                        error_count += 1 # 增加錯誤計數
+                        continue # 繼續處理下一個航班
+                        
+                # 提交所有成功的更改
                 conn.commit()
-                logger.info(f"航班數據導入完成。成功: {success_count}, 新增: {insert_count}, 更新: {update_count}, 錯誤: {error_count}")
+                logger.info(f"航班數據導入完成。新增: {insert_count}, 更新: {update_count}, 跳過: {skipped_count}, 錯誤: {error_count}")
                 
         except Exception as e:
             logger.error(f"導入航班數據到數據庫時發生嚴重錯誤: {str(e)}")
@@ -406,7 +445,7 @@ class DbManager:
             if conn:
                 conn.close()
                 
-        return processed_flights # 返回包含穩定 DB flight_id 的列表
+        return processed_flights_with_id # 返回包含穩定 DB flight_id 的列表
 
     def _add_flight_prices(self, cursor, flight_id_str: str, price_economy, price_business, price_first):
         """為新航班添加不同艙等的票價"""
