@@ -263,8 +263,8 @@ class ApiSyncManager:
         # -- (後面邏輯使用 target_date_str 和 days_to_fetch_fs) --
         
         flights = []
-        flight_keys = set()  
-        tdx_processed_flights = [] 
+        flight_dict = {}  # *** 修改：將 flight_keys 初始化為字典 ***
+        tdx_processed_flights = [] # 初始化為空列表
         
         # --- 檢查非台灣出發邏輯 --- 
         if departure not in TAIWAN_AIRPORTS:
@@ -279,7 +279,7 @@ class ApiSyncManager:
                         filtered_flights = [f for f in fs_flights if f.get('airline_id') in TARGET_AIRLINES]
                         if filtered_flights:
                             logger.info(f"已從 FlightStats 獲取並篩選出 {len(filtered_flights)} 個目標航空公司航班")
-                            self._add_unique_flights(flights, filtered_flights, flight_keys)
+                            self._add_unique_flights(flights, filtered_flights, flight_dict) # *** 修改：傳遞 flight_dict ***
                         else:
                             logger.warning(f"從 FlightStats 獲取航班後未找到目標航空公司航班")
                 except Exception as e:
@@ -335,7 +335,7 @@ class ApiSyncManager:
                         
                 if tdx_processed_flights:
                     logger.info(f"已格式化 {len(tdx_processed_flights)} 個來自 TDX 的航班")
-                    self._add_unique_flights(flights, tdx_processed_flights, flight_keys)
+                    self._add_unique_flights(flights, tdx_processed_flights, flight_dict)
                 else:
                     pass # 沒有從 TDX 獲取到符合條件的航班
 
@@ -362,14 +362,14 @@ class ApiSyncManager:
                             dep_date = dep_dt_str[:10] if isinstance(dep_dt_str, str) and len(dep_dt_str) >= 10 else ''
                             flight_key = f"{flight_number}_{dep_date}" if flight_number and dep_date else None
                             
-                            is_new = flight_key and flight_key not in flight_keys
+                            is_new = flight_key and flight_key not in flight_dict
 
                             if is_new:
                                 fs_processed_flights.append(flight)
                                 
                     if fs_processed_flights:
                         logger.info(f"從 FlightStats 篩選出 {len(fs_processed_flights)} 個新的目標航班")
-                        self._add_unique_flights(flights, fs_processed_flights, flight_keys)
+                        self._add_unique_flights(flights, fs_processed_flights, flight_dict)
                     else:
                         logger.info(f"從 FlightStats 未篩選出需要補充的新航班")
                 else:

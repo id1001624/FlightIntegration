@@ -79,7 +79,7 @@
         python app/scripts/generate_dummy_flight_data.py --days 7 --flights-per-day 500 --start-date 2023-12-01
 
     - 生成資料前清空現有的航班資料
-        python app/scripts/generate_dummy_flight_data.py --clear-existing
+        python python backend/app/scripts/generate_dummy_flight_data.py
 
 ### 前端設定
 

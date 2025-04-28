@@ -22,7 +22,7 @@ from ..schemas.airline_schema import AirlineBasicSchema
 from ..schemas.airport_schema import AirportBasicSchema
 from ..utils.api_client import ApiClient
 from ..utils.cache_manager import CacheManager
-from ..scripts.constants import FRONTEND_POPULAR_ROUTES_TUPLES, TAIWAN_AIRPORTS # 導入常量
+from ..scripts.constants import COMBINED_POPULAR_ROUTES_TUPLES, TAIWAN_AIRPORTS # 導入常量
 
 logger = logging.getLogger(__name__)
 

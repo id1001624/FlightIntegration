@@ -11,7 +11,7 @@
     python generate_dummy_flight_data.py --days 7 --flights-per-day 200 --start-date 2023-12-01
 
 參數:
-    --days: 要生成的天數，默認為3天
+    --days: 要生成的天數，默認為7天
     --flights-per-day: 每天生成的航班數量基準值，默認為200
     --start-date: 起始日期，格式為YYYY-MM-DD，默認為今天
     --clear-existing: 是否清空已有的航班資料，默認為False
@@ -115,7 +115,7 @@ REGIONS = {
 def parse_arguments():
     """解析命令行參數"""
     parser = argparse.ArgumentParser(description='生成虛擬航班資料')
-    parser.add_argument('--days', type=int, default=3, help='要生成的天數，默認為3天')
+    parser.add_argument('--days', type=int, default=7, help='要生成的天數，默認為7天')
     parser.add_argument('--flights-per-day', type=int, default=200, help='每天生成的航班數量基準值，默認為200')
     parser.add_argument('--start-date', type=str, default=None, help='起始日期，格式為YYYY-MM-DD，默認為今天')
     
@@ -230,55 +230,16 @@ def generate_departure_times(date: datetime.date, count: int) -> List[datetime.d
     return departure_times[:count]
 
 def select_route_templates(count: int) -> List[Tuple[str, str]]:
-    """根據航線模板選擇航線，保持熱門航線比例較高"""
-    # 不同航線類型的權重
-    route_weights = {
-        'popular_domestic': 0.2,      # 熱門國內航線
-        'popular_international': 0.5, # 熱門國際航線
-        'other': 0.3                  # 其他航線
-    }
-    
-    # 計算每類航線數量
-    popular_domestic_count = int(count * route_weights['popular_domestic'])
-    popular_international_count = int(count * route_weights['popular_international'])
-    other_count = count - popular_domestic_count - popular_international_count
-    
-    selected_routes = []
-    
-    # 選擇熱門國內航線
-    if popular_domestic_count > 0:
-        domestic_routes = random.choices(
-            POPULAR_DOMESTIC_ROUTES_TUPLES,
-            k=popular_domestic_count
-        )
-        selected_routes.extend(domestic_routes)
-    
-    # 選擇熱門國際航線
-    if popular_international_count > 0:
-        international_routes = random.choices(
-            POPULAR_INTERNATIONAL_ROUTES_TUPLES,
-            k=popular_international_count
-        )
-        selected_routes.extend(international_routes)
-    
-    # 選擇其他航線
-    if other_count > 0:
-        # 創建不在熱門航線中的航線列表
-        other_routes = [
-            route for route in ALL_ROUTES_TUPLES 
-            if route not in POPULAR_DOMESTIC_ROUTES_TUPLES 
-            and route not in POPULAR_INTERNATIONAL_ROUTES_TUPLES
-        ]
+    """直接從所有已知航線中隨機選擇指定數量的航線"""
+    if not ALL_ROUTES_TUPLES:
+        logger.error("常量 ALL_ROUTES_TUPLES 為空或未定義，無法選擇航線")
+        return []
         
-        # 如果有其他航線可選
-        if other_routes:
-            other_selected = random.choices(other_routes, k=other_count)
-            selected_routes.extend(other_selected)
-        else:
-            # 如果沒有其他航線，則從熱門航線中補充
-            all_popular = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
-            extra_routes = random.choices(all_popular, k=other_count)
-            selected_routes.extend(extra_routes)
+    # 直接從 ALL_ROUTES_TUPLES 中隨機選擇 count 條航線（允許重複）
+    selected_routes = random.choices(
+        ALL_ROUTES_TUPLES,
+        k=count
+    )
     
     return selected_routes
 
