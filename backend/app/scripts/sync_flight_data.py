@@ -288,52 +288,6 @@ class FlightDataSyncTool:
         
         return db_status == "成功"
     
-    def sync_airlines(self):
-        """同步航空公司數據"""
-        logger.info("開始同步航空公司數據...")
-        
-        # 從API獲取航空公司數據
-        airlines = self.api_manager.sync_airlines()
-        
-        if not airlines:
-            logger.warning("未獲取到航空公司數據")
-            return
-        
-        logger.info(f"從API獲取了 {len(airlines)} 個航空公司")
-        
-        # 同步到資料庫
-        result = self.db_manager.sync_airlines(airlines)
-        
-        # 輸出結果
-        print("\n=== 航空公司同步結果 ===")
-        print(f"總數: {result.get('total', 0)}")
-        print(f"新增: {result.get('inserted', 0)}")
-        print(f"更新: {result.get('updated', 0)}")
-        print(f"跳過: {result.get('skipped', 0)}")
-    
-    def sync_airports(self):
-        """同步機場數據"""
-        logger.info("開始同步機場數據...")
-        
-        # 從API獲取機場數據
-        airports = self.api_manager.sync_airports()
-        
-        if not airports:
-            logger.warning("未獲取到機場數據")
-            return
-        
-        logger.info(f"從API獲取了 {len(airports)} 個機場")
-        
-        # 同步到資料庫
-        result = self.db_manager.sync_airports(airports)
-        
-        # 輸出結果
-        print("\n=== 機場同步結果 ===")
-        print(f"總數: {result.get('total', 0)}")
-        print(f"新增: {result.get('inserted', 0)}")
-        print(f"更新: {result.get('updated', 0)}")
-        print(f"跳過: {result.get('skipped', 0)}")
-    
     def sync_flights_route(self, departure, arrival, date_str, days=1, limit=0):
         """同步特定航線的航班"""
         try:
@@ -369,104 +323,43 @@ class FlightDataSyncTool:
             logger.error(f"同步航線 {departure}-{arrival} 時發生錯誤: {str(e)}")
             return 0
     
-    def sync_flights_only(self, date_str: str, days: int):
-        """只同步指定日期範圍的航班數據"""
-        start_date = datetime.strptime(date_str, '%Y-%m-%d')
-        logger.info(f"開始僅同步航班數據，從 {date_str} 開始，共 {days} 天")
+    def sync_flights_only(self):
+        """同步所有已知航線的所有未來航班數據"""
+        logger.info("開始僅同步航班數據 (所有已知航線的所有未來排程)")
         
-        all_processed_flights = []
-        # 獲取所有唯一的航線組合（從數據庫或其他來源）
-        # 這裡假設有一個方法可以獲取需要同步的航線，例如從熱門航線常量
-        from app.scripts.constants import POPULAR_DOMESTIC_ROUTES_TUPLES, POPULAR_INTERNATIONAL_ROUTES_TUPLES
-        all_routes = set(POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES)
-        logger.info(f"將同步 {len(all_routes)} 條唯一航線的航班數據")
-        
-        for day_offset in range(days):
-            current_date = start_date + timedelta(days=day_offset)
-            current_date_str = current_date.strftime('%Y-%m-%d')
-            logger.info(f"--正在同步日期: {current_date_str}--")
-            
-            daily_flights = []
-            for dep, arr in all_routes:
-                logger.debug(f"獲取航線 {dep}->{arr} 在 {current_date_str} 的數據")
-                try:
-                    # 調用 ApiSyncManager 的 sync_flights
-                    flights_for_route = self.api_manager.sync_flights(dep, arr, current_date_str, 1) # days=1
-                    if flights_for_route:
-                        daily_flights.extend(flights_for_route)
-                        logger.debug(f"航線 {dep}->{arr} 獲取了 {len(flights_for_route)} 筆航班數據")
-                except Exception as e:
-                    logger.error(f"同步航線 {dep}->{arr} 在 {current_date_str} 時出錯: {e}", exc_info=True)
-                
-                # 添加延遲
-                time.sleep(self.api_manager.request_delay if self.api_manager else 0.5)
-            
-            logger.info(f"日期 {current_date_str} 共獲取 {len(daily_flights)} 筆航班數據，準備導入數據庫")
-            if daily_flights:
-                try:
-                    # 調用 DbManager 導入數據，現在返回的是處理後的航班列表
-                    processed_list = self.db_manager.import_flights_to_database(daily_flights)
-                    
-                    # -- 修改返回值處理 --
-                    # 不再期望字典，而是處理列表
-                    if isinstance(processed_list, list):
-                        processed_count = len(processed_list)
-                        logger.info(f"數據庫成功處理了 {processed_count} 筆航班數據 (日期: {current_date_str})。DbManager內部已記錄詳細的新增/更新數。")
-                        all_processed_flights.extend(processed_list) # 可以選擇性地收集所有處理過的航班
-                    else:
-                        # 如果返回的不是列表（例如出錯時返回空列表或None），也進行記錄
-                        logger.error(f"DbManager.import_flights_to_database 返回了非預期的類型: {type(processed_list)}，日期: {current_date_str}")
-                    # -- 結束修改 --
-                        
-                except Exception as e:
-                    logger.error(f"數據庫同步航班時出錯 (日期: {current_date_str}): {str(e)}", exc_info=True)
-            else:
-                logger.info(f"日期 {current_date_str} 沒有獲取到航班數據，跳過數據庫導入")
-
-        total_processed = len(all_processed_flights)
-        logger.info(f"航班數據同步完成 ({days} 天)。總共處理並導入/更新 {total_processed} 筆航班記錄。")
-    
-    def sync_all(self, date_str, days=1):
-        """同步所有數據 (航空公司, 機場, 熱門航線航班)"""
-        print("\n=== 開始全面數據同步 ===\n")
-        
-        # 測試連接狀態
-        api_ok = self.test_api_connectivity()
-        db_ok = self.test_database_connectivity()
-        
-        if not api_ok or not db_ok:
-            logger.error("連接測試失敗，無法進行同步")
-            return
-        
-        # 同步航空公司數據
-        self.sync_airlines()
-        
-        # 同步機場數據
-        self.sync_airports()
-        
-        # 同步熱門航線的航班數據
-        # 注意：這裡調用 sync_popular_routes，它會從 API 獲取數據，但不直接同步到 DB
-        # 我們需要獲取其返回的航班數據，然後調用 DB manager 進行同步
-        logger.info(f"開始同步熱門航線航班, 日期: {date_str}, 天數: {days}")
-        all_popular_flights = []
+        all_future_flights = []
+        # --- 導入並使用 ALL_ROUTES_TUPLES --- 
         try:
-            popular_routes_data = self.api_manager.sync_popular_routes(date_str, days)
-            for route, flights in popular_routes_data.items():
-                if flights:
-                    all_popular_flights.extend(flights)
-            logger.info(f"從 sync_popular_routes 獲取 {len(all_popular_flights)} 條熱門航線航班數據")
+            # 從 constants 導入所有航線元組
+            from app.scripts.constants import ALL_ROUTES_TUPLES 
+            all_routes = set(ALL_ROUTES_TUPLES) # 使用所有已知航線
+            logger.info(f"將同步 {len(all_routes)} 條唯一已知航線的所有未來航班數據")
+        except ImportError:
+            logger.error("無法從 constants 導入 ALL_ROUTES_TUPLES，同步中止")
+            return # 提前返回，避免後續錯誤
+        # --- 結束修改 --- 
+        
+        # 循環獲取 flights_for_route 的邏輯不變
+        for dep, arr in all_routes:
+            logger.debug(f"獲取航線 {dep}->{arr} 的所有未來數據")
+            try:
+                flights_for_route = self.api_manager.sync_future_flights(dep, arr)
+                if flights_for_route:
+                    all_future_flights.extend(flights_for_route)
+                    logger.debug(f"航線 {dep}->{arr} 獲取了 {len(flights_for_route)} 筆未來航班數據")
+            except Exception as e:
+                logger.error(f"同步航線 {dep}->{arr} 的未來數據時出錯: {e}", exc_info=True)
+            
+            time.sleep(self.api_manager.request_delay if self.api_manager else 0.5)
 
-            if all_popular_flights:
-                 logger.info(f"準備將 {len(all_popular_flights)} 條熱門航線航班同步到數據庫")
-                 self.db_manager.import_flights_to_database(all_popular_flights)
-                 logger.info(f"成功將 {len(all_popular_flights)} 條熱門航線航班同步到數據庫")
-            else:
-                logger.warning("未從 sync_popular_routes 獲取到任何航班數據進行同步")
-
-        except Exception as e:
-             logger.error(f"在 sync_all 中處理熱門航線時出錯: {str(e)}", exc_info=True)
-
-        print("\n=== 全面數據同步完成 ===")
+        # --- 新增：數據庫導入 ---
+        if all_future_flights:
+            logger.info(f"準備將獲取的 {len(all_future_flights)} 條未來航班數據同步到數據庫")
+            self.db_manager.import_flights_to_database(all_future_flights)
+            logger.info("未來航班數據已同步到數據庫")
+        else:
+            logger.info("未獲取到任何未來航班數據，無需同步到數據庫")
+        # --- 結束新增 ---
 
 def main():
     """主函數，處理命令行參數並執行相應操作"""
@@ -476,64 +369,55 @@ def main():
     # 測試連接指令
     test_parser = subparsers.add_parser('test', help='測試API和數據庫連接')
     
-    # 航空公司同步指令
-    airlines_parser = subparsers.add_parser('airlines', help='同步航空公司資料')
-    
-    # 機場同步指令
-    airports_parser = subparsers.add_parser('airports', help='同步機場資料')
-    
-    # 航班同步指令
-    flights_parser = subparsers.add_parser('flights', help='同步航班資料')
+    # 航班同步指令 - 使 date 和 days 可選
+    flights_parser = subparsers.add_parser('flights', help='同步特定航線的航班資料。預設獲取所有未來航班。')
     flights_parser.add_argument('--departure', '-d', required=True, help='出發機場 IATA 代碼')
     flights_parser.add_argument('--arrival', '-a', required=True, help='目的機場 IATA 代碼')
-    flights_parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help='查詢日期（YYYY-MM-DD 格式），預設為今天')
-    flights_parser.add_argument('--days', type=int, default=1, help='查詢天數，預設為 1')
-    flights_parser.add_argument('--limit', type=int, default=0, help='限制航班數量，預設為0(不限制)')
+    # 修改 date: default=None, nargs='?' 使其完全可選
+    flights_parser.add_argument('--date', default=None, nargs='?', help='指定查詢日期（YYYY-MM-DD 格式）。若不提供，則獲取所有未來航班。預設為 None。') 
+    # 修改 days: 只有在指定 date 時才有意義
+    flights_parser.add_argument('--days', type=int, default=1, help='查詢天數 (僅在提供 --date 時有效)，預設為 1') 
+    flights_parser.add_argument('--limit', type=int, default=0, help='限制航班數量 (主要影響指定日期查詢)，預設為0(不限制)')
     
-    # 全部同步指令
-    all_parser = subparsers.add_parser('all', help='同步所有數據')
-    all_parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help='查詢日期（YYYY-MM-DD 格式），預設為今天')
-    all_parser.add_argument('--days', type=int, default=1, help='查詢天數，預設為 1')
+    flights_only_parser = subparsers.add_parser('flights-only', help='僅同步所有熱門航線的未來航班資料')
     
-    # 僅航班同步指令（不更新航空公司和機場資料）
-    flights_only_parser = subparsers.add_parser('flights-only', help='僅同步航班資料（不更新航空公司和機場資料）')
-    flights_only_parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help='查詢日期（YYYY-MM-DD 格式），預設為今天')
-    flights_only_parser.add_argument('--days', type=int, default=1, help='查詢天數，預設為 1')
-    
-    # 熱門航線同步指令
-    popular_parser = subparsers.add_parser('popular', help='同步熱門航線數據')
-    popular_parser.add_argument('--date', default=datetime.now().strftime('%Y-%m-%d'), help='查詢日期（YYYY-MM-DD 格式），預設為今天')
-    popular_parser.add_argument('--days', type=int, default=1, help='查詢天數，預設為 1')
-    popular_parser.add_argument('--limit', type=int, default=0, help='每條航線的最大處理航班數量 (0表示不限制)')
+    popular_parser = subparsers.add_parser('popular', help='同步所有熱門航線的未來航班數據 (會寫入數據庫)')
     
     args = parser.parse_args()
     
-    # 初始化同步工具
     sync_tool = FlightDataSyncTool()
     
-    # 根據指令執行相應操作
     if args.command == 'test':
         sync_tool.test_api_connectivity()
         sync_tool.test_database_connectivity()
     
-    elif args.command == 'airlines':
-        sync_tool.sync_airlines()
-    
-    elif args.command == 'airports':
-        sync_tool.sync_airports()
-    
     elif args.command == 'flights':
-        sync_tool.sync_flights_route(args.departure, args.arrival, args.date, args.days, args.limit)
-    
-    elif args.command == 'all':
-        sync_tool.sync_all(args.date, args.days)
-    
+        # --- 修改 flights 指令處理 --- 
+        if args.date:
+            logger.info(f"執行特定日期航班同步: {args.departure}->{args.arrival}, Date: {args.date}, Days: {args.days}")
+            sync_tool.sync_flights_route(args.departure, args.arrival, args.date, args.days, args.limit)
+        else:
+            logger.info(f"執行未來航班同步: {args.departure}->{args.arrival}")
+            future_flights = sync_tool.api_manager.sync_future_flights(args.departure, args.arrival)
+            if future_flights:
+                if args.limit > 0 and len(future_flights) > args.limit:
+                    future_flights = future_flights[:args.limit]
+                    logger.info(f"將未來航班數據限制為 {args.limit} 條")
+                logger.info(f"準備將 {len(future_flights)} 條未來航班 ({args.departure}->{args.arrival}) 同步到數據庫")
+                sync_tool.db_manager.import_flights_to_database(future_flights)
+            else:
+                logger.warning(f"未找到航線 {args.departure}->{args.arrival} 的未來航班數據")
+        # --- 結束修改 --- 
+            
     elif args.command == 'flights-only':
-        sync_tool.sync_flights_only(args.date, args.days)
+        sync_tool.sync_flights_only()
     
     elif args.command == 'popular':
-        sync_tool.sync_all(args.date, args.days) # 注意：popular 指令現在也調用 sync_all
-    
+        # popular 指令現在直接觸發熱門航線的未來數據同步和導入
+        logger.info("執行熱門航線未來航班同步...")
+        sync_tool.sync_flights_only()
+        logger.info("熱門航線未來航班同步完成")
+
     else:
         parser.print_help()
 
