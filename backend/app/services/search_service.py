@@ -295,22 +295,44 @@ class SearchService:
         """
         prepared_data = []
 
+        # 添加英文和中文艙等的映射
+        cabin_class = cabin_class.lower() if isinstance(cabin_class, str) else ''
+        
+        # 英文艙等轉換為標準化的中文艙等
+        cabin_class_map = {
+            'economy': '經濟艙',
+            'business': '商務艙',
+            'first': '頭等艙',
+            # 如果已經是中文，保持不變
+            '經濟艙': '經濟艙',
+            '商務艙': '商務艙', 
+            '頭等艙': '頭等艙',
+            # 處理簡化的中文
+            '經濟': '經濟艙',
+            '商務': '商務艙',
+            '頭等': '頭等艙'
+        }
+        
+        # 標準化艙等，默認為經濟艙
+        normalized_cabin_class = cabin_class_map.get(cabin_class, '經濟艙')
+        
+        logger.debug(f"原始艙等: {cabin_class}, 標準化後: {normalized_cabin_class}")
+
         for flight in flights:
             logger.debug(f"Processing raw flight dict: {flight}")
 
-            # 1. 選擇價格 - ***修正比較邏輯***
+            # 1. 選擇價格 - ***使用標準化後的艙等***
             price = None
             available_seats = flight.get('available_seats', 0)
             isAvailable = False  # 添加可用性標誌，默認為 False
             
-            # requested_cabin_class_upper = cabin_class.upper() # <-- 移除錯誤的大寫轉換和比較
-            if cabin_class == '經濟艙': # <-- 直接比較中文
+            if normalized_cabin_class == '經濟艙':
                 price = flight.get('economy_price')
                 isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
-            elif cabin_class == '商務艙': # <-- 直接比較中文
+            elif normalized_cabin_class == '商務艙':
                 price = flight.get('business_price')
                 isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
-            elif cabin_class == '頭等艙': # <-- 直接比較中文
+            elif normalized_cabin_class == '頭等艙':
                 price = flight.get('first_price')
                 isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
 
@@ -347,7 +369,7 @@ class SearchService:
                 'price': { # 價格嵌套
                     'amount': price,
                     'currency': 'TWD',
-                    'cabin_class': cabin_class,
+                    'cabin_class': normalized_cabin_class,  # 使用標準化後的艙等
                     'isAvailable': isAvailable  # 添加可用性標誌
                 },
                 'airline': { # 航空公司嵌套
