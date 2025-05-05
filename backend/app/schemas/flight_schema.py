@@ -8,7 +8,7 @@ class PriceSchema(Schema):
     amount = fields.Float(allow_none=True)
     currency = fields.Str(load_default='TWD')
     cabin_class = fields.Str()
-    isAvailable = fields.Boolean(default=False)  # 添加可用性標誌，默認為 False
+    isAvailable = fields.Boolean(missing=False)  # 使用 missing 代替 default (兼容舊版 marshmallow)
 
 class FlightSearchArgsSchema(Schema):
     """用於驗證 /search 的請求參數"""
