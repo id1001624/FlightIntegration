@@ -150,11 +150,26 @@ class SearchService:
             logger.error(f"日期格式錯誤: {date_str}")
             return []
         
+        # 標準化艙等名稱
+        cabin_class = cabin_class.lower() if isinstance(cabin_class, str) else ''
+        cabin_class_map = {
+            'economy': '經濟艙',
+            'business': '商務艙',
+            'first': '頭等艙',
+            '經濟艙': '經濟艙',
+            '商務艙': '商務艙', 
+            '頭等艙': '頭等艙',
+            '經濟': '經濟艙',
+            '商務': '商務艙',
+            '頭等': '頭等艙'
+        }
+        normalized_cabin_class = cabin_class_map.get(cabin_class, '經濟艙')
+        
         # 根據艙等選擇價格欄位
         price_field = "economy_price"
-        if cabin_class == "商務艙": 
+        if normalized_cabin_class == "商務艙": 
             price_field = "business_price"
-        elif cabin_class == "頭等艙":
+        elif normalized_cabin_class == "頭等艙":
             price_field = "first_price"
             
         # 構建 SQL 查詢 - 使用機場ID
@@ -216,6 +231,8 @@ class SearchService:
         SELECT * 
         FROM RankedFlights 
         WHERE rn = 1 -- 只選取每個航班號和日期最新的價格記錄
+          AND {price_field} IS NOT NULL -- 確保所選艙等有價格
+          AND available_seats > 0 -- 確保有可用座位
         {sort_order} -- 排序條件將插入這裡
         LIMIT {limit_placeholder}; -- 結果數量限制
         """
@@ -248,9 +265,6 @@ class SearchService:
             params.append(price_max)
             param_index += 1
             
-        # 確保選擇的艙等有價格（不為NULL）且有可用座位
-        price_filter_sql += f" AND tp.{price_field} IS NOT NULL AND tp.available_seats > 0"
-            
         # 排序條件
         sort_order_sql = ""
         if sort_by == "price":
@@ -280,7 +294,7 @@ class SearchService:
             # 使用 conn 執行查詢
             rows = await conn.fetch(final_sql, *params)
             logger.debug(f"Raw rows from DB: {rows}") # Log raw rows
-            logger.info(f"查詢到 {len(rows)} 條航班記錄")
+            logger.info(f"查詢到 {len(rows)} 條艙等為 {normalized_cabin_class} 的航班記錄")
             # 將 asyncpg Row 對象轉換為字典列表
             return [dict(row) for row in rows]
         except Exception as e:
@@ -332,19 +346,22 @@ class SearchService:
             # 1. 選擇價格 - ***使用標準化後的艙等***
             price = None
             available_seats = flight.get('available_seats', 0)
-            isAvailable = False  # 添加可用性標誌，默認為 False
             
             if normalized_cabin_class == '經濟艙':
                 price = flight.get('economy_price')
-                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
             elif normalized_cabin_class == '商務艙':
                 price = flight.get('business_price')
-                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
             elif normalized_cabin_class == '頭等艙':
                 price = flight.get('first_price')
-                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
                 
-            logger.debug(f"選擇艙等: {normalized_cabin_class}, 價格: {price}, 可用座位: {available_seats}, 票價可用: {isAvailable}")
+            # 確保價格存在且座位數大於0，否則跳過此航班
+            if price is None or available_seats <= 0:
+                logger.debug(f"跳過航班 {flight.get('flight_id')}: 價格={price}, 可用座位={available_seats}")
+                continue
+                
+            # 所有檢查都通過，設置為可用
+            isAvailable = True
+            logger.debug(f"航班 {flight.get('flight_id')} 艙等: {normalized_cabin_class}, 價格: {price}, 可用座位: {available_seats}, 票價可用: {isAvailable}")
 
             if isinstance(price, Decimal):
                 price = float(price)

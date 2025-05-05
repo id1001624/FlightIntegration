@@ -166,6 +166,10 @@ export default {
       console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
       console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
 
+      // 清空目的地選擇
+      formData.arrivalAirport = null;
+      destinationAirports.value = [];
+
       const airportCode = selectedAirport?.code;
 
       if (!airportCode) {
@@ -242,10 +246,25 @@ export default {
       }
     };
 
-    const onDepartureDateChange = () => {
+    const onDepartureDateChange = (newDate) => {
+      console.log('出發日期變更:', newDate);
+      
+      // 清空錯誤訊息
+      errors.departureDate = '';
+      errors.returnDate = '';
+      
+      // 先清空目的地選擇，無論如何
+      formData.arrivalAirport = null;
+      
+      // 更新可用機場列表
       fetchTaiwanAirports();
+      
+      // 如果有選擇出發地，更新目的地
       if (formData.departureAirport) {
         onDepartureChange(formData.departureAirport);
+      } else {
+        // 如果沒有選擇出發地，清空目的地列表
+        destinationAirports.value = [];
       }
     };
 
