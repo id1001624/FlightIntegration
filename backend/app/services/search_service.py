@@ -271,7 +271,7 @@ class SearchService:
             return []
 
     @staticmethod
-    async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str = 'ECONOMY') -> List[Dict[str, Any]]:
+    async def _format_flights(flights: List[Dict[str, Any]], cabin_class: str = '經濟艙') -> List[Dict[str, Any]]:
         """
         格式化航班信息 (使用 FlightSearchResultSchema)
         
@@ -287,14 +287,14 @@ class SearchService:
         for flight in flights:
             logger.debug(f"Processing raw flight dict: {flight}")
 
-            # 1. 選擇價格
+            # 1. 選擇價格 - ***修正比較邏輯***
             price = None
-            requested_cabin_class_upper = cabin_class.upper()
-            if requested_cabin_class_upper == 'ECONOMY':
+            # requested_cabin_class_upper = cabin_class.upper() # <-- 移除錯誤的大寫轉換和比較
+            if cabin_class == '經濟艙': # <-- 直接比較中文
                 price = flight.get('economy_price')
-            elif requested_cabin_class_upper == 'BUSINESS':
+            elif cabin_class == '商務艙': # <-- 直接比較中文
                 price = flight.get('business_price')
-            elif requested_cabin_class_upper == 'FIRST':
+            elif cabin_class == '頭等艙': # <-- 直接比較中文
                 price = flight.get('first_price')
 
             if isinstance(price, Decimal):

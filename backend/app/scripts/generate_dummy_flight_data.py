@@ -27,6 +27,7 @@ import pandas as pd
 from typing import List, Dict, Tuple, Any, Optional
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+import traceback # <-- 確保導入 traceback
 
 # --- 添加正確的導入路徑 (確保在導入 app 之前) ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -82,7 +83,8 @@ except ImportError:
 from app.scripts.constants import (
     TAIWAN_AIRPORTS, TARGET_AIRLINES, 
     POPULAR_DOMESTIC_ROUTES_TUPLES, POPULAR_INTERNATIONAL_ROUTES_TUPLES,
-    ALL_ROUTES_TUPLES
+    ALL_ROUTES_TUPLES,
+    COMBINED_POPULAR_ROUTES_TUPLES # <-- 導入合併後的熱門航線
 )
 from app.models.flight import Flight
 from app.models.ticket_price import TicketPrice
@@ -370,9 +372,48 @@ def generate_ticket_prices(flight_info: Dict) -> Dict:
     }
 
 def generate_flights_for_day(date: datetime.date, count: int, airline_weights: Dict[str, float]) -> List[Dict]:
-    """為指定日期生成航班數據"""
-    # 選擇航線
-    routes = select_route_templates(count)
+    """為指定日期生成航班數據 (強制包含部分熱門航線)"""
+    # --- 修改：強制包含部分熱門航線 ---
+    popular_ratio = 0.3  # 熱門航線比例
+    num_popular = int(count * popular_ratio)
+    num_random = count - num_popular
+    
+    selected_routes = []
+    
+    # 選擇熱門航線
+    if COMBINED_POPULAR_ROUTES_TUPLES and num_popular > 0:
+        popular_selection = random.choices(
+            COMBINED_POPULAR_ROUTES_TUPLES,
+            k=num_popular
+        )
+        selected_routes.extend(popular_selection)
+        logger.debug(f"為 {date} 選擇了 {len(popular_selection)} 條熱門航線")
+    else:
+        logger.warning(f"無法選擇熱門航線 (列表為空或數量為0)")
+        num_random = count # 如果無法選熱門，則全部隨機選
+
+    # 選擇剩餘的隨機航線
+    if ALL_ROUTES_TUPLES and num_random > 0:
+        random_selection = random.choices(
+            ALL_ROUTES_TUPLES,
+            k=num_random
+        )
+        selected_routes.extend(random_selection)
+        logger.debug(f"為 {date} 選擇了 {len(random_selection)} 條隨機航線")
+    else:
+         logger.warning(f"無法選擇隨機航線 (列表為空或數量為0)")
+         # 如果隨機也無法選，需要有處理機制，這裡暫時保留已選的熱門
+
+    # 確保最終數量與請求一致 (可能因列表空導致不足)
+    while len(selected_routes) < count and ALL_ROUTES_TUPLES:
+        selected_routes.append(random.choice(ALL_ROUTES_TUPLES))
+        
+    # 打亂順序
+    random.shuffle(selected_routes)
+    
+    # 使用 selected_routes 替換舊的 routes
+    routes = selected_routes[:count] # 確保數量不超過請求
+    # --- 結束修改 ---
     
     # 生成起飛時間
     departure_times = generate_departure_times(date, count)
@@ -398,6 +439,10 @@ def generate_flights_for_day(date: datetime.date, count: int, airline_weights: D
         # 計算計劃到達時間
         scheduled_arrival = departure_time + datetime.timedelta(minutes=flight_duration)
         
+        # --- 新增：生成 aircraft ---
+        aircraft_type = f"DUMMY-{random.choice(['B737', 'A320', 'B777', 'A350', 'B787'])}"
+        # -------------------------
+
         # 生成航班信息 (移除不再需要的欄位)
         flight_info = {
             'flight_number': flight_number,
@@ -406,7 +451,8 @@ def generate_flights_for_day(date: datetime.date, count: int, airline_weights: D
             'arrival_airport': arr,
             'scheduled_departure': departure_time,
             'scheduled_arrival': scheduled_arrival,
-            'date': date
+            'date': date,
+            'aircraft': aircraft_type # <-- 添加 aircraft
         }
         
         # 生成票價信息
@@ -417,104 +463,51 @@ def generate_flights_for_day(date: datetime.date, count: int, airline_weights: D
     
     return flights
 
-def prepare_flight_objects(flights_data: List[Dict]) -> Tuple[List[Flight], List[TicketPrice]]:
-    """將生成的數據轉換為Flight和TicketPrice對象"""
+def prepare_flight_objects(flights_data: List[Dict]) -> List[Flight]:
+    """根據生成的航班數據字典，創建 SQLAlchemy Flight 對象列表 (只創建 Flight)"""
     flight_objects = []
-    ticket_price_objects = []
-    
     for flight_data in flights_data:
-        # 創建Flight對象
+        # 創建 Flight 對象
         flight = Flight(
             flight_number=flight_data['flight_number'],
-            airline_id=flight_data['airline'],
-            departure_airport_id=flight_data['departure_airport'],
-            arrival_airport_id=flight_data['arrival_airport'],
+            airline_id=flight_data['airline'], # <-- 使用正確的鍵和模型欄位
+            departure_airport_id=flight_data['departure_airport'], # <-- 使用正確的鍵和模型欄位
+            arrival_airport_id=flight_data['arrival_airport'], # <-- 使用正確的鍵和模型欄位
             scheduled_departure=flight_data['scheduled_departure'],
             scheduled_arrival=flight_data['scheduled_arrival'],
-            aircraft=f"DUMMY-{random.choice(['B737', 'A320', 'B777', 'A350', 'B787'])}",
-            departure_terminal=random.choice([None, 'T1', 'T2', 'T3']) if random.random() > 0.3 else None,
-            arrival_terminal=random.choice([None, 'T1', 'T2', 'T3']) if random.random() > 0.3 else None,
-            is_test_data=True
+            aircraft=flight_data['aircraft'], # <-- 使用正確的鍵和模型欄位
+            is_test_data=True      # 標記為測試數據
+            # 添加模型中存在但此處未設置的欄位 (departure_terminal, arrival_terminal) 為 None
+            # departure_terminal=None,
+            # arrival_terminal=None 
+            #  ^-- 這些欄位在模型中允許為 NULL，生成腳本可以不提供，資料庫會使用 NULL 或默認值 (如果有的話)
         )
+        
+        # 只將 Flight 對象添加到列表
         flight_objects.append(flight)
-        
-        # 創建TicketPrice對象
-        # 為每個航班創建經濟艙價格記錄
-        # 注意：flight_id 將在插入後由 SQLAlchemy 自動關聯
-        economy_price_obj = TicketPrice(
-            # flight_id=None, # 不需要手動設置，SQLAlchemy 會處理
-            # flight_number=flight_data['flight_number'], # 移除：無效參數
-            # airline=flight_data['airline'],             # 移除：無效參數
-            # date=flight_data['date'],                   # 移除：TicketPrice 模型沒有 date 欄位
-            class_type='經濟',
-            base_price=flight_data['economy_price'],
-            economy_price=flight_data['economy_price'],
-            business_price=None,
-            first_price=None,
-            available_seats=random.randint(5, 200)
-        )
-        # 將 price object 與 flight object 關聯
-        # 假設 Flight 模型有 ticket_prices 關係 (通常是 list)
-        # flight.ticket_prices.append(economy_price_obj) # <-- 不直接 append，讓 SQLAlchemy 處理
-        ticket_price_objects.append(economy_price_obj)
+            
+    return flight_objects # <-- 只返回 flights
 
-        
-        # 如果有商務艙價格，創建商務艙記錄
-        if flight_data['business_price']:
-            business_price_obj = TicketPrice(
-                # flight_id=None,
-                # flight_number=flight_data['flight_number'], # 移除
-                # airline=flight_data['airline'],             # 移除
-                # date=flight_data['date'],                   # 移除
-                class_type='商務',
-                base_price=flight_data['business_price'],
-                economy_price=None,
-                business_price=flight_data['business_price'],
-                first_price=None,
-                available_seats=random.randint(0, 30)
-            )
-            # flight.ticket_prices.append(business_price_obj)
-            ticket_price_objects.append(business_price_obj)
-        
-        # 如果有頭等艙價格，創建頭等艙記錄
-        if flight_data['first_price']:
-            first_price_obj = TicketPrice(
-                # flight_id=None,
-                # flight_number=flight_data['flight_number'], # 移除
-                # airline=flight_data['airline'],             # 移除
-                # date=flight_data['date'],                   # 移除
-                class_type='頭等',
-                base_price=flight_data['first_price'],
-                economy_price=None,
-                business_price=None,
-                first_price=flight_data['first_price'],
-                available_seats=random.randint(0, 10)
-            )
-            # flight.ticket_prices.append(first_price_obj)
-            ticket_price_objects.append(first_price_obj)
-    
-    # 注意：這裡返回的是獨立的列表，關聯需要在插入時由 SQLAlchemy 處理
-    return flight_objects, ticket_price_objects
-
-def clear_old_test_data() -> None:
-    """清除今天以前的虛擬測試資料 (is_test_data = True)"""
+def clear_old_test_data(reference_date: datetime.date) -> None:
+    """清除指定日期之前的虛擬測試資料 (is_test_data = True)"""
     session = db.session # 直接獲取會話
     try:
-        today = datetime.date.today()
-        today_str = today.strftime('%Y-%m-%d')
+        # today = datetime.date.today() # <-- 不再需要獲取今天的日期
+        reference_date_str = reference_date.strftime('%Y-%m-%d') # <-- 使用參考日期
         
         # 首先獲取需要刪除的測試航班號
         flight_numbers_query = text("""
             SELECT flight_number FROM flights 
-            WHERE DATE(scheduled_departure) < :today_date
+            WHERE DATE(scheduled_departure) < :ref_date
             AND is_test_data = TRUE
         """)
         
-        result = session.execute(flight_numbers_query, {"today_date": today_str})
+        result = session.execute(flight_numbers_query, {"ref_date": reference_date_str}) # <-- 使用新的參數名
         flight_numbers = [row[0] for row in result]
         
         if flight_numbers:
-            logger.info(f"找到 {len(flight_numbers)} 個今天 ({today_str}) 之前的虛擬航班需要清除")
+            # <-- 修改日誌消息
+            logger.info(f"找到 {len(flight_numbers)} 個在 {reference_date_str} 之前的虛擬航班需要清除")
             
             # 刪除相關的票價數據
             delete_ticket_prices_query = text("""
@@ -535,7 +528,7 @@ def clear_old_test_data() -> None:
 
             session.commit() # 提交事務
         else:
-            logger.info(f"沒有找到今天 ({today_str}) 之前的虛擬航班資料需要清除")
+            logger.info(f"沒有找到在 {reference_date_str} 之前的虛擬航班資料需要清除")
 
     except SQLAlchemyError as e:
         logger.error(f"清除舊虛擬資料時發生資料庫錯誤: {str(e)}")
@@ -548,45 +541,57 @@ def clear_old_test_data() -> None:
     finally:
         session.remove() # 或 session.close() - 確保會話關閉
 
-def batch_insert_data(flights: List[Flight], ticket_prices: List[TicketPrice], batch_size: int = 100) -> None:
-    """批量插入數據到資料庫"""
+def batch_insert_data(flights: List[Flight], batch_size: int = 100) -> None:
+    """批量插入數據到資料庫 (只插入 Flight)"""
     session = db.session # 直接獲取會話
+    is_successful = False
     try:
         total_flights = len(flights)
-        total_prices = len(ticket_prices)
         
-        logger.info(f"開始批量插入 {total_flights} 筆航班數據和 {total_prices} 筆票價數據")
+        # <-- 更新日誌消息 -->
+        logger.info(f"開始批量插入 {total_flights} 筆航班數據") 
         
         # 分批插入航班數據
         for i in range(0, total_flights, batch_size):
             batch_flights = flights[i:i + batch_size]
             session.add_all(batch_flights)
-            # 不需要 session.flush()，commit 會處理
             logger.info(f"準備插入航班數據 {i+1} 至 {min(i+batch_size, total_flights)}")
         
-        # 分批插入票價數據
-        for i in range(0, total_prices, batch_size):
-            batch_prices = ticket_prices[i:i + batch_size]
-            session.add_all(batch_prices)
-            logger.info(f"準備插入票價數據 {i+1} 至 {min(i+batch_size, total_prices)}")
-        
-        # 提交事務
+        logger.info("準備提交資料庫事務...")
         session.commit()
-        logger.info("數據插入完成")
+        is_successful = True
+        logger.info("資料庫事務提交成功。數據插入完成。")
     
     except SQLAlchemyError as e:
+        # --- 添加詳細錯誤日誌 ---
         logger.error(f"批量插入數據時發生資料庫錯誤: {str(e)}")
+        # 嘗試記錄更詳細的原始錯誤 (如果可用)
+        if hasattr(e, 'orig') and e.orig:
+            logger.error(f"原始資料庫錯誤: {str(e.orig)}")
+        logger.error(f"詳細錯誤追溯:\\n{traceback.format_exc()}")
+        logger.info("執行資料庫回滾...")
         session.rollback() # 回滾事務
-        raise
+        logger.info("資料庫回滾完成。")
+        # raise # 重新拋出異常，讓上層知道出錯了
     except Exception as e:
+        # --- 添加詳細錯誤日誌 ---
         logger.error(f"批量插入數據時發生未預期錯誤: {str(e)}")
+        logger.error(f"詳細錯誤追溯:\\n{traceback.format_exc()}")
+        logger.info("執行資料庫回滾...")
         session.rollback() # 回滾事務
-        raise
+        logger.info("資料庫回滾完成。")
+        # raise # 重新拋出異常
     finally:
+        # --- 添加 finally 日誌 ---
+        logger.info(f"進入 batch_insert_data 的 finally 塊。提交狀態: {'成功' if is_successful else '失敗或未執行'}")
+        # 檢查會話是否仍然活躍 (可能因 remove 而不準確)
+        # logger.info(f"當前會話是否活躍: {session.is_active}") 
+        logger.info("移除資料庫會話...")
         session.remove() # 或 session.close() - 確保會話關閉
+        logger.info("資料庫會話已移除。")
 
 def main():
-    """主函數"""
+    """主函數 - 清理舊數據並生成新數據"""
     # 解析命令行參數
     args = parse_arguments()
     
@@ -600,22 +605,24 @@ def main():
     else:
         start_date = datetime.date.today()
     
+    # <-- 恢復 end_date 計算 -->
     end_date = start_date + datetime.timedelta(days=args.days - 1)
     
+    # <-- 恢復原始日誌消息 -->
     logger.info(f"開始生成從 {start_date} 至 {end_date} 的虛擬航班數據")
     logger.info(f"每天將生成約 {args.flights_per_day} 個航班")
     
     try:
         # *** 清除舊的測試數據 ***
-        logger.info("開始清除今天之前的舊虛擬航班數據...")
-        clear_old_test_data() # 直接調用，不需要傳遞 db_manager
+        logger.info(f"開始清除 {start_date} 之前的舊虛擬航班數據...")
+        clear_old_test_data(start_date) # <-- 將 start_date 作為 reference_date 傳遞
         logger.info("舊虛擬航班數據清除完成。")
 
+        # === 恢復生成新數據的邏輯 ===
         # 生成航空公司分佈權重
         airline_weights = generate_airline_distribution()
         
         all_flights = []
-        all_ticket_prices = []
         
         # 為每一天生成航班
         for day_offset in range(args.days):
@@ -635,19 +642,24 @@ def main():
             flights_data = generate_flights_for_day(current_date, day_flights_count, airline_weights)
             
             # 準備資料庫對象
-            flights, ticket_prices = prepare_flight_objects(flights_data)
+            flights = prepare_flight_objects(flights_data)
             
             all_flights.extend(flights)
-            all_ticket_prices.extend(ticket_prices)
             
             logger.info(f"{current_date} 的航班數據生成完成")
         
         # 批量插入到資料庫
-        batch_insert_data(all_flights, all_ticket_prices) # 直接調用，不需要傳遞 db_manager
+        batch_insert_data(all_flights) # <-- 只傳遞 flights
         
+        # <-- 恢復原始日誌消息 -->
         logger.info(f"成功生成並插入 {len(all_flights)} 個航班的資料")
+        # ===========================
+
+        # <-- 移除僅清理的最終日誌 -->
+        # logger.info(f"已完成清除 {start_date} 之前的虛擬航班數據操作。未生成新數據。")
     
     except Exception as e:
+        # <-- 恢復原始錯誤日誌上下文 -->
         logger.error(f"生成數據時發生錯誤: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
