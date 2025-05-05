@@ -278,7 +278,8 @@ export default {
               amount: priceAmount,
               available_seats: flight.price?.available_seats ?? flight.available_seats ?? null, // 優先從嵌套price讀，再從頂層讀
               cabin_class: flight.price?.cabin_class || '洽詢',
-              currency: flight.price?.currency || 'TWD'
+              currency: flight.price?.currency || 'TWD',
+              isAvailable: flight.price?.isAvailable // 添加 isAvailable 屬性的傳遞
             }
           };
 
