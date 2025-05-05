@@ -296,6 +296,20 @@ export default {
         console.log('Valid flights:', JSON.parse(JSON.stringify(validFlights)));
         flights.value = validFlights; // 使用過濾後的列表
 
+        // 添加詳細的偵錯日誌
+        console.log('搜索請求參數:', JSON.parse(JSON.stringify(searchParams)));
+        console.log('搜索結果原始數據:', JSON.parse(JSON.stringify(validFlights)));
+
+        // 如果有價格對象，顯示其詳細信息
+        if (validFlights && validFlights.length > 0) {
+          validFlights.forEach(flight => {
+            console.log('航班:', flight.flight_number, 
+                        '價格數據:', flight.price,
+                        '價格可用性:', flight.price?.isAvailable,
+                        '艙等:', flight.price?.cabin_class);
+          });
+        }
+
         // 搜索後動態設定價格範圍最大值
         const maxPrice = Math.max(...validFlights.map(f => f.price.amount || 0), 0);
         filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;

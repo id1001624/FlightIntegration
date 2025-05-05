@@ -238,14 +238,26 @@ export default {
     const airlineName = computed(() => props.flight.airline?.name_zh || props.flight.airline?.name || '未知航空');
     const flightNumber = computed(() => props.flight.flight_number || 'N/A');
 
-    const hasValidPrice = computed(() => 
-      props.flight.price?.isAvailable === true
-    );
+    const hasValidPrice = computed(() => {
+      const isAvailable = props.flight.price?.isAvailable === true;
+      console.log(`[FlightCard ${props.flight.flight_number}] 價格可用性檢查:`, {
+        hasPrice: !!props.flight.price,
+        isAvailable: props.flight.price?.isAvailable,
+        amount: props.flight.price?.amount,
+        result: isAvailable
+      });
+      return isAvailable;
+    });
 
     const displayPrice = computed(() => {
       if (props.flight.price?.isAvailable) {
         return formatPrice(props.flight.price.amount);
       } 
+      console.log(`[FlightCard ${props.flight.flight_number}] 顯示洽詢，原因:`, {
+        hasPrice: !!props.flight.price,
+        isAvailable: props.flight.price?.isAvailable,
+        amount: props.flight.price?.amount
+      });
       return '洽詢';
     });
 

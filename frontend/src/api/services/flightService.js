@@ -87,6 +87,9 @@ const flightService = {
           console.error('無法解析JSON響應:', e);
           // result 已初始化為 []
       }
+    } else if (response && response.data && response.data.departure && Array.isArray(response.data.departure)) {
+        console.log('找到 response.data.departure 數組');
+        result = response.data.departure; // 賦值，不重新宣告
     } else if (response && response.data && response.data.outbound_flights && Array.isArray(response.data.outbound_flights)) {
         console.log('找到 response.data.outbound_flights 數組');
         result = response.data.outbound_flights; // 賦值，不重新宣告
@@ -507,12 +510,16 @@ const flightService = {
   _mapClassTypeToAPI(classType) {
     // 艙位類型映射（前端值 -> 後端值）
     const classTypeMap = {
-      'economy': '經濟',
-      'business': '商務',
-      'first': '頭等'
+      'economy': 'economy',  // 修改為直接傳遞英文，後端會處理轉換
+      'business': 'business',
+      'first': 'first',
+      // 保留對中文輸入的支援
+      '經濟艙': 'economy',
+      '商務艙': 'business',
+      '頭等艙': 'first'
     };
     
-    return classType ? (classTypeMap[classType.toLowerCase()] || '經濟') : '經濟';
+    return classType ? (classTypeMap[classType.toLowerCase()] || 'economy') : 'economy';
   },
   
   /**

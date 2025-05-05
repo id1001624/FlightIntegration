@@ -68,6 +68,12 @@ class SearchService:
             Dict[str, List[Dict[str, Any]]]: 包含 'departure' 和可選 'return' 航班列表的字典
         """
         try:
+            # 記錄所有傳入參數，特別是cabin_class
+            logger.info(f"搜索航班參數: departure={departure_code}, arrival={arrival_code}, date={date_str}, " 
+                       f"airline={airline_code}, return_date={return_date_str}, price_min={price_min}, "
+                       f"price_max={price_max}, cabin_class='{cabin_class}', passengers={passengers}, "
+                       f"max_results={max_results}, sort_by={sort_by}")
+            
             # 查詢去程航班 (數據包含所有艙位價格)
             outbound_flights_raw = await SearchService._query_flights(
                 conn,
@@ -316,10 +322,12 @@ class SearchService:
         # 標準化艙等，默認為經濟艙
         normalized_cabin_class = cabin_class_map.get(cabin_class, '經濟艙')
         
-        logger.debug(f"原始艙等: {cabin_class}, 標準化後: {normalized_cabin_class}")
+        logger.debug(f"原始艙等: '{cabin_class}', 標準化後: '{normalized_cabin_class}'")
+        logger.info(f"格式化航班數據: 傳入艙等='{cabin_class}', 標準化艙等='{normalized_cabin_class}', 航班數量={len(flights)}")
 
         for flight in flights:
-            logger.debug(f"Processing raw flight dict: {flight}")
+            logger.debug(f"處理航班 {flight.get('flight_id')}, 座位數={flight.get('available_seats')}")
+            logger.debug(f"價格數據: 經濟艙={flight.get('economy_price')}, 商務艙={flight.get('business_price')}, 頭等艙={flight.get('first_price')}")
 
             # 1. 選擇價格 - ***使用標準化後的艙等***
             price = None
@@ -335,6 +343,8 @@ class SearchService:
             elif normalized_cabin_class == '頭等艙':
                 price = flight.get('first_price')
                 isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
+                
+            logger.debug(f"選擇艙等: {normalized_cabin_class}, 價格: {price}, 可用座位: {available_seats}, 票價可用: {isAvailable}")
 
             if isinstance(price, Decimal):
                 price = float(price)
