@@ -75,8 +75,9 @@ async def release_db_connection(conn):
 async def find_flights_without_prices(conn, limit=BATCH_SIZE):
     """查找在 flights 表存在但在 ticket_prices 表中沒有任何記錄的航班"""
     # 使用 LEFT JOIN 查找在 flights 存在但在 ticket_prices 不存在的 flight_id
+    # 同時獲取 is_test_data 欄位
     query = """
-    SELECT f.flight_id
+    SELECT f.flight_id, f.is_test_data
     FROM flights f
     LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
     WHERE tp.flight_id IS NULL 
@@ -84,17 +85,20 @@ async def find_flights_without_prices(conn, limit=BATCH_SIZE):
     """
     try:
         rows = await conn.fetch(query, limit)
-        flight_ids = [row['flight_id'] for row in rows]
+        # 修改返回格式，包括 flight_id 和 is_test_data
+        flights_info = [{"flight_id": row['flight_id'], "is_test_data": row['is_test_data']} for row in rows]
         # 修改日誌消息以反映新的查找邏輯
-        logger.info(f"找到 {len(flight_ids)} 個在 flights 表存在但在 ticket_prices 表中沒有記錄的航班")
-        return flight_ids
+        logger.info(f"找到 {len(flights_info)} 個在 flights 表存在但在 ticket_prices 表中沒有記錄的航班")
+        return flights_info
     except Exception as e:
         # 修改錯誤消息
         logger.error(f"查找缺少票價記錄的航班時出錯: {e}")
         return []
 
-def generate_fake_price_data(flight_id):
+def generate_fake_price_data(flight_info):
     """為單個航班生成所有艙位的模擬票價數據"""
+    flight_id = flight_info["flight_id"]
+    is_test_data = flight_info["is_test_data"]
     prices = []
     now = datetime.now() # 使用本地時間或 UTC 取決於你的需求
 
@@ -123,7 +127,8 @@ def generate_fake_price_data(flight_id):
             'business_price': business_price, # 插入商務艙價格 (可能為 None)
             'first_price': first_price, # 插入頭等艙價格 (可能為 None)
             'available_seats': available_seats,
-            'price_updated_at': price_updated_at
+            'price_updated_at': price_updated_at,
+            'is_test_data': is_test_data  # 同步航班的測試資料標記
         })
     return prices
 
@@ -132,21 +137,22 @@ async def insert_prices_batch(conn, prices_list):
     if not prices_list:
         return 0
 
-    # 修改 SQL 以包含所有價格欄位
+    # 修改 SQL 以包含所有價格欄位和 is_test_data
     query = """
     INSERT INTO ticket_prices (
         price_id, flight_id, class_type, base_price,
         economy_price, business_price, first_price,
-        available_seats, price_updated_at
+        available_seats, price_updated_at, is_test_data
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) -- 使用 $1, $2... 佔位符
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) -- 使用 $1, $2... 佔位符
     ON CONFLICT (flight_id, class_type) DO UPDATE SET
         base_price = EXCLUDED.base_price,
         economy_price = EXCLUDED.economy_price,
         business_price = EXCLUDED.business_price,
         first_price = EXCLUDED.first_price,
         available_seats = EXCLUDED.available_seats,
-        price_updated_at = EXCLUDED.price_updated_at;
+        price_updated_at = EXCLUDED.price_updated_at,
+        is_test_data = EXCLUDED.is_test_data;
     """
 
     try:
@@ -161,7 +167,8 @@ async def insert_prices_batch(conn, prices_list):
                 p['business_price'],
                 p['first_price'],
                 p['available_seats'],
-                p['price_updated_at']
+                p['price_updated_at'],
+                p['is_test_data']
             ) for p in prices_list
         ]
         status = await conn.executemany(query, data_tuples)
@@ -184,28 +191,28 @@ async def main():
         
         while True:
             logger.info(f"正在查找下一批 ({BATCH_SIZE}) 個缺少票價的航班...")
-            flight_ids = await find_flights_without_prices(conn, BATCH_SIZE)
+            flights_info = await find_flights_without_prices(conn, BATCH_SIZE)
             
-            if not flight_ids:
+            if not flights_info:
                 logger.info("沒有更多缺少票價的航班了。")
                 break
                 
-            logger.info(f"找到 {len(flight_ids)} 個航班，正在生成票價...")
+            logger.info(f"找到 {len(flights_info)} 個航班，正在生成票價...")
             
             all_prices_to_insert = []
-            for flight_id in flight_ids:
-                fake_prices = generate_fake_price_data(flight_id)
+            for flight_info in flights_info:
+                fake_prices = generate_fake_price_data(flight_info)
                 all_prices_to_insert.extend(fake_prices)
                 
             logger.info(f"準備插入 {len(all_prices_to_insert)} 條票價記錄...")
             inserted_count = await insert_prices_batch(conn, all_prices_to_insert)
             logger.info(f"成功插入 {inserted_count} 條票價記錄。")
             
-            total_flights_processed += len(flight_ids)
+            total_flights_processed += len(flights_info)
             total_prices_inserted += inserted_count
             
             # 如果找到的航班數少於批次大小，說明這是最後一批
-            if len(flight_ids) < BATCH_SIZE:
+            if len(flights_info) < BATCH_SIZE:
                 logger.info("已處理完所有找到的航班。")
                 break
                 

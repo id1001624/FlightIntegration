@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import psycopg2
 import time
 from dotenv import load_dotenv, find_dotenv
+from collections import defaultdict
 
 # --- 在導入應用模塊前加載 .env 文件 ---
 dotenv_path = find_dotenv(filename='.env', raise_error_if_not_found=False, usecwd=True)
@@ -340,21 +341,60 @@ class FlightDataSyncTool:
         # --- 結束修改 --- 
         
         # 循環獲取 flights_for_route 的邏輯不變
+        total_flights_fetched = 0 # <-- 新增：初始化總獲取計數器
+        airline_counts = defaultdict(int) # <-- 新增：初始化航空公司計數器
+        departure_airport_counts = defaultdict(int) # <-- 新增：初始化出發機場計數器
+
         for dep, arr in all_routes:
             logger.debug(f"獲取航線 {dep}->{arr} 的所有未來數據")
             try:
                 flights_for_route = self.api_manager.sync_future_flights(dep, arr)
                 if flights_for_route:
+                    current_route_count = len(flights_for_route)
+                    total_flights_fetched += current_route_count # <-- 新增：累加航班數
                     all_future_flights.extend(flights_for_route)
-                    logger.debug(f"航線 {dep}->{arr} 獲取了 {len(flights_for_route)} 筆未來航班數據")
+                    logger.debug(f"航線 {dep}->{arr} 獲取了 {current_route_count} 筆未來航班數據")
+                    
+                    # --- 新增：統計當前航線的航班 --- 
+                    for flight in flights_for_route:
+                        if isinstance(flight, dict):
+                            airline = flight.get('airline_id')
+                            dep_airport = flight.get('departure_airport_id')
+                            if airline:
+                                airline_counts[airline] += 1
+                            if dep_airport:
+                                departure_airport_counts[dep_airport] += 1
+                    # --- 結束統計 --- 
+                            
             except Exception as e:
                 logger.error(f"同步航線 {dep}->{arr} 的未來數據時出錯: {e}", exc_info=True)
             
             time.sleep(self.api_manager.request_delay if self.api_manager else 0.5)
 
-        # --- 新增：數據庫導入 ---
+        # --- 新增：數據庫導入前的匯總日誌 --- 
         if all_future_flights:
-            logger.info(f"準備將獲取的 {len(all_future_flights)} 條未來航班數據同步到數據庫")
+            logger.info(f"所有航線共獲取 {total_flights_fetched} 條未來航班記錄 (去重前)。")
+            
+            logger.info("--- 按航空公司統計 (去重前) ---")
+            if airline_counts:
+                # 按航班數量降序排序
+                sorted_airlines = sorted(airline_counts.items(), key=lambda item: item[1], reverse=True)
+                for airline, count in sorted_airlines:
+                    logger.info(f"  {airline}: {count} 個航班")
+            else:
+                logger.info("  未能統計到任何航空公司的航班。")
+                
+            logger.info("--- 按出發機場統計 (去重前) ---")
+            if departure_airport_counts:
+                # 按航班數量降序排序
+                sorted_airports = sorted(departure_airport_counts.items(), key=lambda item: item[1], reverse=True)
+                for airport, count in sorted_airports:
+                    logger.info(f"  {airport}: {count} 個出發航班")
+            else:
+                logger.info("  未能統計到任何出發機場的航班。")
+                
+            # --- 原有的導入日誌 --- 
+            logger.info(f"準備將獲取的 {len(all_future_flights)} 條未來航班數據同步到數據庫 (去重後)")
             self.db_manager.import_flights_to_database(all_future_flights)
             logger.info("未來航班數據已同步到數據庫")
         else:

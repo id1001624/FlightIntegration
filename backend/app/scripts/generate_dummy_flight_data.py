@@ -15,6 +15,7 @@
     --flights-per-day: 每天生成的航班數量基準值，默認為200
     --start-date: 起始日期，格式為YYYY-MM-DD，默認為今天
     --clear-existing: 是否清空已有的航班資料，默認為False
+    --clear-only: 只清除測試資料，不生成新資料
 """
 
 import sys
@@ -120,6 +121,7 @@ def parse_arguments():
     parser.add_argument('--days', type=int, default=7, help='要生成的天數，默認為7天')
     parser.add_argument('--flights-per-day', type=int, default=200, help='每天生成的航班數量基準值，默認為200')
     parser.add_argument('--start-date', type=str, default=None, help='起始日期，格式為YYYY-MM-DD，默認為今天')
+    parser.add_argument('--clear-only', action='store_true', help='只清除測試資料，不生成新資料')
     
     return parser.parse_args()
 
@@ -489,41 +491,39 @@ def prepare_flight_objects(flights_data: List[Dict]) -> List[Flight]:
     return flight_objects # <-- 只返回 flights
 
 def clear_old_test_data(reference_date: datetime.date) -> None:
-    """清除指定日期之前的虛擬測試資料 (is_test_data = True)"""
+    """清除指定日期之前的虛擬測試資料 (is_test_data = TRUE)"""
     session = db.session # 直接獲取會話
     try:
-        # today = datetime.date.today() # <-- 不再需要獲取今天的日期
-        reference_date_str = reference_date.strftime('%Y-%m-%d') # <-- 使用參考日期
+        reference_date_str = reference_date.strftime('%Y-%m-%d')
         
-        # 首先獲取需要刪除的測試航班號
-        flight_numbers_query = text("""
-            SELECT flight_number FROM flights 
+        # 首先獲取需要刪除的測試航班的 flight_id
+        flight_ids_query = text("""
+            SELECT flight_id FROM flights 
             WHERE DATE(scheduled_departure) < :ref_date
             AND is_test_data = TRUE
         """)
         
-        result = session.execute(flight_numbers_query, {"ref_date": reference_date_str}) # <-- 使用新的參數名
-        flight_numbers = [row[0] for row in result]
+        result = session.execute(flight_ids_query, {"ref_date": reference_date_str})
+        flight_ids = [row[0] for row in result]
         
-        if flight_numbers:
-            # <-- 修改日誌消息
-            logger.info(f"找到 {len(flight_numbers)} 個在 {reference_date_str} 之前的虛擬航班需要清除")
+        if flight_ids:
+            logger.info(f"找到 {len(flight_ids)} 個在 {reference_date_str} 之前的虛擬航班需要清除")
             
-            # 刪除相關的票價數據
+            # 刪除相關的票價數據 - 只使用 flight_id 而不檢查 is_test_data
             delete_ticket_prices_query = text("""
                 DELETE FROM ticket_prices 
-                WHERE flight_number IN :flight_numbers
+                WHERE flight_id IN :flight_ids
             """)
-            deleted_prices_count = session.execute(delete_ticket_prices_query, {"flight_numbers": tuple(flight_numbers)}).rowcount
+            deleted_prices_count = session.execute(delete_ticket_prices_query, {"flight_ids": tuple(flight_ids)}).rowcount
             logger.info(f"已清除 {deleted_prices_count} 筆相關票價數據")
 
             # 刪除航班數據
             delete_flights_query = text("""
                 DELETE FROM flights 
-                WHERE flight_number IN :flight_numbers 
+                WHERE flight_id IN :flight_ids 
                 AND is_test_data = TRUE
             """)
-            deleted_flights_count = session.execute(delete_flights_query, {"flight_numbers": tuple(flight_numbers)}).rowcount
+            deleted_flights_count = session.execute(delete_flights_query, {"flight_ids": tuple(flight_ids)}).rowcount
             logger.info(f"已清除 {deleted_flights_count} 筆虛擬航班數據")
 
             session.commit() # 提交事務
@@ -609,14 +609,22 @@ def main():
     end_date = start_date + datetime.timedelta(days=args.days - 1)
     
     # <-- 恢復原始日誌消息 -->
-    logger.info(f"開始生成從 {start_date} 至 {end_date} 的虛擬航班數據")
-    logger.info(f"每天將生成約 {args.flights_per_day} 個航班")
+    if args.clear_only:
+        logger.info(f"只執行刪除操作：清除 {start_date} 之前的虛擬航班數據")
+    else:
+        logger.info(f"開始生成從 {start_date} 至 {end_date} 的虛擬航班數據")
+        logger.info(f"每天將生成約 {args.flights_per_day} 個航班")
     
     try:
         # *** 清除舊的測試數據 ***
         logger.info(f"開始清除 {start_date} 之前的舊虛擬航班數據...")
         clear_old_test_data(start_date) # <-- 將 start_date 作為 reference_date 傳遞
         logger.info("舊虛擬航班數據清除完成。")
+
+        # 如果只需要清除數據，則在此返回
+        if args.clear_only:
+            logger.info("已完成清除操作，不生成新數據。")
+            return
 
         # === 恢復生成新數據的邏輯 ===
         # 生成航空公司分佈權重
