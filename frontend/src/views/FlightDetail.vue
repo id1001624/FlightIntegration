@@ -10,8 +10,14 @@
     <h1 class="text-2xl font-bold mb-6 text-text-primary">航班詳情</h1>
     
     <div v-if="loading" class="flex justify-center items-center h-64">
-      <!-- Tailwind doesn't have a default spinner, use a simple one or a library -->
-      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div class="path-loader">
+        <div class="path-track"></div>
+        <div class="path-progress"></div>
+        <div class="path-dots">
+          <span class="path-dot"></span>
+          <span class="path-dot"></span>
+        </div>
+      </div>
     </div>
     
     <div v-else-if="error" class="text-center py-10 bg-red-50 border border-red-200 rounded-lg">
@@ -99,5 +105,53 @@ watch(() => route.params.flight_id, (newId) => {
 /* Structured Journey Minimalism: Use Tailwind utilities, avoid custom scoped styles unless necessary */
 .container {
   max-width: 960px; /* Limit content width for readability */
+}
+
+/* 路徑軌跡加載動畫 */
+.path-loader {
+  position: relative;
+  width: 250px;
+  height: 4px;
+  margin: 12px 0;
+}
+
+.path-track {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  top: 1px;
+  background-color: rgba(0,95,115,0.1);
+  border-radius: 1px;
+}
+
+.path-progress {
+  position: absolute;
+  width: 0%;
+  height: 2px;
+  top: 1px;
+  background-color: #005F73;
+  border-radius: 1px;
+  animation: path-expand 2.2s infinite ease-in-out;
+}
+
+.path-dots {
+  position: absolute;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.path-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #F4A261;
+  border-radius: 50%;
+  transform: translateY(-1px);
+}
+
+@keyframes path-expand {
+  0% { width: 0%; }
+  50% { width: 100%; }
+  100% { width: 0%; }
 }
 </style>

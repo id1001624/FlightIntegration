@@ -14,10 +14,11 @@
 
       <!-- Loading Spinner -->
       <div v-if="loading" class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-        <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
+        <div class="dots-loader">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
       </div>
       
       <!-- Dropdown Arrow -->
@@ -462,5 +463,44 @@ export default {
   margin-bottom: 0.5rem;
   font-weight: 500;
   color: #212529;
+}
+
+/* 點脈衝加載動畫 */
+.dots-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.dots-loader .dot {
+  width: 4px;
+  height: 4px;
+  background-color: var(--color-primary, #005F73);
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.dots-loader .dot:nth-child(1) {
+  animation: dot-pulse 1.4s infinite ease-in-out;
+}
+
+.dots-loader .dot:nth-child(2) {
+  animation: dot-pulse 1.4s infinite ease-in-out .2s;
+}
+
+.dots-loader .dot:nth-child(3) {
+  animation: dot-pulse 1.4s infinite ease-in-out .4s;
+}
+
+@keyframes dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
 }
 </style> 

@@ -2,7 +2,10 @@
   <div class="flight-search-page">
     <!-- 載入指示器 -->
     <div v-if="loading" class="loading-overlay">
-      <div class="loading-spinner"></div>
+      <div class="journey-loader">
+        <div class="journey-track"></div>
+        <div class="journey-plane"></div>
+      </div>
     </div>
 
     <!-- 搜索表單區域 - 添加雲層背景 -->
@@ -531,18 +534,41 @@ export default {
   z-index: 1000;
 }
 
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid var(--color-border);
-  border-top-color: #005F73;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+.journey-loader {
+  position: relative;
+  width: 300px;
+  height: 4px;
+  overflow: hidden;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.journey-track {
+  position: absolute;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(0,95,115,0.1) 0%, rgba(0,95,115,0.05) 100%);
+  border-radius: 2px;
+}
+
+.journey-plane {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: #005F73;
+  transform: translateY(-8px) rotate(45deg);
+  animation: journey-flight 2s infinite ease-in-out;
+}
+
+@keyframes journey-flight {
+  0% {
+    left: -20px;
+    box-shadow: 0 0 0 rgba(0,95,115,0);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(0,95,115,0.3);
+  }
+  100% {
+    left: 100%;
+    box-shadow: 0 0 0 rgba(0,95,115,0);
   }
 }
 

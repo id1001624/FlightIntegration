@@ -75,18 +75,171 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 
 ### 3.3 加載動畫
 
-- **標準 SVG 加載動畫**:
+#### 3.3.1 旅程路徑加載動畫
+- **標準旅程路徑加載動畫**:
 ```html
-<svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-</svg>
+<div class="journey-loader">
+  <div class="journey-track"></div>
+  <div class="journey-plane"></div>
+</div>
+```
+
+```css
+.journey-loader {
+  position: relative;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+}
+
+.journey-track {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(0,95,115,0.1) 0%, rgba(0,95,115,0.05) 100%);
+  border-radius: 1px;
+}
+
+.journey-plane {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #005F73;
+  transform: translateY(-5px) rotate(45deg);
+  animation: journey-flight 2s infinite ease-in-out;
+}
+
+@keyframes journey-flight {
+  0% {
+    left: -12px;
+    box-shadow: 0 0 0 rgba(0,95,115,0);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(0,95,115,0.3);
+  }
+  100% {
+    left: 100%;
+    box-shadow: 0 0 0 rgba(0,95,115,0);
+  }
+}
+```
+
+#### 3.3.2 路徑軌跡加載動畫
+- **路徑擴展動畫**:
+```html
+<div class="path-loader">
+  <div class="path-track"></div>
+  <div class="path-progress"></div>
+  <div class="path-dots">
+    <span class="path-dot"></span>
+    <span class="path-dot"></span>
+  </div>
+</div>
+```
+
+```css
+.path-loader {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  margin: 12px 0;
+}
+
+.path-track {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  top: 1px;
+  background-color: rgba(0,95,115,0.1);
+  border-radius: 1px;
+}
+
+.path-progress {
+  position: absolute;
+  width: 0%;
+  height: 2px;
+  top: 1px;
+  background-color: #005F73;
+  border-radius: 1px;
+  animation: path-expand 2.2s infinite ease-in-out;
+}
+
+.path-dots {
+  position: absolute;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.path-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #F4A261;
+  border-radius: 50%;
+  transform: translateY(-1px);
+}
+
+@keyframes path-expand {
+  0% { width: 0%; }
+  50% { width: 100%; }
+  100% { width: 0%; }
+}
 ```
 
 - **尺寸變體**:
-  - 小型: `h-4 w-4` (元素內嵌使用)
-  - 中型: `h-8 w-8` (區域級別使用)
-  - 大型: `h-12 w-12` (頁面級別使用)
+  - 小型: `.journey-loader-sm` 或 `.path-loader-sm` (元素內嵌使用)
+  - 中型: `.journey-loader-md` 或 `.path-loader-md` (區域級別使用)
+  - 大型: `.journey-loader-lg` 或 `.path-loader-lg` (頁面級別使用)
+
+#### 3.3.3 點脈衝加載動畫
+- **簡約點陣列脈衝動畫**:
+```html
+<div class="dots-loader">
+  <span class="dot"></span>
+  <span class="dot"></span>
+  <span class="dot"></span>
+</div>
+```
+
+```css
+.dots-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dots-loader .dot {
+  width: 6px;
+  height: 6px;
+  background-color: #005F73;
+  border-radius: 50%;
+  opacity: 0.6;
+}
+
+.dots-loader .dot:nth-child(1) {
+  animation: dot-pulse 1.4s infinite ease-in-out;
+}
+
+.dots-loader .dot:nth-child(2) {
+  animation: dot-pulse 1.4s infinite ease-in-out .2s;
+}
+
+.dots-loader .dot:nth-child(3) {
+  animation: dot-pulse 1.4s infinite ease-in-out .4s;
+}
+
+@keyframes dot-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 1;
+  }
+}
+```
 
 ### 3.4 卡片
 
@@ -175,6 +328,8 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 - **輕脈衝**: `animate-pulse-gentle`
 - **漂浮**: `animate-float`
 - **旅程線**: `animate-journey-line`
+- **飛行軌跡**: `animate-flight-path`
+- **點脈衝**: `animate-dot-pulse`
 
 ### 8.2 關鍵幀定義
 
@@ -202,6 +357,16 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 @keyframes journeyLine {
   0% { width: 0%; opacity: 0.5; }
   100% { width: 100%; opacity: 1; }
+}
+
+@keyframes flightPath {
+  0% { left: -20px; }
+  100% { left: calc(100% + 20px); }
+}
+
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.5); opacity: 1; }
 }
 ```
 
