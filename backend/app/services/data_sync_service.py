@@ -663,22 +663,36 @@ class DataSyncService:
                 flight_id, class_type
             )
             
+            # 根據艙位類型設置對應價格欄位
+            economy_price = None
+            business_price = None
+            first_price = None
+            
+            if class_type == '經濟':
+                economy_price = price
+            elif class_type == '商務':
+                business_price = price
+            elif class_type == '頭等':
+                first_price = price
+            
             if existing_price:
                 # 更新現有價格
                 await conn.execute("""
                     UPDATE ticket_prices SET
-                        base_price = $1,
-                        available_seats = $2,
+                        economy_price = COALESCE($1, economy_price),
+                        business_price = COALESCE($2, business_price),
+                        first_price = COALESCE($3, first_price),
+                        available_seats = $4,
                         price_updated_at = NOW()
-                    WHERE flight_id = $3 AND class_type = $4
-                """, price, available_seats, flight_id, class_type)
+                    WHERE flight_id = $5 AND class_type = $6
+                """, economy_price, business_price, first_price, available_seats, flight_id, class_type)
             else:
                 # 插入新價格
                 await conn.execute("""
                     INSERT INTO ticket_prices (
-                        flight_id, class_type, base_price, available_seats, price_updated_at
-                    ) VALUES ($1, $2, $3, $4, NOW())
-                """, flight_id, class_type, price, available_seats)
+                        flight_id, class_type, economy_price, business_price, first_price, available_seats, price_updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                """, flight_id, class_type, economy_price, business_price, first_price, available_seats)
     
     async def _fetch_airlines_from_api(self):
         """從API獲取航空公司數據"""
@@ -1001,8 +1015,8 @@ class DataSyncService:
         if 'economy_price' in flight:
             await conn.execute("""
                 INSERT INTO ticket_prices (
-                    flight_id, class_type, base_price, available_seats, price_updated_at
-                ) VALUES ($1, 'economy', $2, $3, NOW())
+                    flight_id, class_type, economy_price, available_seats, price_updated_at
+                ) VALUES ($1, '經濟', $2, $3, NOW())
             """,
             flight_id,
             flight['economy_price'],
@@ -1013,8 +1027,8 @@ class DataSyncService:
         if 'business_price' in flight:
             await conn.execute("""
                 INSERT INTO ticket_prices (
-                    flight_id, class_type, base_price, available_seats, price_updated_at
-                ) VALUES ($1, 'business', $2, $3, NOW())
+                    flight_id, class_type, business_price, available_seats, price_updated_at
+                ) VALUES ($1, '商務', $2, $3, NOW())
             """,
             flight_id,
             flight['business_price'],
@@ -1025,8 +1039,8 @@ class DataSyncService:
         if 'first_price' in flight:
             await conn.execute("""
                 INSERT INTO ticket_prices (
-                    flight_id, class_type, base_price, available_seats, price_updated_at
-                ) VALUES ($1, 'first', $2, $3, NOW())
+                    flight_id, class_type, first_price, available_seats, price_updated_at
+                ) VALUES ($1, '頭等', $2, $3, NOW())
             """,
             flight_id,
             flight['first_price'],

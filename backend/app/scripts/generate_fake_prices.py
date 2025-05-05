@@ -105,7 +105,6 @@ def generate_fake_price_data(flight_info):
     # 為基礎的經濟艙生成價格
     min_eco_price, max_eco_price = PRICE_RANGES["經濟"]
     economy_price = round(random.uniform(min_eco_price, max_eco_price), 2)
-    base_price = economy_price # 為了兼容性，讓 base_price 等於 economy_price
 
     # 生成其他艙等價格，可能為 None
     business_price = round(economy_price * random.uniform(1.5, 3.0), 2) if random.random() > 0.2 else None
@@ -113,8 +112,12 @@ def generate_fake_price_data(flight_info):
 
     # 對於每個艙位類型，生成一個記錄（因為當前模型仍依賴 class_type）
     for cabin in CABIN_CLASSES:
-        # 生成可用座位數
-        available_seats = random.randint(SEAT_RANGE[0], SEAT_RANGE[1])
+        # 生成可用座位數，有 10% 的機率為 0（表示客滿）
+        if random.random() < 0.1:
+            available_seats = 0  # 模擬客滿情況
+        else:
+            available_seats = random.randint(SEAT_RANGE[0], SEAT_RANGE[1])
+            
         # 票價更新時間
         price_updated_at = now
 
@@ -122,7 +125,6 @@ def generate_fake_price_data(flight_info):
             'price_id': str(uuid.uuid4()),
             'flight_id': flight_id,
             'class_type': cabin, # 保留 class_type 以匹配當前模型
-            'base_price': base_price, # 插入基礎價格（等於經濟艙）
             'economy_price': economy_price, # 插入經濟艙價格
             'business_price': business_price, # 插入商務艙價格 (可能為 None)
             'first_price': first_price, # 插入頭等艙價格 (可能為 None)
@@ -140,13 +142,12 @@ async def insert_prices_batch(conn, prices_list):
     # 修改 SQL 以包含所有價格欄位和 is_test_data
     query = """
     INSERT INTO ticket_prices (
-        price_id, flight_id, class_type, base_price,
+        price_id, flight_id, class_type,
         economy_price, business_price, first_price,
         available_seats, price_updated_at, is_test_data
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) -- 使用 $1, $2... 佔位符
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) -- 使用 $1, $2... 佔位符
     ON CONFLICT (flight_id, class_type) DO UPDATE SET
-        base_price = EXCLUDED.base_price,
         economy_price = EXCLUDED.economy_price,
         business_price = EXCLUDED.business_price,
         first_price = EXCLUDED.first_price,
@@ -162,7 +163,6 @@ async def insert_prices_batch(conn, prices_list):
                 p['price_id'],
                 p['flight_id'],
                 p['class_type'],
-                p['base_price'],
                 p['economy_price'],
                 p['business_price'],
                 p['first_price'],

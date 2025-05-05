@@ -323,36 +323,34 @@ def select_airline_for_route(dep: str, arr: str, airline_weights: Dict[str, floa
 
 def generate_ticket_prices(flight_info: Dict) -> Dict:
     """根據航線生成票價信息"""
-    # 根據航線距離/地區設置基準價格
+    # 根據航線距離/地區設置票價
     dep = flight_info['departure_airport']
     arr = flight_info['arrival_airport']
     
     # 國內航線
     if dep in TAIWAN_AIRPORTS and arr in TAIWAN_AIRPORTS:
-        base_price = random.randint(1500, 5000)
+        economy_price = random.randint(1500, 5000)
     # 國際航線 - 根據地區分類
     else:
         arr_region = get_region_for_airport(arr)
         
         if arr_region in ['japan', 'korea', 'china', 'hongkong_macau']:
             # 東北亞
-            base_price = random.randint(5000, 15000)
+            economy_price = random.randint(5000, 15000)
         elif arr_region == 'southeast_asia':
             # 東南亞
-            base_price = random.randint(7000, 18000)
+            economy_price = random.randint(7000, 18000)
         elif arr_region == 'australia':
             # 澳洲
-            base_price = random.randint(25000, 40000)
+            economy_price = random.randint(25000, 40000)
         elif arr_region in ['europe', 'america']:
             # 歐美
-            base_price = random.randint(30000, 60000)
+            economy_price = random.randint(30000, 60000)
         else:
             # 其他國際航線
-            base_price = random.randint(10000, 25000)
+            economy_price = random.randint(10000, 25000)
     
     # 生成各艙等價格
-    # 經濟艙價格接近基準價格
-    economy_price = int(base_price * random.uniform(0.9, 1.1))
     # 商務艙價格為經濟艙的2-3倍
     business_price = int(economy_price * random.uniform(2.0, 3.0))
     # 頭等艙價格為經濟艙的4-6倍

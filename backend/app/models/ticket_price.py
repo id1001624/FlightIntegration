@@ -13,7 +13,6 @@ class TicketPrice(Base):
     price_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     flight_id = db.Column(UUID(as_uuid=True), db.ForeignKey('flights.flight_id'), nullable=False)
     class_type = db.Column(db.String(20), nullable=False)
-    base_price = db.Column(db.Numeric, nullable=False)
     economy_price = db.Column(db.Numeric, nullable=True)
     business_price = db.Column(db.Numeric, nullable=True)
     first_price = db.Column(db.Numeric, nullable=True)

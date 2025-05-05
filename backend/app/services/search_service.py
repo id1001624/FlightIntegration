@@ -112,7 +112,7 @@ class SearchService:
         airline_code: Optional[Union[str, List[str]]] = None,
         price_min: Optional[int] = None,
         price_max: Optional[int] = None,
-        cabin_class: str = "經濟", # 雖然 cabin_class 傳入，但目前SQL主要按最低價，需確認 _format_flights 是否處理艙等價格
+        cabin_class: str = "經濟艙", # 使用 cabin_class 選擇相應的價格欄位
         max_results: int = 20,
         sort_by: str = "price"
     ) -> List[Dict[str, Any]]:
@@ -127,7 +127,7 @@ class SearchService:
             airline_code: 航空公司ID或ID列表，可選
             price_min: 最低價格，可選
             price_max: 最高價格，可選
-            cabin_class: 艙位類型 (目前主要影響格式化，查詢基於最低價)
+            cabin_class: 艙位類型 (影響價格欄位選擇)
             max_results: 最大結果數
             sort_by: 排序方式
         
@@ -144,6 +144,13 @@ class SearchService:
             logger.error(f"日期格式錯誤: {date_str}")
             return []
         
+        # 根據艙等選擇價格欄位
+        price_field = "economy_price"
+        if cabin_class == "商務艙": 
+            price_field = "business_price"
+        elif cabin_class == "頭等艙":
+            price_field = "first_price"
+            
         # 構建 SQL 查詢 - 使用機場ID
         sql = """
         WITH RankedFlights AS (
@@ -177,7 +184,7 @@ class SearchService:
                 tp.available_seats, 
                 tp.price_updated_at, -- Use model column name directly
                 -- 使用 COALESCE 處理 NULL 價格，給予一個極大值以便排序
-                COALESCE(tp.economy_price, 99999999) as sort_price,
+                COALESCE(tp.{price_field}, 99999999) as sort_price,
                 -- 計算排序用的時間戳或數值
                 EXTRACT(EPOCH FROM f.scheduled_departure) as sort_departure_time,
                 -- 計算時間差（秒）用於排序
@@ -224,16 +231,19 @@ class SearchService:
                 params.append(airline_code)
                 param_index += 1
         
-        # 價格過濾 (基於經濟艙價格)
+        # 價格過濾 (基於指定艙等價格)
         price_filter_sql = ""
         if price_min is not None:
-            price_filter_sql += f" AND tp.economy_price >= ${param_index + 1}"
+            price_filter_sql += f" AND tp.{price_field} >= ${param_index + 1}"
             params.append(price_min)
             param_index += 1
         if price_max is not None:
-            price_filter_sql += f" AND tp.economy_price <= ${param_index + 1}"
+            price_filter_sql += f" AND tp.{price_field} <= ${param_index + 1}"
             params.append(price_max)
             param_index += 1
+            
+        # 確保選擇的艙等有價格（不為NULL）且有可用座位
+        price_filter_sql += f" AND tp.{price_field} IS NOT NULL AND tp.available_seats > 0"
             
         # 排序條件
         sort_order_sql = ""
@@ -252,6 +262,7 @@ class SearchService:
 
         # 格式化最終 SQL
         final_sql = sql.format(
+            price_field=price_field,  # 替換價格欄位
             airline_filter=airline_filter_sql,
             price_filter=price_filter_sql,
             sort_order=sort_order_sql,
@@ -289,13 +300,19 @@ class SearchService:
 
             # 1. 選擇價格 - ***修正比較邏輯***
             price = None
+            available_seats = flight.get('available_seats', 0)
+            isAvailable = False  # 添加可用性標誌，默認為 False
+            
             # requested_cabin_class_upper = cabin_class.upper() # <-- 移除錯誤的大寫轉換和比較
             if cabin_class == '經濟艙': # <-- 直接比較中文
                 price = flight.get('economy_price')
+                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
             elif cabin_class == '商務艙': # <-- 直接比較中文
                 price = flight.get('business_price')
+                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
             elif cabin_class == '頭等艙': # <-- 直接比較中文
                 price = flight.get('first_price')
+                isAvailable = price is not None and available_seats > 0  # 同時檢查價格和座位數
 
             if isinstance(price, Decimal):
                 price = float(price)
@@ -330,7 +347,8 @@ class SearchService:
                 'price': { # 價格嵌套
                     'amount': price,
                     'currency': 'TWD',
-                    'cabin_class': cabin_class
+                    'cabin_class': cabin_class,
+                    'isAvailable': isAvailable  # 添加可用性標誌
                 },
                 'airline': { # 航空公司嵌套
                     'code': flight.get('airline_iata'), # Schema 期望 'code'

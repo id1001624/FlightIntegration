@@ -41,7 +41,8 @@
               </div>
             </div>
             <div class="flight-price">
-              <p class="price-amount">NT$ {{ displayPrice }}</p>
+              <p class="price-amount" v-if="hasValidPrice">NT$ {{ displayPrice }}</p>
+              <p class="price-amount" v-else>{{ displayPrice }}</p>
               <p class="cabin-type">{{ flightClassType }}</p>
             </div>
           </div>
@@ -237,14 +238,14 @@ export default {
     const airlineName = computed(() => props.flight.airline?.name_zh || props.flight.airline?.name || '未知航空');
     const flightNumber = computed(() => props.flight.flight_number || 'N/A');
 
+    const hasValidPrice = computed(() => 
+      props.flight.price?.isAvailable === true
+    );
+
     const displayPrice = computed(() => {
-      if (props.flight.price?.amount !== null && typeof props.flight.price?.amount === 'number') {
+      if (props.flight.price?.isAvailable) {
         return formatPrice(props.flight.price.amount);
       } 
-      // 可以保留其他備用邏輯，但主要應該讀取 amount
-      // if (props.flight.ticket_price) {
-      //     return formatPrice(props.flight.ticket_price);
-      // }
       return '洽詢';
     });
 
@@ -389,7 +390,8 @@ export default {
       selectFlight,
       journeyLine,
       airplaneIcon,
-      detailLinkTarget
+      detailLinkTarget,
+      hasValidPrice
     };
   }
 }

@@ -113,8 +113,50 @@ const flightService = {
       // result 已初始化為 []
     }
 
+    // 標準化所有航班數據中的價格
+    if (result.length > 0 && result[0] && (result[0].flight_id || result[0].price || result[0].departure)) {
+      // 如果結果看起來像航班數據，則標準化價格
+      result = this._standardizePrices(result);
+    }
+
     console.log('[flightService] _handleResponse output:', JSON.parse(JSON.stringify(result)));
     return result;
+  },
+
+  /**
+   * 標準化航班價格數據
+   * @param {Array} flights - 航班數據數組
+   * @returns {Array} - 標準化後的航班數據數組
+   */
+  _standardizePrices(flights) {
+    return flights.map(flight => {
+      // 創建一個新對象，避免修改原對象
+      const newFlight = { ...flight };
+      
+      if (newFlight.price) {
+        // 明確標記價格數據是否可用
+        newFlight.price.isAvailable = (
+          newFlight.price.amount !== null && 
+          newFlight.price.amount !== undefined && 
+          typeof newFlight.price.amount === 'number'
+        );
+        
+        // 確保數據類型一致性
+        if (!newFlight.price.isAvailable) {
+          newFlight.price.amount = null; // 標準化為 null
+        }
+      } else {
+        // 如果沒有價格對象，創建一個帶有標準結構的價格對象
+        newFlight.price = {
+          amount: null,
+          currency: 'NT$',
+          cabin_class: newFlight.class_type || '經濟',
+          isAvailable: false
+        };
+      }
+      
+      return newFlight;
+    });
   },
 
   /**
@@ -349,6 +391,33 @@ const flightService = {
         console.warn('[flightService] Unexpected response structure or no departure flights in response.data:', response?.data);
         // flightsData 保持為 []
       }
+
+      // *** 新增：標準化票價數據 ***
+      flightsData.forEach(flight => {
+        if (flight.price) {
+          // 明確標記價格數據是否可用
+          flight.price.isAvailable = (
+            flight.price.amount !== null && 
+            flight.price.amount !== undefined && 
+            typeof flight.price.amount === 'number'
+          );
+          
+          // 確保數據類型一致性
+          if (!flight.price.isAvailable) {
+            flight.price.amount = null; // 標準化為 null
+          }
+        } else {
+          // 如果沒有價格對象，創建一個帶有標準結構的價格對象
+          flight.price = {
+            amount: null,
+            currency: 'NT$',
+            cabin_class: '經濟',
+            isAvailable: false
+          };
+        }
+      });
+      console.log('[flightService] Flight data with standardized prices:', 
+        flightsData.map(f => ({ id: f.flight_id, price: f.price })));
 
       // *** 修正：緩存並返回直接提取的數據 ***
       cache.flights.data[cacheKey] = flightsData;

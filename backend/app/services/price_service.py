@@ -37,7 +37,7 @@ class PriceService:
             async with pool.acquire() as conn: # 從連接池獲取連接
                 # 構建基礎查詢字符串
                 base_query = """
-                    SELECT class_type, base_price, available_seats, price_updated_at
+                    SELECT class_type, economy_price, business_price, first_price, available_seats, price_updated_at
                     FROM ticket_prices
                     WHERE flight_id = $1
                 """ # 修正: SQL 內容移到下一行並正確縮排
@@ -56,7 +56,7 @@ class PriceService:
 
                 return [{
                     'class_type': price['class_type'],
-                    'price': float(price['base_price']) if price['base_price'] is not None else None,
+                    'price': float(self._get_price_for_class_type(price, price['class_type'])) if self._get_price_for_class_type(price, price['class_type']) is not None else None,
                     'available_seats': price['available_seats'],
                     'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
                 } for price in prices]
@@ -66,6 +66,17 @@ class PriceService:
         except Exception as e:
             logger.error(f"Unexpected error fetching price for flight {flight_id}: {e}", exc_info=True)
             return []
+    
+    @staticmethod
+    def _get_price_for_class_type(price_record, class_type):
+        """根據艙等類型獲取對應價格"""
+        if class_type == '經濟':
+            return price_record['economy_price']
+        elif class_type == '商務':
+            return price_record['business_price']
+        elif class_type == '頭等':
+            return price_record['first_price']
+        return None
     
     @staticmethod
     async def get_prices_for_flights_batch(flight_ids: list[str]) -> dict[str, dict[str, dict]]:
@@ -89,7 +100,7 @@ class PriceService:
             async with pool.acquire() as conn: # 從連接池獲取連接
                 # SQL 查詢字符串
                 price_query_str = """
-                SELECT flight_id, class_type, base_price, available_seats, price_updated_at
+                SELECT flight_id, class_type, economy_price, business_price, first_price, available_seats, price_updated_at
                 FROM ticket_prices
                 WHERE flight_id = ANY($1::uuid[])
                 """ # 修正: SQL 內容移到下一行並正確縮排
@@ -103,8 +114,17 @@ class PriceService:
                     if flight_id_str not in prices_map:
                         prices_map[flight_id_str] = {}
                     
+                    # 獲取對應艙等的價格
+                    price_value = None
+                    if cabin_class == '經濟':
+                        price_value = record['economy_price']
+                    elif cabin_class == '商務':
+                        price_value = record['business_price']
+                    elif cabin_class == '頭等':
+                        price_value = record['first_price']
+                    
                     prices_map[flight_id_str][cabin_class] = {
-                        'amount': float(record['base_price']) if record['base_price'] is not None else None,
+                        'amount': float(price_value) if price_value is not None else None,
                         'available_seats': record['available_seats'],
                         'cabin_class': cabin_class,
                         'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
@@ -169,7 +189,7 @@ class PriceService:
             logger.info(f"開始查詢最低票價: {departure_iata}->{arrival_iata} from {start_date} to {end_date}")
             results = db.session.query(
                 func.date(Flight.scheduled_departure).label('flight_date'),
-                func.min(TicketPrice.base_price).label('min_price')
+                func.min(TicketPrice.economy_price).label('min_price')
             ).join(
                 TicketPrice, Flight.flight_id == TicketPrice.flight_id
             ).filter(

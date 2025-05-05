@@ -449,72 +449,56 @@ class DbManager:
 
     def _add_flight_prices(self, cursor, flight_id_str: str, price_economy, price_business, price_first):
         """為新航班添加不同艙等的票價"""
-        # -- 回退：假設 price_economy 代表基礎價格 --
-        # TODO: 未來需要更新此邏輯以處理分離的價格
-        base_price = price_economy # 暫時將 economy_price 視為 base_price
-
-        if base_price is None:
-            logger.debug(f"航班 {flight_id_str} 沒有提供基礎價格信息，跳過添加票價")
+        if price_economy is None and price_business is None and price_first is None:
+            logger.debug(f"航班 {flight_id_str} 沒有提供任何價格信息，跳過添加票價")
             return # 如果沒有價格信息，不執行插入
 
         # 使用UUID物件而非字串來生成 price_id
         price_id = uuid.uuid4()
-        # created_at = datetime.now().isoformat() # ticket_prices 表沒有 created_at
 
-        # -- 回退：只插入 base_price --
+        # 插入經濟艙價格記錄
         cursor.execute("""
             INSERT INTO ticket_prices (
-                price_id, flight_id, base_price
-                -- , economy_price, business_price, first_price -- 欄位尚不存在或暫不處理
-                -- , created_at -- 欄位不存在
-            ) VALUES (%s, %s, %s)
+                price_id, flight_id, class_type, economy_price, business_price, first_price, available_seats, is_test_data
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (
-            str(price_id), flight_id_str, base_price
-            # , price_economy, price_business, price_first, created_at # 移除不存在的欄位
+            str(price_id), flight_id_str, '經濟', price_economy, price_business, price_first, 
+            50, False  # 預設50個座位，非測試資料
         ))
-        logger.debug(f"為航班 {flight_id_str} 添加了基礎票價: {base_price}")
+        logger.debug(f"為航班 {flight_id_str} 添加了票價: 經濟:{price_economy}, 商務:{price_business}, 頭等:{price_first}")
 
     def _update_flight_prices(self, cursor, flight_id_str: str, price_economy, price_business, price_first):
         """更新航班票價，接收字串格式的 flight_id"""
-        # -- 回退：假設 price_economy 代表基礎價格 --
-        # TODO: 未來需要更新此邏輯以處理分離的價格
-        base_price = price_economy # 暫時將 economy_price 視為 base_price
-
-        if base_price is None:
-             logger.debug(f"航班 {flight_id_str} 沒有提供基礎價格信息，跳過更新票價")
+        if price_economy is None and price_business is None and price_first is None:
+             logger.debug(f"航班 {flight_id_str} 沒有提供任何價格信息，跳過更新票價")
              return # 如果沒有價格信息，不執行更新
 
-        # created_at = datetime.now().isoformat() # ticket_prices 表沒有 created_at
-
-        # 檢查是否已經有票價記錄 (移除 ORDER BY created_at DESC)
+        # 檢查是否已經有票價記錄
         cursor.execute("""
             SELECT price_id FROM ticket_prices
             WHERE flight_id = %s
-            -- ORDER BY created_at DESC -- 移除排序，ticket_prices 表沒有 created_at
             LIMIT 1
         """, (flight_id_str,))
 
         existing = cursor.fetchone()
 
         if existing:
-            # 更新現有票價 - 只更新 base_price
+            # 更新現有票價
             cursor.execute("""
                 UPDATE ticket_prices SET
-                    base_price = %s
-                    -- , economy_price = %s, -- 欄位尚不存在或暫不處理
-                    -- business_price = %s,
-                    -- first_price = %s
+                    economy_price = %s,
+                    business_price = %s,
+                    first_price = %s,
+                    price_updated_at = NOW()
                 WHERE price_id = %s
             """, (
-                base_price,
-                # price_economy, price_business, price_first, # 移除不存在的欄位
+                price_economy, price_business, price_first,
                 existing[0]
             ))
-            logger.debug(f"更新航班 {flight_id_str} 的基礎票價為: {base_price}")
+            logger.debug(f"更新航班 {flight_id_str} 的票價: 經濟:{price_economy}, 商務:{price_business}, 頭等:{price_first}")
         else:
-            # 添加新票價 - 只添加 base_price
-            # 注意：這裡 price_business 和 price_first 參數未使用
-            self._add_flight_prices(cursor, flight_id_str, base_price, None, None)
+            # 添加新票價
+            self._add_flight_prices(cursor, flight_id_str, price_economy, price_business, price_first)
     
     def _debug_flight_data(self, flight: Dict) -> Dict:
         """
