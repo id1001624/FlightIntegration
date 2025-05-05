@@ -101,7 +101,7 @@
           <p><span class="details-label">出發航廈:</span> {{ flight.departure?.terminal || '--' }}</p>
           <p><span class="details-label">抵達航廈:</span> {{ flight.arrival?.terminal || '--' }}</p>
         </div>
-        <button @click="showDetails = false" class="details-close-button" title="關閉">
+        <button @click="closeDetails" class="details-close-button" title="關閉">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -113,6 +113,7 @@
 <script>
 import { computed, ref, onMounted, onUnmounted, nextTick, onUpdated } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
+import { useSearchStore } from '@/store/modules/search'; // 引入 search store
 
 // **讀取環境變數並移除 /api**
 const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
@@ -131,6 +132,9 @@ export default {
   },
   emits: ['select-flight'],
   setup(props, { emit }) {
+    // 使用 search store
+    const searchStore = useSearchStore();
+
     const router = useRouter();
     const isActive = ref(props.active);
     const journeyLine = ref(null);
@@ -138,6 +142,8 @@ export default {
     let animationFrame = null;
     const showDetails = ref(false);
     const detailToggleInProgress = ref(false); // Flag to prevent navigation during toggle
+    const detailsOverlayRef = ref(null); // 用於點擊外部關閉
+    const detailsButtonRef = ref(null); // 用於排除點擊按鈕時的關閉
     
     // --- 移除 Logo Mapping ---
     // const airlineLogos = {
@@ -290,13 +296,12 @@ export default {
     });
 
     const selectFlight = () => {
-      // Prevent navigation if the detail toggle was just clicked
       if (detailToggleInProgress.value) {
-          console.log('[FlightCard] Detail toggle in progress, skipping navigation.');
-          return; 
+        console.log('[FlightCard] Toggle in progress, cancelling navigation');
+        return;
       }
-
-      if (props.flight && props.flight.flight_id) {
+      
+      if (props.flight.flight_id) {
           router.push({ name: 'FlightDetail', params: { flight_id: props.flight.flight_id } });
       } else {
           console.error('Flight ID is missing, cannot navigate to details.', props.flight);
@@ -317,6 +322,16 @@ export default {
       nextTick(() => {
           detailToggleInProgress.value = false;
       });
+    };
+
+    // 新增關閉詳情的方法，使用 ref 而非直接修改 value
+    const closeDetails = (event) => {
+      if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+      
+      showDetails.value = false;
     };
     
     // 旅程線條動畫
@@ -399,11 +414,14 @@ export default {
       isActive,
       showDetails,
       toggleDetails,
+      closeDetails,
       selectFlight,
       journeyLine,
       airplaneIcon,
       detailLinkTarget,
-      hasValidPrice
+      hasValidPrice,
+      detailsOverlayRef,
+      detailsButtonRef
     };
   }
 }

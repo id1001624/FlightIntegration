@@ -7,13 +7,11 @@
 
 ### 前端調適與優化
 - [ ] 優化起飛機場排序：根據可用航班數量對台灣機場進行排序
-- [ ] 實現中文名稱搜索：允許用戶在 `AirportSelector` 元件中使用中文名稱搜索機場
-- [ ] 搜索後自動滾動功能：點擊「搜尋航班」按鈕後自動滑動至結果區域
+- [x] 實現中文名稱搜索：允許用戶在 `AirportSelector` 元件中使用中文名稱搜索機場
+- [x] 搜索後自動滾動功能：點擊「搜尋航班」按鈕後自動滑動至結果區域
 - [ ] 航班卡片詳情彈窗持續顯示修復
-- [ ] 保留搜尋結果：關閉彈窗後保持搜尋狀態
 
 ### 後端功能擴展
-- [ ] 自動刪除 flights、ticket_prices 資料庫舊資料的腳本
 - [x] 開發虛擬航班資料生成腳本 (`generate_dummy_flight_data.py`)
 - [x] Refactor TDX Client: 將 `tdx_client.py` 切換至使用 `/v2/Air/DailyFlightSchedule/Domestic/{IATA}` 端點，以獲取更完整的預定航班列表。
 - [x] **後續處理 (TDX Refactor):** 更新資料同步腳本 (`sync_manager.py`, `db_manager.py`) 以適應新的 `get_domestic_flight_schedules` 回應結構 (新增 `aircraft`，移除即時狀態/航廈)。
@@ -39,10 +37,22 @@
 - [x] 搜索表單元件開發
 - [x] 航班結果頁面實現
 - [x] 航班詳情頁面設計
+- [x] 機場選擇器加載動畫優化
+- [x] 視覺設計標準建立 (參見 `memory-bank/visual-standards.md`)
+- [x] 實現中文名稱搜索：允許用戶在 `AirportSelector` 元件中使用中文名稱搜索機場
+- [x] 保留搜尋結果：關閉彈窗後保持搜尋狀態 (使用 Pinia 狀態管理)
+- [x] 搜索後自動滾動功能：點擊「搜尋航班」按鈕後自動滑動至結果區域
 
 ### 後端功能擴展
 - [x] 票價功能擴展
 - [x] LINE Bot 基礎整合
+- [x] 開發虛擬航班資料生成腳本 (`generate_dummy_flight_data.py`)
+- [x] 自動刪除舊資料功能實現:
+  - 開發 `cleanup_old_data.py` 清理腳本，支援可配置的保留時間、資料類型過濾、備份功能和執行報告
+  - 建立 `auto_cleanup_data.bat` 排程批處理檔，預設保留90天的測試資料
+  - 實現根據日期智能清理策略，避免保留過多不必要的歷史資料
+- [x] Refactor TDX Client: 將 `tdx_client.py` 切換至使用 `/v2/Air/DailyFlightSchedule/Domestic/{IATA}` 端點
+- [x] 更新資料同步腳本以適應新的資料結構
 
 ### 部署與環境配置
 - [x] 後端服務部署到 Render (Free Tier)

@@ -316,4 +316,33 @@ frontend/
 
 - **前端**:
   - ESLint: 代碼檢查
-  - Prettier: 代碼格式化 
+  - Prettier: 代碼格式化
+
+## 6. 前端視覺標準
+
+### 6.1 加載動畫規範
+- **標準加載動畫**: 使用 SVG 格式的旋轉動畫，具有漸變不透明度效果
+  ```html
+  <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+  ```
+- **大小規範**:
+  - 小型元素內（如輸入框）: `h-4 w-4`
+  - 頁面級加載: `h-12 w-12`
+- **顏色規範**: 統一使用 `text-primary` (#005F73)
+
+### 6.2 元素視覺一致性
+- **輸入框和按鈕**: 方形設計 (border-radius: 0)
+- **交互反饋**: 使用 `hover:bg-primary hover:bg-opacity-10` 構建統一的懸停效果
+- **選中狀態**: 使用 `bg-primary bg-opacity-20` 標示已選擇項目
+- **陰影效果**: 使用預設的 `shadow-card` 和 `shadow-card-hover` 定義
+
+### 6.3 動畫效果
+- **基本過渡**: 使用 `transition` 屬性，時長設定為 0.15s 到 0.3s 之間
+- **特效動畫**: 優先使用 Tailwind 的動畫類
+  - `animate-fade-in`: 漸入效果
+  - `animate-slide-up`: 上滑效果
+  - `animate-journey-line`: 旅程線動畫
+  - `animate-pulse-gentle`: 柔和脈動效果 

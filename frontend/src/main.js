@@ -3,6 +3,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'  // 假設您的 router/index.js 已配置好
 import axios from 'axios'  // 如果使用 axios 進行 API 請求
+import pinia from './store'  // 引入 Pinia 實例
 
 // 引入主 CSS 文件
 import './assets/styles/main.css'
@@ -21,6 +22,7 @@ app.config.globalProperties.$http = axios
 // 關閉生產環境提示
 app.config.productionTip = false
 
-// 掛載路由和渲染到DOM
+// 掛載路由、Pinia 和渲染到DOM
 app.use(router)
+app.use(pinia)
 app.mount('#app')

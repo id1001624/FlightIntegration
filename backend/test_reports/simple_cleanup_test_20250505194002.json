@@ -1,0 +1,29 @@
+[
+  {
+    "test_name": "測試情境 1: 30天前的測試資料",
+    "total_flights": 5913,
+    "old_flights": 0,
+    "percentage": "0.00%",
+    "cutoff_date": "2025-04-05",
+    "data_type": "test",
+    "retention_days": 30
+  },
+  {
+    "test_name": "測試情境 2: 7天前的所有資料",
+    "total_flights": 5913,
+    "old_flights": 3679,
+    "percentage": "62.22%",
+    "cutoff_date": "2025-04-28",
+    "data_type": "all",
+    "retention_days": 7
+  },
+  {
+    "test_name": "測試情境 3: 90天前的實際資料",
+    "total_flights": 5913,
+    "old_flights": 0,
+    "percentage": "0.00%",
+    "cutoff_date": "2025-02-04",
+    "data_type": "real",
+    "retention_days": 90
+  }
+]

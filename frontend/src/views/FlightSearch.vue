@@ -24,7 +24,7 @@
 
     <!-- 結果區域 -->
     <div class="page-container">
-      <div v-if="hasSearched" class="results-container">
+      <div v-if="hasSearched" class="results-container" ref="resultsContainer">
         <!-- 搜索路線顯示 -->
         <div class="route-summary" v-if="searchParams.departureAirport && searchParams.arrivalAirport">
           <div class="route-info">
@@ -82,7 +82,8 @@ import SearchForm from '@/components/search/SearchForm.vue';
 import FilterPanel from '@/components/search/FilterPanel.vue';
 import FlightResults from '@/components/search/FlightResults.vue';
 import flightService from '@/api/services/flightService';
-import { ref, reactive, computed, watch } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { useSearchStore } from '@/store/modules/search'; // 引入 search store
 
 export default {
   name: 'FlightSearch',
@@ -92,62 +93,59 @@ export default {
     FlightResults
   },
   setup() {
-    // 主要數據
-    const flights = ref([]);
-    const filteredFlights = ref([]);
-
-    // 搜索相關狀態
+    // 使用 search store
+    const searchStore = useSearchStore();
+    
+    // 添加結果容器參考，用於自動滾動功能
+    const resultsContainer = ref(null);
+    
+    // 使用 reactive refs 來包裝 store 中的狀態，以便在模板中直接使用
     const loading = ref(false);
-    const isSearching = ref(false);
-    const hasSearched = ref(false);
+    
+    // 計算屬性：從 store 獲取格式化的出發日期
+    const formattedDepartureDate = computed(() => searchStore.formattedDepartureDate);
+    
+    // 映射 store 中的搜索參數到本地 reactive 對象
+    const searchParams = computed(() => searchStore.searchParams);
+    
+    // 獲取篩選後的航班數據
+    const filteredFlights = computed(() => searchStore.filteredFlights);
+    
+    // 是否已經搜索過
+    const hasSearched = computed(() => searchStore.hasSearched);
+    
+    // 是否正在搜索
+    const isSearching = computed(() => searchStore.isSearching);
+    
+    // 獲取原始航班數據
+    const flights = computed(() => searchStore.flights);
+    
+    // 獲取篩選條件
+    const filters = computed(() => searchStore.filters);
 
-    // 機場數據
-    const taiwanAirports = ref([]);
-    const destinationAirports = ref([]);
-
-    // 輔助函數：獲取本地時區的 YYYY-MM-DD 日期
-    const getLocalDateString = () => {
-      const date = new Date();
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    // 搜索參數
-    const searchParams = reactive({
-      departureAirport: null,
-      arrivalAirport: null,
-      departureDate: getLocalDateString(), // 使用本地日期
-      returnDate: '',
-      classType: 'economy'
-    });
-
-    // 篩選相關
-    const filters = reactive({
-      airlines: [],
-      priceRange: {
-        min: 0,
-        max: 50000
+    // 自動滾動到結果區域
+    const scrollToResults = () => {
+      if (resultsContainer.value) {
+        console.log('[FlightSearch] 準備滾動到結果區域');
+        // 使用 nextTick 確保 DOM 已更新
+        nextTick(() => {
+          // 使用平滑滾動
+          resultsContainer.value.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+          console.log('[FlightSearch] 已滾動到結果區域');
+        });
+      } else {
+        console.warn('[FlightSearch] 無法找到結果容器，滾動失敗');
       }
-    });
-
-    const formattedDepartureDate = computed(() => {
-      if (!searchParams.departureDate) return '';
-      const date = new Date(searchParams.departureDate);
-      return date.toLocaleDateString('zh-TW', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long'
-      });
-    });
+    };
 
     const fetchTaiwanAirports = async () => {
       try {
         const airports = await flightService.getTaiwanAirports();
         if (airports && airports.length > 0) {
-          taiwanAirports.value = airports;
+          // 這裡我們不需要存儲機場數據，因為 SearchForm 組件會自己處理
         }
       } catch (error) {
         console.error('獲取台灣機場資料時出錯:', error);
@@ -159,25 +157,22 @@ export default {
       console.log('[FlightSearch] handleSearch called with params:', params);
       
       loading.value = true;
-      isSearching.value = true;
-      hasSearched.value = true;
-      // 更新本地狀態以顯示路線摘要 (可選，但保留原始結構)
-      // 注意：params 已經包含 code，不再是 airport object
-      searchParams.departureAirport = { code: params.departure };
-      searchParams.arrivalAirport = { code: params.arrival };
-      searchParams.departureDate = params.date;
-      searchParams.returnDate = params.return_date;
-      searchParams.classType = params.class_type;
-
-      // 重置篩選條件
-      filters.airlines = [];
+      searchStore.setSearchState(true, true);
+      
+      // 更新本地狀態以顯示路線摘要
+      searchStore.setSearchParams({
+        departureAirport: { code: params.departure },
+        arrivalAirport: { code: params.arrival },
+        departureDate: params.date,
+        returnDate: params.return_date,
+        classType: params.class_type
+      });
 
       try {
         // 直接使用傳入的 params 中的代碼
         const departureCode = params.departure;
         const arrivalCode = params.arrival;
         if (!departureCode || !arrivalCode) {
-          // 可以添加更詳細的錯誤處理或日誌記錄
           console.error('搜索參數錯誤:', params);
           throw new Error('缺少必要的參數: 出發地或目的地代碼');
         }
@@ -186,68 +181,54 @@ export default {
         const apiSearchParams = {
           departure: departureCode,
           arrival: arrivalCode,
-          date: params.date, // 使用正確的鍵名 'date'
-          return_date: params.return_date || null, // 使用正確的鍵名 'return_date'
-          class_type: params.class_type || 'economy' // 使用正確的鍵名 'class_type'
+          date: params.date,
+          return_date: params.return_date || null,
+          class_type: params.class_type || 'economy'
         };
 
         console.log('發送搜索請求參數:', apiSearchParams);
 
-        // --- API 呼叫 ---
+        // API 呼叫
         let response;
         try {
           response = await flightService.searchFlights(apiSearchParams);
-          // **直接打印 response 看看它到底是什麼**
           console.log('<<< DEBUGGING: Raw response from service >>>', response);
-          // **修改：移動到這裡立即打印**
-          console.log('Raw API response received. Type:', typeof response, 'Content snippet:', String(response).substring(0, 500)); // 增加片段長度
+          console.log('Raw API response received. Type:', typeof response, 'Content snippet:', String(response).substring(0, 500));
         } catch (apiError) {
           console.error('[FlightSearch] API call to searchFlights failed:', apiError);
-          // 將錯誤重新拋出，讓外層的 catch 處理 UI 更新
           throw apiError; 
         }
-        // --- End API 呼叫 ---
 
-        // --- 數據提取 ---
+        // 數據提取
         console.log('[FlightSearch] Starting data extraction from response.');
         let flightsData = [];
         try {
-            // *** 添加額外日誌 ***
             console.log('[FlightSearch] Before check: Type of response is:', typeof response);
             console.log('[FlightSearch] Before check: Is response truly an array?', Array.isArray(response));
-            console.log('[FlightSearch] Before check: Response content snippet:', JSON.stringify(response)?.substring(0, 200)); // 打印片段
+            console.log('[FlightSearch] Before check: Response content snippet:', JSON.stringify(response)?.substring(0, 200));
 
-            // *** 最終修正：直接檢查 response 是否為陣列 ***
             if (Array.isArray(response)) { 
-                flightsData = response; // 直接賦值
+                flightsData = response;
                 console.log('[FlightSearch] Check PASSED: response is an array. Assigning flightsData.');
             } else {
-                // 如果收到的不是預期的陣列，記錄警告
                 console.warn('[FlightSearch] Check FAILED: response is NOT an array. Received:', response);
-                flightsData = []; // 確保清空
+                flightsData = [];
             }
         } catch (extractionError) {
             console.error('[FlightSearch] Error during data extraction logic:', extractionError);
-            flightsData = []; // 確保出錯時清空
+            flightsData = [];
         }
-        // --- End 數據提取 ---
 
-        // 添加日誌：打印提取出的 flightsData
         console.log('[FlightSearch] Extracted flightsData:', JSON.stringify(flightsData));
 
         if (!flightsData || flightsData.length === 0) { 
-          flights.value = []; // 確保清空
-          filteredFlights.value = []; // 確保清空
+          searchStore.setFlights([]);
           console.log('handleSearch: No flights data extracted, returning.');
           return;
         }
 
         const processedFlights = flightsData.map((flight, index) => {
-          // 添加日誌：打印每個原始 flight 對象
           console.log(`[FlightSearch] Processing original flight ${index}:`, JSON.stringify(flight));
-          // 移除錯誤的日誌
-          // console.log(`[FlightSearch] Original scheduled_departure for flight ${index}:`, flight.scheduled_departure);
-          // console.log(`[FlightSearch] Original scheduled_arrival for flight ${index}:`, flight.scheduled_arrival);
 
           const priceAmount = typeof flight.price?.amount === 'number' ? flight.price.amount : null;
 
@@ -256,30 +237,30 @@ export default {
             flight_id: flight.flight_id,
             flight_number: flight.flight_number,
             duration_minutes: flight.duration_minutes,
-            aircraft: flight.aircraft, // 從頂層讀取 aircraft
-            airline: flight.airline || { // airline 已經是嵌套好的
+            aircraft: flight.aircraft,
+            airline: flight.airline || {
               code: 'N/A',
               name_zh: '未知航空',
               logo_path: null
             },
             departure: {
-              code: flight.departure?.code || 'N/A',       // *** 修正：從 flight.departure 讀取 code ***
-              airport_id: flight.departure?.code || null, // *** 修正：從 flight.departure 讀取 code ***
-              time: flight.departure?.time || null,        // *** 修正：從 flight.departure 讀取 time ***
-              terminal: flight.departure?.terminal || null // *** 修正：從 flight.departure 讀取 terminal ***
+              code: flight.departure?.code || 'N/A',
+              airport_id: flight.departure?.code || null,
+              time: flight.departure?.time || null,
+              terminal: flight.departure?.terminal || null
             },
             arrival: {
-              code: flight.arrival?.code || 'N/A',         // *** 修正：從 flight.arrival 讀取 code ***
-              airport_id: flight.arrival?.code || null,   // *** 修正：從 flight.arrival 讀取 code ***
-              time: flight.arrival?.time || null,          // *** 修正：從 flight.arrival 讀取 time ***
-              terminal: flight.arrival?.terminal || null   // *** 修正：從 flight.arrival 讀取 terminal ***
+              code: flight.arrival?.code || 'N/A',
+              airport_id: flight.arrival?.code || null,
+              time: flight.arrival?.time || null,
+              terminal: flight.arrival?.terminal || null
             },
-            price: { // price 已經是嵌套好的
+            price: {
               amount: priceAmount,
-              available_seats: flight.price?.available_seats ?? flight.available_seats ?? null, // 優先從嵌套price讀，再從頂層讀
+              available_seats: flight.price?.available_seats ?? flight.available_seats ?? null,
               cabin_class: flight.price?.cabin_class || '洽詢',
               currency: flight.price?.currency || 'TWD',
-              isAvailable: flight.price?.isAvailable // 添加 isAvailable 屬性的傳遞
+              isAvailable: flight.price?.isAvailable
             }
           };
 
@@ -295,13 +276,10 @@ export default {
         }
 
         console.log('Valid flights:', JSON.parse(JSON.stringify(validFlights)));
-        flights.value = validFlights; // 使用過濾後的列表
+        
+        // 更新 store 中的航班數據
+        searchStore.setFlights(validFlights);
 
-        // 添加詳細的偵錯日誌
-        console.log('搜索請求參數:', JSON.parse(JSON.stringify(searchParams)));
-        console.log('搜索結果原始數據:', JSON.parse(JSON.stringify(validFlights)));
-
-        // 如果有價格對象，顯示其詳細信息
         if (validFlights && validFlights.length > 0) {
           validFlights.forEach(flight => {
             console.log('航班:', flight.flight_number, 
@@ -309,80 +287,25 @@ export default {
                         '價格可用性:', flight.price?.isAvailable,
                         '艙等:', flight.price?.cabin_class);
           });
+          
+          // 搜索成功且有結果時，滾動到結果區域
+          scrollToResults();
         }
-
-        // 搜索後動態設定價格範圍最大值
-        const maxPrice = Math.max(...validFlights.map(f => f.price.amount || 0), 0);
-        filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
-        filters.priceRange.min = 0;
-
-        // 初次搜索後，filteredFlights 等於 flights
-        filteredFlights.value = [...flights.value]; 
 
       } catch (error) {
-        // 添加錯誤日誌
         console.error('[FlightSearch] Error in handleSearch:', error);
         alert('搜索航班時發生錯誤。請檢查後端連接和伺服器日誌。');
-        flights.value = [];
-        filteredFlights.value = [];
+        searchStore.setFlights([]);
       } finally {
         loading.value = false;
-        isSearching.value = false;
+        searchStore.setSearchState(false);
       }
-    };
-
-    const applyFilters = () => {
-      filteredFlights.value = flights.value.filter(flight => {
-        // 航空公司篩選
-        if (filters.airlines.length > 0) {
-          const airlineCode = flight.airline.code || '';
-          if (!airlineCode || !filters.airlines.includes(airlineCode)) {
-            return false;
-          }
-        }
-
-        // 價格篩選
-        const flightPrice = flight.price?.amount; // 使用可選鏈接
-        // 如果價格是 null 或 undefined，根據篩選器的最小值決定是否包含
-        if (flightPrice === null || typeof flightPrice === 'undefined') {
-          // 如果篩選器的最小值大於 0，則排除無價格航班
-          if (filters.priceRange.min > 0) {
-            return false;
-          }
-          // 否則 (最小值為 0)，包含無價格航班 (顯示為洽詢)
-        } else if (flightPrice < filters.priceRange.min || flightPrice > filters.priceRange.max) {
-          // 如果有價格但不符合範圍，則排除
-          return false;
-        }
-
-        return true;
-      });
     };
 
     const handleFilterChange = (newFilters) => {
-      // 更新篩選條件
-      if (newFilters.airlines) {
-        filters.airlines = [...newFilters.airlines];
-      }
-      if (newFilters.priceRange) {
-        filters.priceRange.min = newFilters.priceRange.min;
-        filters.priceRange.max = newFilters.priceRange.max;
-      }
-      applyFilters(); 
+      // 使用 store 的 applyFilters 方法應用篩選
+      searchStore.applyFilters(newFilters);
     };
-
-    // 監聽原始航班數據變化，以更新篩選器（例如價格範圍）
-    watch(flights, (newFlights) => {
-      if (newFlights && newFlights.length > 0) {
-        const maxPrice = Math.max(...newFlights.map(f => f.price.amount || 0), 0);
-        filters.priceRange.max = Math.ceil(maxPrice / 1000) * 1000 || 50000;
-        filters.priceRange.min = 0;
-      } else {
-        // 如果沒有航班，重置價格範圍
-        filters.priceRange.min = 0;
-        filters.priceRange.max = 50000;
-      }
-    }, { deep: true });
 
     fetchTaiwanAirports();
 
@@ -392,13 +315,12 @@ export default {
       loading,
       isSearching,
       hasSearched,
-      taiwanAirports,
-      destinationAirports,
       searchParams,
       filters,
       formattedDepartureDate,
       handleSearch,
-      handleFilterChange
+      handleFilterChange,
+      resultsContainer // 返回參考給模板
     };
   }
 };
@@ -408,6 +330,7 @@ export default {
 .flight-search-page {
   min-height: 90vh;
   background-color: var(--color-background);
+  scroll-behavior: smooth; /* 添加平滑滾動支持 */
 }
 
 /* 搜索背景 */
@@ -474,6 +397,7 @@ export default {
 .results-container {
   margin-top: 20px;
   min-height: 50vh;
+  scroll-margin-top: 20px; /* 滾動時的上邊距，確保頂部不會被遮擋 */
 }
 
 /* 路線摘要 */

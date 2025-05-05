@@ -8,7 +8,7 @@ class PriceSchema(Schema):
     amount = fields.Float(allow_none=True)
     currency = fields.Str(load_default='TWD')
     cabin_class = fields.Str()
-    isAvailable = fields.Boolean(default=False)  # 恢復使用 default 參數
+    isAvailable = fields.Boolean(dump_default=False)  # 將 default 參數更新為 dump_default
 
 class FlightSearchArgsSchema(Schema):
     """用於驗證 /search 的請求參數"""
