@@ -14,10 +14,13 @@
 
       <!-- Loading Spinner -->
       <div v-if="loading" class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-        <div class="dots-loader">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div class="mini-clouds-loader">
+          <div class="mini-cloud"></div>
+          <div class="mini-plane">
+            <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+              <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
+            </svg>
+          </div>
         </div>
       </div>
       
@@ -465,42 +468,38 @@ export default {
   color: #212529;
 }
 
-/* 點脈衝加載動畫 */
-.dots-loader {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
+/* 迷你雲層穿越加載動畫 */
+.mini-clouds-loader {
+  position: relative;
+  width: 22px;
+  height: 20px;
+  overflow: hidden;
 }
 
-.dots-loader .dot {
-  width: 4px;
+.mini-cloud {
+  position: absolute;
+  width: 10px;
   height: 4px;
-  background-color: var(--color-primary, #005F73);
-  border-radius: 50%;
-  opacity: 0.6;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 4px;
+  top: 8px;
+  left: -10px;
+  opacity: 0.7;
+  animation: mini-cloud-move 2s infinite linear;
 }
 
-.dots-loader .dot:nth-child(1) {
-  animation: dot-pulse 1.4s infinite ease-in-out;
+.mini-plane {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 2px;
+  right: 0;
+  color: #005F73;
+  opacity: 0.8;
 }
 
-.dots-loader .dot:nth-child(2) {
-  animation: dot-pulse 1.4s infinite ease-in-out .2s;
-}
-
-.dots-loader .dot:nth-child(3) {
-  animation: dot-pulse 1.4s infinite ease-in-out .4s;
-}
-
-@keyframes dot-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.5);
-    opacity: 1;
-  }
+@keyframes mini-cloud-move {
+  0% { left: -10px; }
+  100% { left: 40px; }
 }
 </style> 

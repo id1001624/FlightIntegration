@@ -10,12 +10,13 @@
     <h1 class="text-2xl font-bold mb-6 text-text-primary">航班詳情</h1>
     
     <div v-if="loading" class="flex justify-center items-center h-64">
-      <div class="path-loader">
-        <div class="path-track"></div>
-        <div class="path-progress"></div>
-        <div class="path-dots">
-          <span class="path-dot"></span>
-          <span class="path-dot"></span>
+      <div class="clouds-loader-sm">
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="plane-icon">
+          <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+            <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
+          </svg>
         </div>
       </div>
     </div>
@@ -107,51 +108,72 @@ watch(() => route.params.flight_id, (newId) => {
   max-width: 960px; /* Limit content width for readability */
 }
 
-/* 路徑軌跡加載動畫 */
-.path-loader {
+/* 雲層穿越加載動畫 - 精簡版本 */
+.clouds-loader-sm {
   position: relative;
-  width: 250px;
-  height: 4px;
-  margin: 12px 0;
+  width: 220px;
+  height: 50px;
+  margin: 0 auto;
+  overflow: hidden;
 }
 
-.path-track {
+.cloud {
   position: absolute;
-  width: 100%;
-  height: 2px;
-  top: 1px;
-  background-color: rgba(0,95,115,0.1);
-  border-radius: 1px;
+  width: 50px;
+  height: 16px;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-.path-progress {
+.cloud:before, .cloud:after {
+  content: '';
   position: absolute;
-  width: 0%;
-  height: 2px;
-  top: 1px;
-  background-color: #005F73;
-  border-radius: 1px;
-  animation: path-expand 2.2s infinite ease-in-out;
-}
-
-.path-dots {
-  position: absolute;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-}
-
-.path-dot {
-  width: 6px;
-  height: 6px;
-  background-color: #F4A261;
+  background-color: rgba(248, 249, 250, 0.9);
   border-radius: 50%;
-  transform: translateY(-1px);
 }
 
-@keyframes path-expand {
-  0% { width: 0%; }
-  50% { width: 100%; }
-  100% { width: 0%; }
+.cloud:before {
+  width: 25px;
+  height: 25px;
+  top: -12px;
+  left: 8px;
+}
+
+.cloud:after {
+  width: 16px;
+  height: 16px;
+  top: -8px;
+  left: 28px;
+}
+
+.cloud:nth-child(1) {
+  top: 8px;
+  left: -50px;
+  opacity: 0.7;
+  animation: cloud-move-sm 3.5s infinite linear;
+}
+
+.cloud:nth-child(2) {
+  top: 25px;
+  left: -50px;
+  opacity: 0.8;
+  animation: cloud-move-sm 3s infinite 0.8s linear;
+}
+
+.plane-icon {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #005F73;
+}
+
+@keyframes cloud-move-sm {
+  0% { left: -50px; }
+  100% { left: 100%; }
 }
 </style>

@@ -241,6 +241,102 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 }
 ```
 
+#### 3.3.4 雲層穿越加載動畫
+- **雲層穿越加載動畫**:
+```html
+<div class="clouds-loader">
+  <div class="cloud"></div>
+  <div class="cloud"></div>
+  <div class="cloud"></div>
+  <div class="plane-icon">
+    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+      <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
+    </svg>
+  </div>
+</div>
+```
+
+```css
+.clouds-loader {
+  position: relative;
+  width: 280px;
+  height: 60px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.cloud {
+  position: absolute;
+  width: 60px;
+  height: 20px;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 20px;
+}
+
+.cloud:before, .cloud:after {
+  content: '';
+  position: absolute;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 50%;
+}
+
+.cloud:before {
+  width: 30px;
+  height: 30px;
+  top: -15px;
+  left: 10px;
+}
+
+.cloud:after {
+  width: 20px;
+  height: 20px;
+  top: -10px;
+  left: 35px;
+}
+
+.cloud:nth-child(1) {
+  top: 10px;
+  left: -60px;
+  opacity: 0.7;
+  animation: cloud-move 3.5s infinite linear;
+}
+
+.cloud:nth-child(2) {
+  top: 25px;
+  left: -60px;
+  opacity: 0.9;
+  animation: cloud-move 3s infinite 1s linear;
+}
+
+.cloud:nth-child(3) {
+  top: 40px;
+  left: -60px;
+  opacity: 0.6;
+  animation: cloud-move 4s infinite 0.5s linear;
+}
+
+.plane-icon {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  left: 50%;
+  top: 15px;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #005F73;
+}
+
+@keyframes cloud-move {
+  0% { left: -60px; }
+  100% { left: 100%; }
+}
+```
+
+- **尺寸變體**:
+  - 小型: `.clouds-loader-sm` (元素內嵌使用)
+  - 中型: `.clouds-loader-md` (區域級別使用)
+  - 大型: `.clouds-loader-lg` (頁面級別使用)
+
 ### 3.4 卡片
 
 - **基本樣式**: `bg-white shadow-card rounded-lg p-6 border border-gray-200`
@@ -324,73 +420,3 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 ### 8.1 自定義動畫
 
 - **漸入**: `animate-fade-in`
-- **上滑**: `animate-slide-up`
-- **輕脈衝**: `animate-pulse-gentle`
-- **漂浮**: `animate-float`
-- **旅程線**: `animate-journey-line`
-- **飛行軌跡**: `animate-flight-path`
-- **點脈衝**: `animate-dot-pulse`
-
-### 8.2 關鍵幀定義
-
-```css
-@keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
-
-@keyframes slideUp {
-  0% { transform: translateY(20px); opacity: 0; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes pulseGentle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-@keyframes journeyLine {
-  0% { width: 0%; opacity: 0.5; }
-  100% { width: 100%; opacity: 1; }
-}
-
-@keyframes flightPath {
-  0% { left: -20px; }
-  100% { left: calc(100% + 20px); }
-}
-
-@keyframes dotPulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.5); opacity: 1; }
-}
-```
-
-## 9. 陰影系統
-
-```css
-boxShadow: {
-  'card': '0 2px 4px rgba(0,0,0,0.05)',
-  'card-hover': '0 4px 8px rgba(0,0,0,0.08)',
-  'elevation-1': '0 1px 3px rgba(0,0,0,0.05)',
-  'elevation-2': '0 4px 6px rgba(0,0,0,0.05)',
-  'elevation-3': '0 10px 15px rgba(0,0,0,0.05)',
-}
-```
-
-## 10. 漸變背景
-
-```css
-backgroundImage: {
-  'journey-gradient': 'linear-gradient(120deg, #005F73 0%, #0A9396 100%)',
-  'warm-gradient': 'linear-gradient(120deg, #F4A261 0%, #E07A38 100%)',
-}
-```
-
----
-
-本文檔應與 [專案設計指南](mdc:docs/UI-UX/ui-design-guidelines.mdc) 和 [前端開發指南](mdc:docs/development/frontend-guidelines.mdc) 一起參考，確保所有新開發的元件符合系統的視覺標準。 

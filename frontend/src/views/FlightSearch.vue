@@ -2,9 +2,15 @@
   <div class="flight-search-page">
     <!-- 載入指示器 -->
     <div v-if="loading" class="loading-overlay">
-      <div class="journey-loader">
-        <div class="journey-track"></div>
-        <div class="journey-plane"></div>
+      <div class="clouds-loader">
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="cloud"></div>
+        <div class="plane-icon">
+          <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
+            <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
+          </svg>
+        </div>
       </div>
     </div>
 
@@ -534,42 +540,80 @@ export default {
   z-index: 1000;
 }
 
-.journey-loader {
+/* 雲層穿越加載動畫 */
+.clouds-loader {
   position: relative;
-  width: 300px;
-  height: 4px;
+  width: 280px;
+  height: 60px;
+  margin: 0 auto;
   overflow: hidden;
 }
 
-.journey-track {
+.cloud {
   position: absolute;
-  width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, rgba(0,95,115,0.1) 0%, rgba(0,95,115,0.05) 100%);
-  border-radius: 2px;
+  width: 60px;
+  height: 20px;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.journey-plane {
+.cloud:before, .cloud:after {
+  content: '';
   position: absolute;
+  background-color: rgba(248, 249, 250, 0.9);
+  border-radius: 50%;
+}
+
+.cloud:before {
+  width: 30px;
+  height: 30px;
+  top: -15px;
+  left: 10px;
+}
+
+.cloud:after {
   width: 20px;
   height: 20px;
-  background-color: #005F73;
-  transform: translateY(-8px) rotate(45deg);
-  animation: journey-flight 2s infinite ease-in-out;
+  top: -10px;
+  left: 35px;
 }
 
-@keyframes journey-flight {
-  0% {
-    left: -20px;
-    box-shadow: 0 0 0 rgba(0,95,115,0);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(0,95,115,0.3);
-  }
-  100% {
-    left: 100%;
-    box-shadow: 0 0 0 rgba(0,95,115,0);
-  }
+.cloud:nth-child(1) {
+  top: 10px;
+  left: -60px;
+  opacity: 0.7;
+  animation: cloud-move 3.5s infinite linear;
+}
+
+.cloud:nth-child(2) {
+  top: 25px;
+  left: -60px;
+  opacity: 0.9;
+  animation: cloud-move 3s infinite 1s linear;
+}
+
+.cloud:nth-child(3) {
+  top: 40px;
+  left: -60px;
+  opacity: 0.6;
+  animation: cloud-move 4s infinite 0.5s linear;
+}
+
+.plane-icon {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  left: 50%;
+  top: 15px;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #005F73;
+}
+
+@keyframes cloud-move {
+  0% { left: -60px; }
+  100% { left: 100%; }
 }
 
 /* 響應式 */
