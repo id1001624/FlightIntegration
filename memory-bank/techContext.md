@@ -258,20 +258,24 @@ frontend/
   - `flight_id` (主鍵): 系統生成ID
   - `flight_number`: 航班號
   - `airline_id` (外鍵): 航空公司ID
-  - `departure_airport` (外鍵): 出發機場
-  - `arrival_airport` (外鍵): 到達機場
-  - `departure_time`: 出發時間
-  - `arrival_time`: 到達時間
-  - `status`: 航班狀態
+  - `departure_airport_id` (外鍵): 出發機場
+  - `arrival_airport_id` (外鍵): 到達機場
+  - `scheduled_departure`: 表定出發時間
+  - `scheduled_arrival`: 表定到達時間
+  - `aircraft`: 飛機型號
+  - `departure_terminal`: 出發航廈
+  - `arrival_terminal`: 抵達航廈
   - `updated_at`: 數據更新時間
 
 - **ticket_prices**: 票價資訊
   - `price_id` (主鍵): 系統生成ID
   - `flight_id` (外鍵): 關聯航班
+  - `class_type`: 艙等
   - `economy_price`: 經濟艙價格
   - `business_price`: 商務艙價格
   - `first_class_price`: 頭等艙價格
-  - `updated_at`: 價格更新時間
+  - `available_seats`: 可用座位數
+  - `price_updated_at`: 價格更新時間
 
 ## 版本控制與依賴管理
 

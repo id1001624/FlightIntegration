@@ -47,10 +47,11 @@
 - [x] 票價功能擴展
 - [x] LINE Bot 基礎整合
 - [x] 開發虛擬航班資料生成腳本 (`generate_dummy_flight_data.py`)
-- [x] 自動刪除舊資料功能實現:
-  - 開發 `cleanup_old_data.py` 清理腳本，支援可配置的保留時間、資料類型過濾、備份功能和執行報告
-  - 建立 `auto_cleanup_data.bat` 排程批處理檔，預設保留90天的測試資料
-  - 實現根據日期智能清理策略，避免保留過多不必要的歷史資料
+- [x] 自動刪除flights、ticket_prices資料庫舊資料功能：
+  - 增強 `cleanup_old_data.py` 清理腳本，支援可配置的保留時間（預設90天）、資料類型過濾（測試/真實/全部）、備份功能和執行報告
+  - 優化 `auto_cleanup_data.bat` 排程批處理檔，提供詳細日誌輸出和錯誤處理
+  - 提供完整的排程任務設置說明文件，方便自動化定期清理
+  - 實現資料庫效能維護策略，自動維護資料庫大小和效能
 - [x] Refactor TDX Client: 將 `tdx_client.py` 切換至使用 `/v2/Air/DailyFlightSchedule/Domestic/{IATA}` 端點
 - [x] 更新資料同步腳本以適應新的資料結構
 

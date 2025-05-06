@@ -89,8 +89,9 @@ import SearchForm from '@/components/search/SearchForm.vue';
 import FilterPanel from '@/components/search/FilterPanel.vue';
 import FlightResults from '@/components/search/FlightResults.vue';
 import flightService from '@/api/services/flightService';
-import { ref, reactive, computed, watch, nextTick } from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
+import { useRoute } from 'vue-router';
 
 export default {
   name: 'FlightSearch',
@@ -102,6 +103,7 @@ export default {
   setup() {
     // 使用 search store
     const searchStore = useSearchStore();
+    const route = useRoute();
     
     // 添加結果容器參考，用於自動滾動功能
     const resultsContainer = ref(null);
@@ -147,6 +149,22 @@ export default {
         console.warn('[FlightSearch] 無法找到結果容器，滾動失敗');
       }
     };
+
+    // 從詳情頁返回時檢查URL參數
+    onMounted(() => {
+      const fromDetail = route.query.fromDetail === 'true';
+      const shouldScrollToResults = route.query.scrollToResults === 'true';
+      
+      console.log('[FlightSearch] onMounted - fromDetail:', fromDetail, 'scrollToResults:', shouldScrollToResults);
+
+      // 如果是從詳情頁返回且有搜索結果，則滾動到結果區域
+      if (fromDetail && shouldScrollToResults && searchStore.hasSearched) {
+        // 使用setTimeout確保DOM已完全載入
+        setTimeout(() => {
+          scrollToResults();
+        }, 300);
+      }
+    });
 
     const fetchTaiwanAirports = async () => {
       try {

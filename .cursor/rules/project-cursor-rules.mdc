@@ -150,6 +150,7 @@ FlightIntegration/
 - **[提交規範](mdc:commit_rules.mdc)**
 - **[產品需求](mdc:product-requirements.mdc)** [productContext.md](mdc:memory-bank/productContext.md)
 - **[技術棧](mdc:tech-stack.mdc)** [techContext.md](mdc:memory-bank/techContext.md)
+- **資料同步與清理** [sync_flight_data.mdc](mdc:.cursor/rules/sync_flight_data.mdc)
 
 
 

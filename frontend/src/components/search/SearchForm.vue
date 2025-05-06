@@ -86,6 +86,7 @@ import DateSelector from '../DateSelector.vue';
 import ClassTypeSelector from '../ClassTypeSelector.vue';
 import flightService from '@/api/services/flightService';
 import { ref, reactive, onMounted } from 'vue';
+import { useSearchStore } from '@/store/modules/search'; // 引入 search store
 
 export default {
   name: 'SearchForm',
@@ -102,6 +103,9 @@ export default {
   },
   emits: ['search'],
   setup(props, { emit }) {
+    // 使用 search store
+    const searchStore = useSearchStore();
+    
     const taiwanAirports = ref([]);
     const destinationAirports = ref([]);
     const loadingTaiwanAirports = ref(false);
@@ -116,12 +120,13 @@ export default {
       return `${year}-${month}-${day}`;
     };
 
+    // 從 store 中讀取保存的搜索參數初始化表單
     const formData = reactive({
-        departureAirport: null,
-        arrivalAirport: null,
-        departureDate: getLocalDateString(), // 使用本地日期
-        returnDate: '',
-        classType: 'economy'
+        departureAirport: searchStore.searchParams.departureAirport || null,
+        arrivalAirport: searchStore.searchParams.arrivalAirport || null,
+        departureDate: searchStore.searchParams.departureDate || getLocalDateString(),
+        returnDate: searchStore.searchParams.returnDate || '',
+        classType: searchStore.searchParams.classType || 'economy'
     });
 
     const errors = reactive({
@@ -148,6 +153,11 @@ export default {
             region: '台灣'
           }));
           console.log('SearchForm: Mapped Taiwan airports:', JSON.parse(JSON.stringify(taiwanAirports.value)));
+          
+          // 如果已有出發機場選擇，但目的地為空，嘗試加載目的地
+          if (formData.departureAirport && !formData.arrivalAirport) {
+            onDepartureChange(formData.departureAirport);
+          }
         } else {
           taiwanAirports.value = [];
           console.error('API 未返回有效台灣機場資料');
@@ -166,9 +176,12 @@ export default {
       console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
       console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
 
-      // 清空目的地選擇
-      formData.arrivalAirport = null;
-      destinationAirports.value = [];
+      // 清空目的地選擇（僅當前出發地與之前不同時）
+      if (!formData.arrivalAirport || 
+          (formData.departureAirport && formData.departureAirport.code !== selectedAirport?.code)) {
+        formData.arrivalAirport = null;
+        destinationAirports.value = [];
+      }
 
       const airportCode = selectedAirport?.code;
 
@@ -253,8 +266,8 @@ export default {
       errors.departureDate = '';
       errors.returnDate = '';
       
-      // 先清空目的地選擇，無論如何
-      formData.arrivalAirport = null;
+      // 只有在出發地變更時才清空目的地選擇
+      // 移除自動清空的代碼，保留用戶之前的選擇
       
       // 更新可用機場列表
       fetchTaiwanAirports();
@@ -318,6 +331,7 @@ export default {
     };
 
     onMounted(() => {
+      console.log('[SearchForm] 組件掛載，從 store 載入搜索參數:', JSON.stringify(searchStore.searchParams));
       fetchTaiwanAirports();
     });
 

@@ -1,6 +1,8 @@
 <template>
   <div class="container mx-auto px-4 py-8">
-    <router-link to="/flight-search" class="text-primary hover:text-primary-dark mb-6 inline-flex items-center text-sm">
+    <router-link 
+      to="/flight-search?fromDetail=true&scrollToResults=true" 
+      class="text-primary hover:text-primary-dark mb-6 inline-flex items-center text-sm">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
       </svg>
@@ -93,6 +95,12 @@ const fetchFlightDetails = async (id) => {
 
 // 組件掛載時獲取數據
 onMounted(() => {
+  // 確保頁面滾動到頂部
+  window.scrollTo({
+    top: 0,
+    behavior: 'auto'
+  });
+  
   if (flightId.value) { // 確保 flightId 存在
     fetchFlightDetails(flightId.value);
   } else {
