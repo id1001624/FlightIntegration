@@ -395,8 +395,8 @@ export default {
                         '艙等:', flight.price?.cabin_class);
           });
           
-          // 搜索成功且有結果時，滾動到結果區域
-          scrollToResults();
+          // 移除這裡的立即滾動
+          // scrollToResults();
         }
 
       } catch (error) {
@@ -416,11 +416,21 @@ export default {
           setTimeout(() => {
             loading.value = false;
             searchStore.setSearchState(false);
+            
+            // 在動畫結束後滾動到結果區域
+            if (validFlights && validFlights.length > 0) {
+              scrollToResults();
+            }
           }, remainingTime);
         } else {
           // 搜索時間已超過最小動畫顯示時間，直接關閉
           loading.value = false;
           searchStore.setSearchState(false);
+          
+          // 在動畫結束後滾動到結果區域
+          if (validFlights && validFlights.length > 0) {
+            scrollToResults();
+          }
         }
       }
     };

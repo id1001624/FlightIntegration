@@ -9,11 +9,10 @@
         :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
       >
         <div v-if="loading" class="loader-wrapper">
-          <div class="orbital-loader-sm">
-            <div class="orbital-dot"></div>
-            <div class="orbital-dot"></div>
-            <div class="orbital-dot"></div>
-          </div>
+          <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
         </div>
         <div :class="{ 'pl-8': loading }">
           <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
@@ -465,7 +464,7 @@ export default {
   color: #212529;
 }
 
-/* 機場選擇加載動畫-小型版 */
+/* 機場選擇加載動畫-SVG版 */
 .loader-wrapper {
   position: absolute;
   left: 10px;
@@ -477,44 +476,17 @@ export default {
   pointer-events: none;
 }
 
-.orbital-loader-sm {
-  position: relative;
-  width: 18px;
-  height: 18px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* 添加旋轉動畫 */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.orbital-loader-sm .orbital-dot {
-  position: absolute;
-  width: 4px;
-  height: 4px;
-  background-color: #005F73;
-  border-radius: 50%;
-}
-
-.orbital-loader-sm .orbital-dot:nth-child(1) {
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  animation: pulseScale 1.5s infinite;
-}
-
-.orbital-loader-sm .orbital-dot:nth-child(2) {
-  bottom: 3px;
-  left: 3px;
-  animation: pulseScale 1.5s infinite 0.3s;
-}
-
-.orbital-loader-sm .orbital-dot:nth-child(3) {
-  bottom: 3px;
-  right: 3px;
-  animation: pulseScale 1.5s infinite 0.6s;
-}
-
-@keyframes pulseScale {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.8); opacity: 1; }
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
 </style> 
