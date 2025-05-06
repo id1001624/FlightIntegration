@@ -9,9 +9,9 @@
           type="checkbox"
           :checked="modelValue.length === availableAirlines.length && availableAirlines.length > 0"
           @change="toggleAllAirlines"
-          class="mr-3 h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+          class="h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
         />
-        <span class="text-text-primary font-medium">所有航空公司</span>
+        <span class="text-text-primary font-medium ml-3">所有航空公司</span>
       </label>
     </div>
     
@@ -28,9 +28,9 @@
             :value="airline.code"
             :checked="isSelected(airline.code)"
             @change="toggleAirline(airline.code)"
-            class="mr-3 h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+            class="h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
           />
-          <span class="flex items-center text-text-primary flex-grow min-w-0">
+          <span class="flex items-center text-text-primary flex-grow min-w-0 ml-3">
             <img 
               v-if="getFullLogoUrl(airline.logo)" 
               :src="getFullLogoUrl(airline.logo)" 
@@ -40,7 +40,7 @@
             <span v-else class="inline-block mr-2 w-6 h-6 flex-shrink-0"></span>
             <span class="truncate">{{ airline.name }}</span>
           </span>
-          <span class="ml-auto text-xs text-text-secondary pl-2">({{ airline.flightCount || 0 }})</span>
+          <span class="ml-auto text-xs text-text-secondary pl-2 flex-shrink-0">({{ airline.flightCount || 0 }})</span>
         </label>
       </div>
     </div>
