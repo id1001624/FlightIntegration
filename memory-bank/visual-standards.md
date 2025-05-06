@@ -75,267 +75,289 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 
 ### 3.3 加載動畫
 
-#### 3.3.1 旅程路徑加載動畫
-- **標準旅程路徑加載動畫**:
+#### 3.3.1 航班搜索加載動畫
+- **水平進度條加載動畫**:
 ```html
-<div class="journey-loader">
-  <div class="journey-track"></div>
-  <div class="journey-plane"></div>
+<div class="flight-search-loader">
+  <div class="loader-track">
+    <div class="loader-progress">
+      <div class="loader-dot"></div>
+    </div>
+  </div>
+  <p class="loader-text">搜尋航班中...</p>
 </div>
 ```
 
 ```css
-.journey-loader {
+.flight-search-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.loader-track {
   position: relative;
-  width: 100%;
-  height: 2px;
+  width: 10rem;
+  height: 0.125rem;
+  background-color: #f3f4f6;
+  border-radius: 9999px;
   overflow: hidden;
 }
 
-.journey-track {
+.loader-progress {
   position: absolute;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, rgba(0,95,115,0.1) 0%, rgba(0,95,115,0.05) 100%);
-  border-radius: 1px;
-}
-
-.journey-plane {
-  position: absolute;
-  width: 12px;
-  height: 12px;
+  height: 100%;
   background-color: #005F73;
-  transform: translateY(-5px) rotate(45deg);
-  animation: journey-flight 2s infinite ease-in-out;
+  animation: flightPath 2s infinite;
+  width: 0%;
 }
 
-@keyframes journey-flight {
-  0% {
-    left: -12px;
-    box-shadow: 0 0 0 rgba(0,95,115,0);
-  }
-  50% {
-    box-shadow: 0 0 10px rgba(0,95,115,0.3);
-  }
-  100% {
-    left: 100%;
-    box-shadow: 0 0 0 rgba(0,95,115,0);
-  }
+.loader-dot {
+  position: absolute;
+  right: -0.5rem;
+  top: -0.25rem;
+  width: 1rem;
+  height: 1rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+}
+
+.loader-text {
+  color: #6C757D;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+@keyframes flightPath {
+  0% { width: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { width: 100%; opacity: 0; }
 }
 ```
 
-#### 3.3.2 路徑軌跡加載動畫
-- **路徑擴展動畫**:
+#### 3.3.2 機場選擇加載動畫
+- **環形脈衝加載動畫**:
 ```html
-<div class="path-loader">
-  <div class="path-track"></div>
-  <div class="path-progress"></div>
-  <div class="path-dots">
-    <span class="path-dot"></span>
-    <span class="path-dot"></span>
+<div class="airport-select-loader">
+  <div class="orbital-loader">
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="center-dot"></div>
   </div>
+  <p class="loader-text">載入機場資訊...</p>
 </div>
 ```
 
 ```css
-.path-loader {
-  position: relative;
-  width: 100%;
-  height: 4px;
-  margin: 12px 0;
+.airport-select-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2.5rem 0;
 }
 
-.path-track {
+.orbital-loader {
+  position: relative;
+  width: 6rem;
+  height: 6rem;
+}
+
+.orbital-dot {
   position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #005F73;
+  border-radius: 9999px;
+}
+
+.orbital-dot:nth-child(1) {
+  top: calc(50% - 2.5rem);
+  left: calc(50% - 0.75rem);
+  animation: pulseScale 1.5s infinite;
+}
+
+.orbital-dot:nth-child(2) {
+  top: calc(50% + 1.25rem);
+  left: calc(50% - 2.5rem);
+  animation: pulseScale 1.5s infinite 0.2s;
+}
+
+.orbital-dot:nth-child(3) {
+  top: calc(50% + 1.25rem);
+  left: calc(50% + 1rem);
+  animation: pulseScale 1.5s infinite 0.4s;
+}
+
+.center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+}
+
+.loader-text {
+  color: #6C757D;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+```
+
+#### 3.3.3 航班詳情加載動畫
+- **航線進度加載動畫**:
+```html
+<div class="flight-detail-loader">
+  <div class="journey-visual">
+    <div class="skeleton departure"></div>
+    <div class="skeleton arrival"></div>
+    
+    <div class="flight-path">
+      <div class="departure-dot"></div>
+      <div class="path-line">
+        <div class="path-progress"></div>
+      </div>
+      <div class="arrival-dot"></div>
+    </div>
+    
+    <div class="skeleton depart-info"></div>
+    <div class="skeleton arrive-info"></div>
+  </div>
+  <p class="loader-text">載入航班詳情...</p>
+</div>
+```
+
+```css
+.flight-detail-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.journey-visual {
+  position: relative;
+  width: 12rem;
+  height: 4rem;
+}
+
+.skeleton {
+  position: absolute;
+  height: 1rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.departure {
+  top: 0;
+  left: 0;
+  width: 3rem;
+}
+
+.arrival {
+  top: 0;
+  right: 0;
+  width: 3rem;
+}
+
+.depart-info {
+  bottom: 0;
+  left: 0;
+  width: 4rem;
+}
+
+.arrive-info {
+  bottom: 0;
+  right: 0;
+  width: 4rem;
+}
+
+.flight-path {
+  position: absolute;
+  top: 50%;
+  left: 0;
   width: 100%;
-  height: 2px;
-  top: 1px;
-  background-color: rgba(0,95,115,0.1);
-  border-radius: 1px;
+  display: flex;
+  align-items: center;
+}
+
+.departure-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite;
+}
+
+.path-line {
+  flex: 1;
+  height: 1px;
+  background-color: #d1d5db;
+  margin: 0 0.5rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .path-progress {
   position: absolute;
-  width: 0%;
-  height: 2px;
-  top: 1px;
+  top: 0;
+  bottom: 0;
   background-color: #005F73;
-  border-radius: 1px;
-  animation: path-expand 2.2s infinite ease-in-out;
+  width: 30%;
+  animation: progress 1.5s infinite;
 }
 
-.path-dots {
-  position: absolute;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-}
-
-.path-dot {
-  width: 6px;
-  height: 6px;
+.arrival-dot {
+  width: 1.5rem;
+  height: 1.5rem;
   background-color: #F4A261;
-  border-radius: 50%;
-  transform: translateY(-1px);
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite 0.3s;
 }
 
-@keyframes path-expand {
-  0% { width: 0%; }
-  50% { width: 100%; }
-  100% { width: 0%; }
-}
-```
-
-- **尺寸變體**:
-  - 小型: `.journey-loader-sm` 或 `.path-loader-sm` (元素內嵌使用)
-  - 中型: `.journey-loader-md` 或 `.path-loader-md` (區域級別使用)
-  - 大型: `.journey-loader-lg` 或 `.path-loader-lg` (頁面級別使用)
-
-#### 3.3.3 點脈衝加載動畫
-- **簡約點陣列脈衝動畫**:
-```html
-<div class="dots-loader">
-  <span class="dot"></span>
-  <span class="dot"></span>
-  <span class="dot"></span>
-</div>
-```
-
-```css
-.dots-loader {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+.loader-text {
+  color: #6C757D;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
-.dots-loader .dot {
-  width: 6px;
-  height: 6px;
-  background-color: #005F73;
-  border-radius: 50%;
-  opacity: 0.6;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.dots-loader .dot:nth-child(1) {
-  animation: dot-pulse 1.4s infinite ease-in-out;
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-.dots-loader .dot:nth-child(2) {
-  animation: dot-pulse 1.4s infinite ease-in-out .2s;
-}
-
-.dots-loader .dot:nth-child(3) {
-  animation: dot-pulse 1.4s infinite ease-in-out .4s;
-}
-
-@keyframes dot-pulse {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.5);
-    opacity: 1;
-  }
-}
-```
-
-#### 3.3.4 雲層穿越加載動畫
-- **雲層穿越加載動畫**:
-```html
-<div class="clouds-loader">
-  <div class="cloud"></div>
-  <div class="cloud"></div>
-  <div class="cloud"></div>
-  <div class="plane-icon">
-    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
-      <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
-    </svg>
-  </div>
-</div>
-```
-
-```css
-.clouds-loader {
-  position: relative;
-  width: 280px;
-  height: 60px;
-  margin: 0 auto;
-  overflow: hidden;
-}
-
-.cloud {
-  position: absolute;
-  width: 60px;
-  height: 20px;
-  background-color: rgba(248, 249, 250, 0.9);
-  border-radius: 20px;
-}
-
-.cloud:before, .cloud:after {
-  content: '';
-  position: absolute;
-  background-color: rgba(248, 249, 250, 0.9);
-  border-radius: 50%;
-}
-
-.cloud:before {
-  width: 30px;
-  height: 30px;
-  top: -15px;
-  left: 10px;
-}
-
-.cloud:after {
-  width: 20px;
-  height: 20px;
-  top: -10px;
-  left: 35px;
-}
-
-.cloud:nth-child(1) {
-  top: 10px;
-  left: -60px;
-  opacity: 0.7;
-  animation: cloud-move 3.5s infinite linear;
-}
-
-.cloud:nth-child(2) {
-  top: 25px;
-  left: -60px;
-  opacity: 0.9;
-  animation: cloud-move 3s infinite 1s linear;
-}
-
-.cloud:nth-child(3) {
-  top: 40px;
-  left: -60px;
-  opacity: 0.6;
-  animation: cloud-move 4s infinite 0.5s linear;
-}
-
-.plane-icon {
-  position: absolute;
-  width: 30px;
-  height: 30px;
-  left: 50%;
-  top: 15px;
-  transform: translateX(-50%);
-  z-index: 10;
-  color: #005F73;
-}
-
-@keyframes cloud-move {
-  0% { left: -60px; }
-  100% { left: 100%; }
+@keyframes progress {
+  0% { left: -33%; width: 30%; }
+  100% { left: 100%; width: 10%; }
 }
 ```
 
 - **尺寸變體**:
-  - 小型: `.clouds-loader-sm` (元素內嵌使用)
-  - 中型: `.clouds-loader-md` (區域級別使用)
-  - 大型: `.clouds-loader-lg` (頁面級別使用)
+  - 小型: `.flight-search-loader-sm`、`.airport-select-loader-sm`、`.flight-detail-loader-sm` (元素內嵌使用)
+  - 中型: `.flight-search-loader-md`、`.airport-select-loader-md`、`.flight-detail-loader-md` (區域級別使用)
+  - 大型: `.flight-search-loader-lg`、`.airport-select-loader-lg`、`.flight-detail-loader-lg` (頁面級別使用)
 
 ### 3.4 卡片
 
@@ -420,3 +442,86 @@ font-family: 'Inter', 'Noto Sans TC', 'system-ui', 'sans-serif';
 ### 8.1 自定義動畫
 
 - **漸入**: `animate-fade-in`
+- **上滑**: `animate-slide-up`
+- **輕脈衝**: `animate-pulse-gentle`
+- **漂浮**: `animate-float`
+- **飛行路徑**: `animate-flight-path`
+- **圓點脈衝**: `animate-dot-pulse`
+- **軌跡進度**: `animate-path-progress`
+- **航點彈跳**: `animate-point-bounce`
+
+### 8.2 關鍵幀定義
+
+```css
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideUp {
+  0% { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulseGentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes flightPath {
+  0% { width: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+
+@keyframes progress {
+  0% { left: -33%; width: 30%; }
+  100% { left: 100%; width: 10%; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+```
+
+## 9. 陰影系統
+
+```css
+boxShadow: {
+  'card': '0 2px 4px rgba(0,0,0,0.05)',
+  'card-hover': '0 4px 8px rgba(0,0,0,0.08)',
+  'elevation-1': '0 1px 3px rgba(0,0,0,0.05)',
+  'elevation-2': '0 4px 6px rgba(0,0,0,0.05)',
+  'elevation-3': '0 10px 15px rgba(0,0,0,0.05)',
+}
+```
+
+## 10. 漸變背景
+
+```css
+backgroundImage: {
+  'journey-gradient': 'linear-gradient(120deg, #005F73 0%, #0A9396 100%)',
+  'warm-gradient': 'linear-gradient(120deg, #F4A261 0%, #E07A38 100%)',
+}
+```
+
+---
+
+本文檔應與 [專案設計指南](mdc:docs/UI-UX/ui-design-guidelines.mdc) 和 [前端開發指南](mdc:docs/development/frontend-guidelines.mdc) 一起參考，確保所有新開發的元件符合系統的視覺標準。

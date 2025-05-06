@@ -164,16 +164,314 @@ alwaysApply: false
 - **篩選器**: 選項勾選/取消時的平滑過渡
 - **展開/摺疊**: 內容區域平滑的高度過渡
 
-### 7.3 頁面轉換
+### 7.3 頁面轉換與加載狀態
 
-- 使用Vue Router的`<transition>`元件
-- 實現快速的淡入淡出(fade)或輕微的向上滑入(slide-up)效果
+- **頁面轉換**:
+  - 使用Vue Router的`<transition>`元件
+  - 實現快速的淡入淡出(fade)或輕微的向上滑入(slide-up)效果
+  - 保持轉場時間短（150-300ms）以維持響應感
 
-### 7.4 "旅程感"元素 (選擇其一或二)
+- **加載動畫設計**:
+  - 使用與航班旅程主題一致的加載動畫，增加品牌辨識度
+  - 遵循三種標準加載動畫模式，適用於不同場景:
+    1. **航班搜索加載動畫**: 用於頁面級全屏加載（如搜索結果頁）
+    2. **機場選擇加載動畫**: 用於元素內嵌加載（如下拉選單、表單元素）
+    3. **航班詳情加載動畫**: 用於航班資訊相關加載（如詳情頁、票價加載）
+  
+- **頁面加載狀態實現**:
+  ```vue
+  <template>
+    <div class="container">
+      <!-- 加載狀態 -->
+      <div v-if="loading" class="flight-search-loader">
+        <div class="loader-track">
+          <div class="loader-progress">
+            <div class="loader-dot"></div>
+          </div>
+        </div>
+        <p class="loader-text">搜尋航班中...</p>
+      </div>
+      
+      <!-- 實際內容 -->
+      <div v-else>
+        <!-- 頁面內容 -->
+      </div>
+    </div>
+  </template>
+  
+  <script setup>
+  import { ref } from 'vue';
+  const loading = ref(true);
+  
+  // 在資料加載完成後設置 loading = false
+  </script>
+  ```
 
-- **方案A**: 首頁Hero Section背景使用緩慢移動的、由幾何線條或柔和色塊組成的抽象圖形
-- **方案B**: 設計線條沿著抽象路徑前進的載入動畫
-- **方案C**: 在搜尋結果卡片或詳情頁，用極簡曲線示意性地連接起點和終點
+- **避免頁面跳動**:
+  - 使用`min-height`提前保留足夠空間
+  - 元素加載時保持一致的佈局結構，避免內容加載後的重排
+  - 骨架屏(Skeleton)結構應與實際內容結構匹配
+
+### 7.4 "旅程感"動畫元素
+
+以下三種加載動畫為核心"旅程感"元素，為航班整合系統提供獨特的視覺識別：
+
+#### 1. 航班搜索加載動畫
+- **特點**: 水平進度條搭配圓形節點，模擬航班飛行軌跡
+- **實現方式**: CSS動畫，主要使用`width`從0到100%的變化
+- **技術注意事項**: 
+  - 使用絕對定位避免重排
+  - 保持簡單的DOM結構提高性能
+
+```vue
+<script setup>
+// 在此定義組件邏輯...
+</script>
+
+<template>
+  <div class="flight-search-loader">
+    <div class="loader-track">
+      <div class="loader-progress">
+        <div class="loader-dot"></div>
+      </div>
+    </div>
+    <p class="loader-text">{{ loadingText || '搜尋航班中...' }}</p>
+  </div>
+</template>
+
+<style scoped>
+.flight-search-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.loader-track {
+  position: relative;
+  width: 10rem;
+  height: 0.125rem;
+  background-color: #f3f4f6;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.loader-progress {
+  position: absolute;
+  height: 100%;
+  background-color: var(--color-primary, #005F73);
+  animation: flightPath 2s infinite;
+  width: 0%;
+}
+
+.loader-dot {
+  position: absolute;
+  right: -0.5rem;
+  top: -0.25rem;
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-primary, #005F73);
+  border-radius: 9999px;
+}
+
+@keyframes flightPath {
+  0% { width: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+</style>
+```
+
+#### 2. 機場選擇加載動畫
+- **特點**: 環形脈衝元素模擬衛星或導航點，表達位置選擇概念
+- **實現方式**: CSS動畫，使用`transform: scale()`和`opacity`變化
+- **技術注意事項**:
+  - 適用於空間有限的元素內嵌加載
+  - 使用延遲動畫創建順序感
+  
+```vue
+<script setup>
+// 僅需簡單邏輯
+</script>
+
+<template>
+  <!-- 提供小型版本用於表單元素 -->
+  <div class="orbital-loader-sm">
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+  </div>
+</template>
+
+<style scoped>
+.orbital-loader-sm {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.orbital-loader-sm .orbital-dot {
+  position: absolute;
+  width: 0.35rem;
+  height: 0.35rem;
+  border: 1px solid var(--color-primary, #005F73);
+  border-radius: 9999px;
+}
+
+.orbital-loader-sm .orbital-dot:nth-child(1) {
+  top: calc(50% - 0.6rem);
+  left: calc(50% - 0.175rem);
+  animation: pulseScale 1.5s infinite;
+}
+
+.orbital-loader-sm .orbital-dot:nth-child(2) {
+  top: calc(50% + 0.3rem);
+  left: calc(50% - 0.6rem);
+  animation: pulseScale 1.5s infinite 0.2s;
+}
+
+.orbital-loader-sm .orbital-dot:nth-child(3) {
+  top: calc(50% + 0.3rem);
+  left: calc(50% + 0.25rem);
+  animation: pulseScale 1.5s infinite 0.4s;
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+</style>
+```
+
+#### 3. 航班詳情加載動畫
+- **特點**: 完整表達旅程概念，包含出發/到達點、連接路徑和骨架佔位元素
+- **實現方式**: 組合式動畫，結合進度條和點的動畫效果
+- **技術注意事項**:
+  - 複合動畫確保視覺吸引力
+  - 骨架屏(Skeleton)元素模擬真實內容結構
+
+```vue
+<script setup>
+// 組件邏輯...
+</script>
+
+<template>
+  <div class="flight-detail-loader">
+    <div class="journey-visual">
+      <div class="skeleton departure"></div>
+      <div class="skeleton arrival"></div>
+      
+      <div class="flight-path">
+        <div class="departure-dot"></div>
+        <div class="path-line">
+          <div class="path-progress"></div>
+        </div>
+        <div class="arrival-dot"></div>
+      </div>
+      
+      <div class="skeleton depart-info"></div>
+      <div class="skeleton arrive-info"></div>
+    </div>
+    <p class="loader-text">載入航班詳情...</p>
+  </div>
+</template>
+
+<style scoped>
+.flight-detail-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.journey-visual {
+  position: relative;
+  width: 12rem;
+  height: 4rem;
+}
+
+.skeleton {
+  position: absolute;
+  height: 1rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.departure { top: 0; left: 0; width: 3rem; }
+.arrival { top: 0; right: 0; width: 3rem; }
+.depart-info { bottom: 0; left: 0; width: 4rem; }
+.arrive-info { bottom: 0; right: 0; width: 4rem; }
+
+.flight-path {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.departure-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: var(--color-primary, #005F73);
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite;
+}
+
+.path-line {
+  flex: 1;
+  height: 1px;
+  background-color: #d1d5db;
+  margin: 0 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.path-progress {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: var(--color-primary, #005F73);
+  width: 30%;
+  animation: progress 1.5s infinite;
+}
+
+.arrival-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: var(--color-secondary, #F4A261);
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite 0.3s;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes progress {
+  0% { left: -33%; width: 30%; }
+  100% { left: 100%; width: 10%; }
+}
+</style>
+```
+
+- **尺寸變體**:
+  - 在全局CSS中定義尺寸變體類，以便靈活使用
+  - 對不同容器大小使用不同尺寸變體
+  - 確保各元素比例一致，僅調整整體大小
 
 ## 8. 響應式設計
 

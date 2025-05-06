@@ -266,50 +266,246 @@ p {
 - 載入狀態：骨架屏或進度指示
 
 ### 6.3 旅程元素建議
-從以下三個選項中**選擇一個**實現：
 
-#### 選項A：Hero Section動態背景
-- 在首頁 Hero Section 背景中使用由簡單幾何形狀組成的抽象圖案
-- 圖案緩慢移動，暗示雲層、地平線或旅程路徑
-- 使用 CSS 或輕量 SVG 動畫實現，確保性能
+以下是三種符合「Structured Journey Minimalism」風格的加載動畫，用於不同場景：
+
+#### 航班搜索加載動畫
+- **設計理念**：水平進度條搭配圓形節點，模擬航班飛行軌跡
+- **適用場景**：頁面級別全屏加載，如航班搜索結果頁面
+- **視覺特點**：主色調進度條向右延伸，右側帶有圓形指示節點
+
+```html
+<div class="flight-search-loader">
+  <div class="loader-track">
+    <div class="loader-progress">
+      <div class="loader-dot"></div>
+    </div>
+  </div>
+  <p class="loader-text">搜尋航班中...</p>
+</div>
+```
 
 ```css
-/* Hero背景動畫示例 */
-.hero-background {
+.flight-search-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.loader-track {
+  position: relative;
+  width: 10rem;
+  height: 0.125rem;
+  background-color: #f3f4f6;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.loader-progress {
+  position: absolute;
+  height: 100%;
+  background-color: #005F73;
+  animation: flightPath 2s infinite;
+  width: 0%;
+}
+
+.loader-dot {
+  position: absolute;
+  right: -0.5rem;
+  top: -0.25rem;
+  width: 1rem;
+  height: 1rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+}
+
+@keyframes flightPath {
+  0% { width: 0; opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { width: 100%; opacity: 0; }
+}
+```
+
+#### 機場選擇加載動畫
+- **設計理念**：環形脈衝元素模擬衛星或導航點，表達位置選擇概念
+- **適用場景**：輕量元素內嵌加載，如機場選擇器下拉選單
+- **視覺特點**：三個圓環以三角形排列並輕脈衝，中心點保持穩定
+
+```html
+<div class="airport-select-loader">
+  <div class="orbital-loader">
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="center-dot"></div>
+  </div>
+  <p class="loader-text">載入機場資訊...</p>
+</div>
+```
+
+```css
+.orbital-loader {
+  position: relative;
+  width: 6rem;
+  height: 6rem;
+}
+
+.orbital-dot {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #005F73;
+  border-radius: 9999px;
+}
+
+.orbital-dot:nth-child(1) {
+  top: calc(50% - 2.5rem);
+  left: calc(50% - 0.75rem);
+  animation: pulseScale 1.5s infinite;
+}
+
+.orbital-dot:nth-child(2) {
+  top: calc(50% + 1.25rem);
+  left: calc(50% - 2.5rem);
+  animation: pulseScale 1.5s infinite 0.2s;
+}
+
+.orbital-dot:nth-child(3) {
+  top: calc(50% + 1.25rem);
+  left: calc(50% + 1rem);
+  animation: pulseScale 1.5s infinite 0.4s;
+}
+
+.center-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+```
+
+#### 航班詳情加載動畫
+- **設計理念**：直觀表達航班旅程，包含起點、終點和連接路徑
+- **適用場景**：航班資訊加載，特別適用於詳情頁
+- **視覺特點**：包含出發/到達點、連接軌跡和骨架佔位元素，完整表達航班旅程
+
+```html
+<div class="flight-detail-loader">
+  <div class="journey-visual">
+    <div class="skeleton departure"></div>
+    <div class="skeleton arrival"></div>
+    
+    <div class="flight-path">
+      <div class="departure-dot"></div>
+      <div class="path-line">
+        <div class="path-progress"></div>
+      </div>
+      <div class="arrival-dot"></div>
+    </div>
+    
+    <div class="skeleton depart-info"></div>
+    <div class="skeleton arrive-info"></div>
+  </div>
+  <p class="loader-text">載入航班詳情...</p>
+</div>
+```
+
+```css
+.journey-visual {
+  position: relative;
+  width: 12rem;
+  height: 4rem;
+}
+
+.skeleton {
+  position: absolute;
+  height: 1rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.departure { top: 0; left: 0; width: 3rem; }
+.arrival { top: 0; right: 0; width: 3rem; }
+.depart-info { bottom: 0; left: 0; width: 4rem; }
+.arrive-info { bottom: 0; right: 0; width: 4rem; }
+
+.flight-path {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.departure-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite;
+}
+
+.path-line {
+  flex: 1;
+  height: 1px;
+  background-color: #d1d5db;
+  margin: 0 0.5rem;
   position: relative;
   overflow: hidden;
 }
 
-.hero-background:before {
-  content: "";
+.path-progress {
   position: absolute;
   top: 0;
-  left: -100%;
-  width: 300%;
-  height: 100%;
-  background: linear-gradient(90deg, 
-    rgba(0,95,115,0.02) 0%, 
-    rgba(244,162,97,0.03) 50%, 
-    rgba(0,95,115,0.02) 100%);
-  animation: slide 30s linear infinite;
-  z-index: 0;
+  bottom: 0;
+  background-color: var(--color-primary, #005F73);
+  width: 30%;
+  animation: progress 1.5s infinite;
 }
 
-@keyframes slide {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(33.33%); }
+.arrival-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #F4A261;
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite 0.3s;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes progress {
+  0% { left: -33%; width: 30%; }
+  100% { left: 100%; width: 10%; }
 }
 ```
 
-#### 選項B：線條路徑載入動畫
-- 設計一個簡單的載入動畫，展示一條線沿著抽象路徑前進
-- 可代替傳統的旋轉圖標，增加品牌特色
-- 保持動畫輕量化，避免過度複雜
-
-#### 選項C：航班路徑視覺化
-- 在搜索結果卡片或詳情頁中，使用極簡曲線連接起飛和降落機場
-- 可考慮簡單繪製動畫，使曲線"飛行"形成
-- 確保視覺簡潔，不過度裝飾
+**尺寸變體建議**:
+- 小型 (元素內嵌): 縮小50%主尺寸，如`airport-select-loader-sm`
+- 中型 (組件級): 保持標準尺寸，如`flight-search-loader-md`
+- 大型 (頁面級): 放大25-50%主尺寸，如`flight-detail-loader-lg`
 
 ## 7. 響應式設計
 

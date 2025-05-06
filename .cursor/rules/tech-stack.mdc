@@ -1,7 +1,7 @@
 ---
 description: 
-globs: project-cursor-rules.mdc
-alwaysApply: false
+globs: 
+alwaysApply: true
 ---
 # **台灣航班整合系統技術棧規範**
 
@@ -122,6 +122,72 @@ alwaysApply: false
     }
   }
   ```
+
+### 2.4 UI動畫與加載狀態
+
+#### 2.4.1 標準加載動畫
+
+系統定義了三種標準加載動畫，應在不同場景中使用：
+
+- **航班搜索加載動畫**: 用於頁面級全屏加載（搜索結果頁）
+  - 水平進度條帶有圓形節點，模擬飛行軌跡
+  - 主色調進度條從左至右自動動畫
+  - 實現於 `FlightSearchLoader.vue` 組件
+  
+- **機場選擇加載動畫**: 用於元素內嵌加載（下拉選單、表單元素）
+  - 三個圓環元素排列並輕脈衝
+  - 適合空間有限的內嵌場景
+  - 實現於 `OrbitalLoader.vue` 組件，具有SM/MD/LG尺寸變體
+  
+- **航班詳情加載動畫**: 用於航班相關加載（詳情頁）
+  - 包含出發/到達點、連接路徑和骨架佔位符
+  - 使用主色調和次色調實現出發地/目的地差異化
+  - 實現於 `FlightDetailLoader.vue` 組件
+
+#### 2.4.2 動畫實現技術
+
+- **CSS優先**：盡可能使用純CSS實現動畫以確保性能
+- **動畫技術選擇**:
+  - 簡單狀態轉換：CSS transitions
+  - 循環或複雜動畫：CSS animations (@keyframes)
+  - 頁面轉場：Vue's `<transition>` 和 `<transition-group>`
+  - 觸發型複雜動畫：可選用GSAP（謹慎考慮包大小）
+ 
+- **動畫性能優化**:
+  - 優先使用 `transform` 和 `opacity` 屬性
+  - 避免使用觸發重排的屬性如 `width`, `height`, `top`, `left`
+  - 對滾動和窗口調整事件進行去抖動(debounce)處理
+  - 長動畫序列使用 `will-change` 屬性（謹慎使用）
+  - 使用Chrome DevTools檢測動畫性能
+
+#### 2.4.3 組件實現範例
+
+```vue
+<!-- AirportSelector.vue 中的加載狀態 -->
+<template>
+  <!-- Input field... -->
+  <div v-if="loading" class="orbital-loader-sm">
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+    <div class="orbital-dot"></div>
+  </div>
+</template>
+
+<style scoped>
+.orbital-loader-sm {
+  /* 樣式定義... */
+}
+.orbital-dot {
+  /* 樣式定義... */
+}
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
+}
+</style>
+```
+
+### 2.5 前端狀態管理
 
 ## 3. 後端技術規範
 

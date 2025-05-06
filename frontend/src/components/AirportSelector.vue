@@ -14,13 +14,10 @@
 
       <!-- Loading Spinner -->
       <div v-if="loading" class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-        <div class="mini-clouds-loader">
-          <div class="mini-cloud"></div>
-          <div class="mini-plane">
-            <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
-              <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
-            </svg>
-          </div>
+        <div class="orbital-loader-sm">
+          <div class="orbital-dot"></div>
+          <div class="orbital-dot"></div>
+          <div class="orbital-dot"></div>
         </div>
       </div>
       
@@ -468,38 +465,41 @@ export default {
   color: #212529;
 }
 
-/* 迷你雲層穿越加載動畫 */
-.mini-clouds-loader {
+/* 機場選擇加載動畫-小型版 */
+.orbital-loader-sm {
   position: relative;
-  width: 22px;
-  height: 20px;
-  overflow: hidden;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
-.mini-cloud {
+.orbital-loader-sm .orbital-dot {
   position: absolute;
-  width: 10px;
-  height: 4px;
-  background-color: rgba(248, 249, 250, 0.9);
-  border-radius: 4px;
-  top: 8px;
-  left: -10px;
-  opacity: 0.7;
-  animation: mini-cloud-move 2s infinite linear;
+  width: 0.35rem;
+  height: 0.35rem;
+  border: 1px solid #005F73;
+  border-radius: 9999px;
 }
 
-.mini-plane {
-  position: absolute;
-  width: 16px;
-  height: 16px;
-  top: 2px;
-  right: 0;
-  color: #005F73;
-  opacity: 0.8;
+.orbital-loader-sm .orbital-dot:nth-child(1) {
+  top: calc(50% - 0.6rem);
+  left: calc(50% - 0.175rem);
+  animation: pulseScale 1.5s infinite;
 }
 
-@keyframes mini-cloud-move {
-  0% { left: -10px; }
-  100% { left: 40px; }
+.orbital-loader-sm .orbital-dot:nth-child(2) {
+  top: calc(50% + 0.3rem);
+  left: calc(50% - 0.6rem);
+  animation: pulseScale 1.5s infinite 0.2s;
+}
+
+.orbital-loader-sm .orbital-dot:nth-child(3) {
+  top: calc(50% + 0.3rem);
+  left: calc(50% + 0.25rem);
+  animation: pulseScale 1.5s infinite 0.4s;
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.3); opacity: 1; }
 }
 </style> 

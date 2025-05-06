@@ -10,14 +10,23 @@
     <h1 class="text-2xl font-bold mb-6 text-text-primary">航班詳情</h1>
     
     <div v-if="loading" class="flex justify-center items-center h-64">
-      <div class="clouds-loader-sm">
-        <div class="cloud"></div>
-        <div class="cloud"></div>
-        <div class="plane-icon">
-          <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor">
-            <path d="M21,16V14L13,9V3.5A1.5,1.5,0,0,0,11.5,2h0A1.5,1.5,0,0,0,10,3.5V9L2,14V16L10,13.5V19L8,20.5V22L11.5,21L15,22V20.5L13,19V13.5Z" />
-          </svg>
+      <div class="flight-detail-loader">
+        <div class="journey-visual">
+          <div class="skeleton departure"></div>
+          <div class="skeleton arrival"></div>
+          
+          <div class="flight-path">
+            <div class="departure-dot"></div>
+            <div class="path-line">
+              <div class="path-progress"></div>
+            </div>
+            <div class="arrival-dot"></div>
+          </div>
+          
+          <div class="skeleton depart-info"></div>
+          <div class="skeleton arrive-info"></div>
         </div>
+        <p class="loader-text">載入航班詳情...</p>
       </div>
     </div>
     
@@ -108,72 +117,115 @@ watch(() => route.params.flight_id, (newId) => {
   max-width: 960px; /* Limit content width for readability */
 }
 
-/* 雲層穿越加載動畫 - 精簡版本 */
-.clouds-loader-sm {
+/* 航班詳情加載動畫 */
+.flight-detail-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  padding: 3rem 0;
+}
+
+.journey-visual {
   position: relative;
-  width: 220px;
-  height: 50px;
-  margin: 0 auto;
+  width: 12rem;
+  height: 4rem;
+}
+
+.skeleton {
+  position: absolute;
+  height: 1rem;
+  background-color: #e5e7eb;
+  border-radius: 0.25rem;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.departure {
+  top: 0;
+  left: 0;
+  width: 3rem;
+}
+
+.arrival {
+  top: 0;
+  right: 0;
+  width: 3rem;
+}
+
+.depart-info {
+  bottom: 0;
+  left: 0;
+  width: 4rem;
+}
+
+.arrive-info {
+  bottom: 0;
+  right: 0;
+  width: 4rem;
+}
+
+.flight-path {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.departure-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #005F73;
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite;
+}
+
+.path-line {
+  flex: 1;
+  height: 1px;
+  background-color: #d1d5db;
+  margin: 0 0.5rem;
+  position: relative;
   overflow: hidden;
 }
 
-.cloud {
+.path-progress {
   position: absolute;
-  width: 50px;
-  height: 16px;
-  background-color: rgba(248, 249, 250, 0.9);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  top: 0;
+  bottom: 0;
+  background-color: #005F73;
+  width: 30%;
+  animation: progress 1.5s infinite;
 }
 
-.cloud:before, .cloud:after {
-  content: '';
-  position: absolute;
-  background-color: rgba(248, 249, 250, 0.9);
-  border-radius: 50%;
+.arrival-dot {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-color: #F4A261;
+  border-radius: 9999px;
+  animation: bounce 1.5s infinite 0.3s;
 }
 
-.cloud:before {
-  width: 25px;
-  height: 25px;
-  top: -12px;
-  left: 8px;
+.loader-text {
+  color: #6C757D;
+  font-weight: 500;
+  font-size: 0.875rem;
 }
 
-.cloud:after {
-  width: 16px;
-  height: 16px;
-  top: -8px;
-  left: 28px;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
-.cloud:nth-child(1) {
-  top: 8px;
-  left: -50px;
-  opacity: 0.7;
-  animation: cloud-move-sm 3.5s infinite linear;
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-.cloud:nth-child(2) {
-  top: 25px;
-  left: -50px;
-  opacity: 0.8;
-  animation: cloud-move-sm 3s infinite 0.8s linear;
-}
-
-.plane-icon {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  left: 50%;
-  top: 12px;
-  transform: translateX(-50%);
-  z-index: 10;
-  color: #005F73;
-}
-
-@keyframes cloud-move-sm {
-  0% { left: -50px; }
-  100% { left: 100%; }
+@keyframes progress {
+  0% { left: -33%; width: 30%; }
+  100% { left: 100%; width: 10%; }
 }
 </style>
