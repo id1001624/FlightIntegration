@@ -8,14 +8,14 @@
         class="input w-full pr-10 border-gray-300 focus:border-primary flex items-center cursor-pointer"
         :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
       >
-        <div v-if="loading" class="loader-wrapper">
+        <div v-if="internalLoading" class="loader-wrapper">
           <div class="cool-loader">
             <div class="cool-loader-ring"></div>
             <div class="cool-loader-ring"></div>
             <div class="cool-loader-dot"></div>
           </div>
         </div>
-        <div :class="{ 'pl-8': loading }">
+        <div :class="{ 'pl-8': internalLoading }">
           <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
           <span v-else class="text-gray-500">{{ placeholder }}</span>
         </div>
@@ -190,6 +190,50 @@ export default {
     const isOpen = ref(false);
     const searchQuery = ref('');
     const selectedRegion = ref(null);
+    
+    // 內部加載狀態
+    const internalLoading = ref(props.loading);
+    const loadingTimer = ref(null);
+    const loadingStartTime = ref(null);
+    const MIN_LOADING_DURATION = 500; // 0.5秒
+
+    // 監視外部loading屬性的變化
+    watch(() => props.loading, (newVal, oldVal) => {
+      // 如果開始加載
+      if (newVal && !oldVal) {
+        loadingStartTime.value = Date.now();
+        internalLoading.value = true;
+        
+        // 清除可能存在的計時器
+        if (loadingTimer.value) {
+          clearTimeout(loadingTimer.value);
+          loadingTimer.value = null;
+        }
+      } 
+      // 如果停止加載
+      else if (!newVal && oldVal) {
+        const elapsedTime = Date.now() - (loadingStartTime.value || 0);
+        
+        // 如果已經顯示足夠時間，直接關閉
+        if (elapsedTime >= MIN_LOADING_DURATION) {
+          internalLoading.value = false;
+        } else {
+          // 否則延遲關閉以確保最小顯示時間
+          const remainingTime = MIN_LOADING_DURATION - elapsedTime;
+          loadingTimer.value = setTimeout(() => {
+            internalLoading.value = false;
+            loadingTimer.value = null;
+          }, remainingTime);
+        }
+      }
+    });
+
+    // 清除計時器
+    onBeforeUnmount(() => {
+      if (loadingTimer.value) {
+        clearTimeout(loadingTimer.value);
+      }
+    });
     
     // 選中的機場
     const selectedAirport = computed(() => {
@@ -438,7 +482,8 @@ export default {
       handleBackButtonClick,
       selectAirport,
       isSelected,
-      getSelectedAirports
+      getSelectedAirports,
+      internalLoading
     };
   }
 }

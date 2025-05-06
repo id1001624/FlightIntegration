@@ -66,10 +66,17 @@ const flight = ref(null);
 const loading = ref(true);
 const error = ref(null);
 
+// 設置最小動畫顯示時間（毫秒）
+const MIN_LOADING_DURATION = 1500; // 1.5秒
+
 const fetchFlightDetails = async (id) => {
+  // 記錄加載開始時間
+  const loadingStartTime = Date.now();
+  
   loading.value = true;
   error.value = null;
   flight.value = null; // 重置 flight
+  
   try {
     console.log(`[FlightDetail] Fetching details for flight ID: ${id}`);
     const data = await flightService.getFlightDetails(id);
@@ -89,7 +96,22 @@ const fetchFlightDetails = async (id) => {
        // setTimeout(() => router.push('/flight-search'), 3000);
     }
   } finally {
-    loading.value = false;
+    // 計算已經過的時間
+    const elapsedTime = Date.now() - loadingStartTime;
+    
+    // 如果加載速度太快，確保動畫至少顯示最小時間
+    if (elapsedTime < MIN_LOADING_DURATION) {
+      const remainingTime = MIN_LOADING_DURATION - elapsedTime;
+      console.log(`[FlightDetail] 資料載入在 ${elapsedTime}ms 內完成，動畫將再顯示 ${remainingTime}ms`);
+      
+      // 使用延時來確保最小顯示時間
+      setTimeout(() => {
+        loading.value = false;
+      }, remainingTime);
+    } else {
+      // 加載時間已超過最小動畫顯示時間，直接關閉
+      loading.value = false;
+    }
   }
 };
 
