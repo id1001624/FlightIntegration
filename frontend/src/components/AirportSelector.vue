@@ -6,21 +6,21 @@
       <div 
         @click="toggleDropdown" 
         class="input w-full pr-10 border-gray-300 focus:border-primary flex items-center cursor-pointer"
-        :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled, 'pl-3': !loading, 'pl-10': loading }"
+        :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
       >
-        <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
-        <span v-else class="text-gray-500">{{ placeholder }}</span>
-      </div>
-
-      <!-- Loading Spinner -->
-      <div v-if="loading" class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-        <div class="orbital-loader-sm">
-          <div class="orbital-dot"></div>
-          <div class="orbital-dot"></div>
-          <div class="orbital-dot"></div>
+        <div v-if="loading" class="loader-wrapper">
+          <div class="orbital-loader-sm">
+            <div class="orbital-dot"></div>
+            <div class="orbital-dot"></div>
+            <div class="orbital-dot"></div>
+          </div>
+        </div>
+        <div :class="{ 'pl-8': loading }">
+          <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
+          <span v-else class="text-gray-500">{{ placeholder }}</span>
         </div>
       </div>
-      
+
       <!-- Dropdown Arrow -->
       <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
         <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -466,10 +466,21 @@ export default {
 }
 
 /* 機場選擇加載動畫-小型版 */
+.loader-wrapper {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 .orbital-loader-sm {
   position: relative;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 18px;
+  height: 18px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -477,31 +488,33 @@ export default {
 
 .orbital-loader-sm .orbital-dot {
   position: absolute;
-  width: 0.3rem;
-  height: 0.3rem;
+  width: 4px;
+  height: 4px;
   background-color: #005F73;
-  border-radius: 9999px;
+  border-radius: 50%;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(1) {
   top: 0;
+  left: 50%;
+  transform: translateX(-50%);
   animation: pulseScale 1.5s infinite;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(2) {
-  bottom: 0.1rem;
-  left: 0.1rem;
-  animation: pulseScale 1.5s infinite 0.2s;
+  bottom: 3px;
+  left: 3px;
+  animation: pulseScale 1.5s infinite 0.3s;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(3) {
-  bottom: 0.1rem;
-  right: 0.1rem;
-  animation: pulseScale 1.5s infinite 0.4s;
+  bottom: 3px;
+  right: 3px;
+  animation: pulseScale 1.5s infinite 0.6s;
 }
 
 @keyframes pulseScale {
   0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.3); opacity: 1; }
+  50% { transform: scale(1.8); opacity: 1; }
 }
 </style> 

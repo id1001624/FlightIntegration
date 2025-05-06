@@ -212,6 +212,11 @@ export default {
       // 添加日誌：確認函數被調用
       console.log('[FlightSearch] handleSearch called with params:', params);
       
+      // 記錄動畫開始時間
+      const animationStartTime = Date.now();
+      // 設置最小動畫顯示時間（毫秒）
+      const minAnimationDuration = 1500;
+      
       loading.value = true;
       searchStore.setSearchState(true, true);
       
@@ -399,8 +404,24 @@ export default {
         alert('搜索航班時發生錯誤。請檢查後端連接和伺服器日誌。');
         searchStore.setFlights([]);
       } finally {
-        loading.value = false;
-        searchStore.setSearchState(false);
+        // 計算已經過的時間
+        const elapsedTime = Date.now() - animationStartTime;
+        
+        // 如果搜索速度太快，確保動畫至少顯示最小時間
+        if (elapsedTime < minAnimationDuration) {
+          const remainingTime = minAnimationDuration - elapsedTime;
+          console.log(`[FlightSearch] 搜索在 ${elapsedTime}ms 完成，動畫將再顯示 ${remainingTime}ms`);
+          
+          // 使用延時來確保最小顯示時間
+          setTimeout(() => {
+            loading.value = false;
+            searchStore.setSearchState(false);
+          }, remainingTime);
+        } else {
+          // 搜索時間已超過最小動畫顯示時間，直接關閉
+          loading.value = false;
+          searchStore.setSearchState(false);
+        }
       }
     };
 
@@ -440,11 +461,14 @@ export default {
   animation: highlight-pulse 2s ease-in-out;
   position: relative;
   z-index: 1;
+  border-radius: 0.5rem;
+  overflow: hidden;
 }
 
 @keyframes highlight-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
-  50% { box-shadow: 0 0 0 8px rgba(0, 95, 115, 0.3); }
+  0% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
+  50% { box-shadow: 0 0 0 12px rgba(0, 95, 115, 0.25); }
+  100% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
 }
 
 /* 搜索背景 */
@@ -657,7 +681,7 @@ export default {
 .loader-track {
   position: relative;
   width: 10rem;
-  height: 0.125rem;
+  height: 0.25rem;
   background-color: #f3f4f6;
   border-radius: 9999px;
   overflow: hidden;
@@ -666,15 +690,16 @@ export default {
 .loader-progress {
   position: absolute;
   height: 100%;
-  background-color: #005F73;
-  animation: flightPath 2s infinite;
   width: 0%;
+  background-color: #005F73;
+  border-radius: 9999px;
+  animation: flightPath 2s infinite;
 }
 
 .loader-dot {
   position: absolute;
   right: -0.5rem;
-  top: -0.25rem;
+  top: -0.375rem;
   width: 1rem;
   height: 1rem;
   background-color: #005F73;
@@ -684,7 +709,7 @@ export default {
 .loader-text {
   color: #6C757D;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 @keyframes flightPath {
