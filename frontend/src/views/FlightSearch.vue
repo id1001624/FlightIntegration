@@ -161,11 +161,15 @@ export default {
             behavior: 'smooth',
             block: 'center'
           });
-          // 添加短暫的高亮效果
+          
+          // 高亮效果時間延長
           flightCard.classList.add('highlight-card');
+          
+          // 延長高亮時間為3秒鐘
           setTimeout(() => {
             flightCard.classList.remove('highlight-card');
-          }, 2000);
+          }, 3000);
+          
           console.log(`[FlightSearch] 已滾動到航班卡片`);
         } else {
           console.warn(`[FlightSearch] 未找到航班卡片 ID: ${flightId}，改為滾動到結果區域`);
@@ -418,8 +422,9 @@ export default {
             searchStore.setSearchState(false);
             
             // 在動畫結束後滾動到結果區域
-            if (validFlights && validFlights.length > 0) {
-              scrollToResults();
+            if (searchStore.flights && searchStore.flights.length > 0) {
+              console.log('[FlightSearch] 動畫結束後準備滾動到結果區域');
+              nextTick(() => scrollToResults());
             }
           }, remainingTime);
         } else {
@@ -428,8 +433,9 @@ export default {
           searchStore.setSearchState(false);
           
           // 在動畫結束後滾動到結果區域
-          if (validFlights && validFlights.length > 0) {
-            scrollToResults();
+          if (searchStore.flights && searchStore.flights.length > 0) {
+            console.log('[FlightSearch] 動畫結束後準備滾動到結果區域');
+            nextTick(() => scrollToResults());
           }
         }
       }
@@ -470,15 +476,61 @@ export default {
 :deep(.highlight-card) {
   animation: highlight-pulse 2s ease-in-out;
   position: relative;
-  z-index: 1;
+  z-index: 5; /* 提高 z-index 使卡片顯示在前面 */
   border-radius: 0.5rem;
   overflow: hidden;
 }
 
+:deep(.highlight-card::before) {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(0, 95, 115, 0.4);
+  border-radius: 0.5rem;
+  animation: border-glow 2s ease-in-out;
+  pointer-events: none;
+}
+
 @keyframes highlight-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
-  50% { box-shadow: 0 0 0 12px rgba(0, 95, 115, 0.25); }
-  100% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
+  0% { 
+    box-shadow: 0 0 0 0 rgba(0, 95, 115, 0);
+    transform: translateY(0);
+  }
+  20% {
+    box-shadow: 0 0 15px 2px rgba(0, 95, 115, 0.2);
+    transform: translateY(-2px);
+  }
+  50% { 
+    box-shadow: 0 0 20px 5px rgba(0, 95, 115, 0.3); 
+    transform: translateY(-4px);
+  }
+  80% {
+    box-shadow: 0 0 15px 2px rgba(0, 95, 115, 0.2);
+    transform: translateY(-2px);
+  }
+  100% { 
+    box-shadow: 0 0 0 0 rgba(0, 95, 115, 0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes border-glow {
+  0% { 
+    opacity: 0;
+    border-color: rgba(0, 95, 115, 0);
+  }
+  25% { 
+    opacity: 1;
+    border-color: rgba(0, 95, 115, 0.6);
+  }
+  75% { 
+    opacity: 1;
+    border-color: rgba(0, 95, 115, 0.6);
+  }
+  100% { 
+    opacity: 0;
+    border-color: rgba(0, 95, 115, 0);
+  }
 }
 
 /* 搜索背景 */

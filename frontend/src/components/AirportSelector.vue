@@ -195,7 +195,7 @@ export default {
     const internalLoading = ref(props.loading);
     const loadingTimer = ref(null);
     const loadingStartTime = ref(null);
-    const MIN_LOADING_DURATION = 500; // 0.5秒
+    const MIN_LOADING_DURATION = 800; // 0.8秒
 
     // 監視外部loading屬性的變化
     watch(() => props.loading, (newVal, oldVal) => {
