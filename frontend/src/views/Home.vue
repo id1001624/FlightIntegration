@@ -136,40 +136,6 @@
         </div>
       </div>
     </section>
-
-    <!-- 合作夥伴區塊 -->
-    <section class="partners-section animate-on-scroll">
-      <h2 class="section-title">整合的航空公司</h2>
-      <div class="partners-grid">
-        <div class="partner-logo">
-          <span>中華航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>長榮航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>立榮航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>華信航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>星宇航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>台灣虎航</span>
-        </div>
-        <div class="partner-logo">
-          <span>國泰航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>日本航空</span>
-        </div>
-        <div class="partner-logo">
-          <span>韓亞航空</span>
-        </div>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -257,6 +223,17 @@ export default {
   position: relative;
   min-height: 550px;
   overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.45);
+  z-index: 0;
 }
 
 .hero-content {
@@ -682,45 +659,6 @@ export default {
 
 .destination-link:hover {
   background-color: var(--color-primary-dark);
-}
-
-/* 合作夥伴區塊 */
-.partners-section {
-  padding: var(--spacing-xl) 0;
-  background-color: var(--color-background);
-  border-radius: 16px;
-  margin: var(--spacing-xl) 0;
-}
-
-.partners-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--spacing-lg);
-  padding: 0 var(--spacing-lg);
-}
-
-.partner-logo {
-  width: 150px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-base);
-  border-radius: 8px;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-fast);
-  padding: var(--spacing-md);
-}
-
-.partner-logo:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.partner-logo span {
-  font-weight: 600;
-  color: var(--color-primary);
 }
 
 /* 響應式調整 */

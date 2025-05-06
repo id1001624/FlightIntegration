@@ -42,7 +42,10 @@
         </router-view>
       </main>
 
-      <!-- 頁腳 -->
+      <!-- 新的詳細頁腳 -->
+      <TheFooter />
+
+      <!-- 原有的簡單頁腳 (版權信息) -->
       <footer class="footer">
         <div class="footer-content">
           <p>© 2025 Flight Integration System. All rights reserved.</p>
@@ -53,8 +56,13 @@
 </template>
 
 <script>
+import TheFooter from '@/components/layout/TheFooter.vue';
+
 export default {
   name: 'App',
+  components: {
+    TheFooter
+  },
   data() {
     return {
       mobileMenuOpen: false
@@ -208,7 +216,7 @@ html, body {
   text-decoration: none;
   color: var(--color-primary);
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 2rem;
   transition: transform var(--transition-fast);
 }
 
@@ -217,7 +225,7 @@ html, body {
 }
 
 .logo-image {
-  height: 28px;
+  height: 44px;
   width: auto;
   margin-right: var(--spacing-sm);
 }

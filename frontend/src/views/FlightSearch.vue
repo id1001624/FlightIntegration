@@ -91,7 +91,7 @@ import FlightResults from '@/components/search/FlightResults.vue';
 import flightService from '@/api/services/flightService';
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router'; // 確保 useRouter 被引入
 
 export default {
   name: 'FlightSearch',
@@ -104,6 +104,7 @@ export default {
     // 使用 search store
     const searchStore = useSearchStore();
     const route = useRoute();
+    const router = useRouter(); // 獲取 router 實例
     
     // 添加結果容器參考，用於自動滾動功能
     const resultsContainer = ref(null);
@@ -445,6 +446,19 @@ export default {
       // 使用 store 的 applyFilters 方法應用篩選
       searchStore.applyFilters(newFilters);
     };
+
+    // 監聽路由變化以決定是否清除機場選擇
+    watch(
+      () => route.name, // 監聽路由名稱的變化
+      (toName, fromName) => {
+        console.log(`[FlightSearch] Route changed from ${fromName} to ${toName}`);
+        // 條件：導航到 FlightSearch 頁面，且來源不是 FlightDetail
+        if (toName === 'FlightSearch' && fromName && fromName !== 'FlightDetail') {
+          console.log('[FlightSearch] Clearing airport selections due to navigation from non-detail page.');
+          searchStore.clearAirportSelections();
+        }
+      }
+    );
 
     fetchTaiwanAirports();
 

@@ -164,6 +164,14 @@ export const useSearchStore = defineStore('search', {
           max: 50000
         }
       };
+    },
+    
+    // 清除機場選擇
+    clearAirportSelections() {
+      console.log('[SearchStore] Clearing airport selections.');
+      this.searchParams.departureAirport = null;
+      this.searchParams.arrivalAirport = null;
+      // 注意：這裡不清空日期或其他參數，僅機場
     }
   }
 }); 
