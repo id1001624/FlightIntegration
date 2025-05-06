@@ -4,7 +4,7 @@
     
     <!-- 全選選項 -->
     <div class="mb-2 border-b pb-2" v-if="availableAirlines.length > 0">
-      <label class="flex items-center cursor-pointer text-sm">
+      <label class="flex items-center cursor-pointer text-sm py-1">
         <input
           type="checkbox"
           :checked="modelValue.length === availableAirlines.length && availableAirlines.length > 0"
@@ -17,12 +17,12 @@
     
     <div class="text-sm text-text-secondary py-2" v-if="loading">載入中...</div>
     <div class="text-sm text-text-secondary py-2" v-else-if="availableAirlines.length === 0">沒有可用的航空公司</div>
-    <div v-else class="max-h-48 overflow-y-auto space-y-2 pr-2">
+    <div v-else class="max-h-48 overflow-y-auto space-y-2.5 pr-2">
       <div
         v-for="airline in availableAirlines"
         :key="airline.code"
       >
-        <label class="flex items-center cursor-pointer text-sm">
+        <label class="flex items-center cursor-pointer text-sm py-1">
           <input
             type="checkbox"
             :value="airline.code"
@@ -35,9 +35,9 @@
               v-if="getFullLogoUrl(airline.logo)" 
               :src="getFullLogoUrl(airline.logo)" 
               :alt="airline.name" 
-              class="h-4 w-4 mr-1.5 object-contain"
+              class="h-5 w-5 mr-2 object-contain flex-shrink-0"
             />
-            <span v-else class="inline-block mr-1.5 w-4 h-4"></span>
+            <span v-else class="inline-block mr-2 w-5 h-5 flex-shrink-0"></span>
             {{ airline.name }} ({{ airline.flightCount || 0 }})
           </span>
         </label>

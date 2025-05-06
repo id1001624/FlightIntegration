@@ -478,8 +478,8 @@ export default {
 }
 
 .airline-logo-container {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.8rem;
+  height: 2.8rem;
   display: flex;
   align-items: center;
   justify-content: center;

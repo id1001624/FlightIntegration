@@ -387,15 +387,15 @@ export default {
     const toggleDropdown = () => {
       if (props.disabled || props.loading) return;
       
-      // 如果已經選擇了地區且下拉框是打開的，不要關閉它
-      if (isOpen.value && selectedRegion.value) {
-        return;
-      }
-      
       isOpen.value = !isOpen.value;
       
-      // 重置選擇的地區，僅當下拉框關閉時
-      if (!isOpen.value) {
+      // 當下拉選單打開時，總是重置地區和搜索查詢
+      if (isOpen.value) {
+        selectedRegion.value = null;
+        searchQuery.value = '';
+      } 
+      // 當下拉選單關閉時，也重置 (保持原有邏輯，以防萬一)
+      else {
         selectedRegion.value = null;
         searchQuery.value = '';
       }
