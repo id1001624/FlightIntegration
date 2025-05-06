@@ -9,10 +9,11 @@
         :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
       >
         <div v-if="loading" class="loader-wrapper">
-          <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <div class="cool-loader">
+            <div class="cool-loader-ring"></div>
+            <div class="cool-loader-ring"></div>
+            <div class="cool-loader-dot"></div>
+          </div>
         </div>
         <div :class="{ 'pl-8': loading }">
           <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
@@ -464,7 +465,7 @@ export default {
   color: #212529;
 }
 
-/* 機場選擇加載動畫-SVG版 */
+/* 機場選擇加載動畫-酷炫版 */
 .loader-wrapper {
   position: absolute;
   left: 10px;
@@ -476,17 +477,55 @@ export default {
   pointer-events: none;
 }
 
-/* 添加旋轉動畫 */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.cool-loader {
+  position: relative;
+  width: 20px;
+  height: 20px;
 }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
+.cool-loader-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--color-primary, #005F73);
+  animation: cool-loader-rotate 1.5s linear infinite;
+}
+
+.cool-loader-ring:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.cool-loader-ring:nth-child(2) {
+  width: 60%;
+  height: 60%;
+  top: 20%;
+  left: 20%;
+  border-top-color: var(--color-secondary, #F4A261);
+  animation-direction: reverse;
+  animation-duration: 1s;
+}
+
+.cool-loader-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30%;
+  height: 30%;
+  background-color: var(--color-primary, #005F73);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: cool-loader-pulse 1s ease-in-out infinite;
+}
+
+@keyframes cool-loader-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes cool-loader-pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
 }
 </style> 
