@@ -150,18 +150,49 @@ export default {
       }
     };
 
+    // 滾動到特定航班卡片
+    const scrollToFlightCard = (flightId) => {
+      console.log(`[FlightSearch] 嘗試滾動到航班卡片 ID: ${flightId}`);
+      nextTick(() => {
+        const flightCard = document.getElementById(`flight-card-${flightId}`);
+        if (flightCard) {
+          console.log(`[FlightSearch] 找到航班卡片，準備滾動`);
+          flightCard.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+          // 添加短暫的高亮效果
+          flightCard.classList.add('highlight-card');
+          setTimeout(() => {
+            flightCard.classList.remove('highlight-card');
+          }, 2000);
+          console.log(`[FlightSearch] 已滾動到航班卡片`);
+        } else {
+          console.warn(`[FlightSearch] 未找到航班卡片 ID: ${flightId}，改為滾動到結果區域`);
+          scrollToResults();
+        }
+      });
+    };
+
     // 從詳情頁返回時檢查URL參數
     onMounted(() => {
       const fromDetail = route.query.fromDetail === 'true';
       const shouldScrollToResults = route.query.scrollToResults === 'true';
+      const lastViewedFlight = route.query.lastViewedFlight;
       
-      console.log('[FlightSearch] onMounted - fromDetail:', fromDetail, 'scrollToResults:', shouldScrollToResults);
+      console.log('[FlightSearch] onMounted - fromDetail:', fromDetail, 
+                  'scrollToResults:', shouldScrollToResults,
+                  'lastViewedFlight:', lastViewedFlight);
 
-      // 如果是從詳情頁返回且有搜索結果，則滾動到結果區域
+      // 如果是從詳情頁返回且有搜索結果
       if (fromDetail && shouldScrollToResults && searchStore.hasSearched) {
         // 使用setTimeout確保DOM已完全載入
         setTimeout(() => {
-          scrollToResults();
+          if (lastViewedFlight) {
+            scrollToFlightCard(lastViewedFlight);
+          } else {
+            scrollToResults();
+          }
         }, 300);
       }
     });
@@ -184,16 +215,62 @@ export default {
       loading.value = true;
       searchStore.setSearchState(true, true);
       
-      // 更新本地狀態以顯示路線摘要
-      searchStore.setSearchParams({
-        departureAirport: { code: params.departure },
-        arrivalAirport: { code: params.arrival },
-        departureDate: params.date,
-        returnDate: params.return_date,
-        classType: params.class_type
-      });
-
       try {
+        // 嘗試獲取機場完整信息
+        let departureAirport = null;
+        let arrivalAirport = null;
+        
+        // 獲取出發機場詳細資訊
+        if (params.departure) {
+          try {
+            // 首先嘗試在已加載的機場中查找
+            const depCode = params.departure;
+            const localDepartureAirport = searchStore.searchParams.departureAirport;
+            
+            if (localDepartureAirport && localDepartureAirport.code === depCode) {
+              // 如果 store 中有完整的機場對象且代碼匹配，直接使用
+              departureAirport = { ...localDepartureAirport };
+              console.log('[FlightSearch] 使用本地存儲的出發機場:', departureAirport);
+            } else {
+              // 否則使用簡單對象
+              departureAirport = { code: depCode };
+            }
+          } catch (error) {
+            console.error('[FlightSearch] 獲取出發機場詳情時出錯:', error);
+            departureAirport = { code: params.departure };
+          }
+        }
+        
+        // 獲取目的地機場詳細資訊
+        if (params.arrival) {
+          try {
+            // 首先嘗試在已加載的機場中查找
+            const arrCode = params.arrival;
+            const localArrivalAirport = searchStore.searchParams.arrivalAirport;
+            
+            if (localArrivalAirport && localArrivalAirport.code === arrCode) {
+              // 如果 store 中有完整的機場對象且代碼匹配，直接使用
+              arrivalAirport = { ...localArrivalAirport };
+              console.log('[FlightSearch] 使用本地存儲的目的地機場:', arrivalAirport);
+            } else {
+              // 否則使用簡單對象
+              arrivalAirport = { code: arrCode };
+            }
+          } catch (error) {
+            console.error('[FlightSearch] 獲取目的地機場詳情時出錯:', error);
+            arrivalAirport = { code: params.arrival };
+          }
+        }
+        
+        // 更新本地狀態以顯示路線摘要
+        searchStore.setSearchParams({
+          departureAirport: departureAirport,
+          arrivalAirport: arrivalAirport,
+          departureDate: params.date,
+          returnDate: params.return_date,
+          classType: params.class_type
+        });
+
         // 直接使用傳入的 params 中的代碼
         const departureCode = params.departure;
         const arrivalCode = params.arrival;
@@ -356,6 +433,18 @@ export default {
   min-height: 90vh;
   background-color: var(--color-background);
   scroll-behavior: smooth; /* 添加平滑滾動支持 */
+}
+
+/* 添加高亮效果 */
+:deep(.highlight-card) {
+  animation: highlight-pulse 2s ease-in-out;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 95, 115, 0); }
+  50% { box-shadow: 0 0 0 8px rgba(0, 95, 115, 0.3); }
 }
 
 /* 搜索背景 */

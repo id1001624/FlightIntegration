@@ -319,12 +319,24 @@ export default {
         }
         return;
       }
+      
+      // 保存完整的機場對象
+      const searchStore = useSearchStore();
+      searchStore.setSearchParams({
+        departureAirport: formData.departureAirport,
+        arrivalAirport: formData.arrivalAirport,
+        departureDate: formData.departureDate,
+        returnDate: formData.returnDate || null,
+        classType: formData.classType
+      });
+      
+      // 構建 API 需要的簡化參數
       const searchParams = {
-          departure: formData.departureAirport ? formData.departureAirport.code : null,
-          arrival: formData.arrivalAirport.code,
-          date: formData.departureDate,
-          return_date: formData.returnDate || null,
-          class_type: formData.classType
+        departure: formData.departureAirport ? formData.departureAirport.code : null,
+        arrival: formData.arrivalAirport.code,
+        date: formData.departureDate,
+        return_date: formData.returnDate || null,
+        class_type: formData.classType
       };
       
       emit('search', searchParams);

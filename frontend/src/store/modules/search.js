@@ -63,7 +63,28 @@ export const useSearchStore = defineStore('search', {
   actions: {
     // 更新搜索參數
     setSearchParams(params) {
-      this.searchParams = { ...params };
+      // 創建深拷貝以避免對原始對象的修改影響 store
+      const paramsCopy = JSON.parse(JSON.stringify(params));
+      
+      // 確保機場對象包含所有必要字段
+      if (paramsCopy.departureAirport) {
+        // 確保 departureAirport 有完整資訊
+        this.searchParams.departureAirport = { 
+          ...paramsCopy.departureAirport 
+        };
+      }
+      
+      if (paramsCopy.arrivalAirport) {
+        // 確保 arrivalAirport 有完整資訊
+        this.searchParams.arrivalAirport = { 
+          ...paramsCopy.arrivalAirport 
+        };
+      }
+      
+      // 更新其他參數
+      this.searchParams.departureDate = paramsCopy.departureDate || this.searchParams.departureDate;
+      this.searchParams.returnDate = paramsCopy.returnDate || this.searchParams.returnDate;
+      this.searchParams.classType = paramsCopy.classType || this.searchParams.classType;
     },
     
     // 更新搜索結果

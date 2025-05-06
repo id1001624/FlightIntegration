@@ -1,5 +1,5 @@
 <template>
-  <div class="flight-card-wrapper relative">
+  <div class="flight-card-wrapper relative" :id="`flight-card-${flight.flight_id}`">
     <!-- Start: Restore original router-link -->
     <router-link 
       v-if="flight && flight.flight_id" 

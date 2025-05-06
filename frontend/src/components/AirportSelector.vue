@@ -6,14 +6,14 @@
       <div 
         @click="toggleDropdown" 
         class="input w-full pr-10 border-gray-300 focus:border-primary flex items-center cursor-pointer"
-        :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled, 'pl-3': !loading, 'pl-8': loading }"
+        :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled, 'pl-3': !loading, 'pl-10': loading }"
       >
         <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
         <span v-else class="text-gray-500">{{ placeholder }}</span>
       </div>
 
       <!-- Loading Spinner -->
-      <div v-if="loading" class="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+      <div v-if="loading" class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
         <div class="orbital-loader-sm">
           <div class="orbital-dot"></div>
           <div class="orbital-dot"></div>
@@ -470,31 +470,33 @@ export default {
   position: relative;
   width: 1.5rem;
   height: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .orbital-loader-sm .orbital-dot {
   position: absolute;
-  width: 0.35rem;
-  height: 0.35rem;
-  border: 1px solid #005F73;
+  width: 0.3rem;
+  height: 0.3rem;
+  background-color: #005F73;
   border-radius: 9999px;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(1) {
-  top: calc(50% - 0.6rem);
-  left: calc(50% - 0.175rem);
+  top: 0;
   animation: pulseScale 1.5s infinite;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(2) {
-  top: calc(50% + 0.3rem);
-  left: calc(50% - 0.6rem);
+  bottom: 0.1rem;
+  left: 0.1rem;
   animation: pulseScale 1.5s infinite 0.2s;
 }
 
 .orbital-loader-sm .orbital-dot:nth-child(3) {
-  top: calc(50% + 0.3rem);
-  left: calc(50% + 0.25rem);
+  bottom: 0.1rem;
+  right: 0.1rem;
   animation: pulseScale 1.5s infinite 0.4s;
 }
 
