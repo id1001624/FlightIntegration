@@ -123,7 +123,7 @@
 import { computed, ref, onMounted, onUnmounted, nextTick, onUpdated } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
-import FlightProgressBar from '../ui/FlightProgressBar.vue'; // 導入新的進度條組件
+import FlightProgressBar from '@/components/ui/FlightProgressBar.vue'; // 修正導入路徑
 
 // **讀取環境變數並移除 /api**
 const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
