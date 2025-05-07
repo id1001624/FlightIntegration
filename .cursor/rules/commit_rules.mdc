@@ -42,7 +42,7 @@ alwaysApply: false
 ### 分支管理規範
 
 - **主要分支**:
-  - `main` / `master`: 生產環境代碼
+  - `updated-ui`(這是我們現在在用的分支) `main` / `master`: 生產環境代碼
   - `develop`: 開發環境代碼
   - `feature/*`: 功能開發分支
   - `bugfix/*`: 問題修復分支

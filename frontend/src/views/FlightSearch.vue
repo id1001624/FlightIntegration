@@ -70,12 +70,8 @@
       </div>
 
       <!-- 首次載入提示 -->
-      <div v-else class="empty-state">
-        <div class="empty-state-content">
-          <div class="empty-icon">✈</div>
-          <h2 class="empty-title">開始您的旅程</h2>
-          <p class="empty-message">請輸入出發地、目的地和日期開始搜尋航班</p>
-        </div>
+      <div v-else>
+        <EmptySearchState />
       </div>
 
       <!-- <MinimalParent /> -->
@@ -88,8 +84,9 @@
 import SearchForm from '@/components/search/SearchForm.vue';
 import FilterPanel from '@/components/search/FilterPanel.vue';
 import FlightResults from '@/components/search/FlightResults.vue';
+import EmptySearchState from '@/components/search/EmptySearchState.vue';
 import flightService from '@/api/services/flightService';
-import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue';
+import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
 import { useRoute, useRouter } from 'vue-router'; // 確保 useRouter 被引入
 
@@ -98,7 +95,8 @@ export default {
   components: {
     SearchForm,
     FilterPanel,
-    FlightResults
+    FlightResults,
+    EmptySearchState
   },
   setup() {
     // 使用 search store
@@ -189,7 +187,7 @@ export default {
                   'scrollToResults:', shouldScrollToResults,
                   'lastViewedFlight:', lastViewedFlight);
 
-      // 如果是從詳情頁返回且有搜索結果
+      // 如果是從詳情頁返回且有搜索結果，保持狀態並滾動到結果
       if (fromDetail && shouldScrollToResults && searchStore.hasSearched) {
         // 使用setTimeout確保DOM已完全載入
         setTimeout(() => {
@@ -199,6 +197,16 @@ export default {
             scrollToResults();
           }
         }, 300);
+      } 
+      // 如果不是從詳情頁返回，重置搜索狀態
+      else if (!fromDetail && searchStore.hasSearched) {
+        console.log('[FlightSearch] 不是從詳情頁返回，重置搜索狀態');
+        searchStore.resetAll();
+        
+        // 清除路由中的參數
+        if (Object.keys(route.query).length > 0) {
+          router.replace({ query: {} });
+        }
       }
     });
 
@@ -695,40 +703,6 @@ export default {
 /* 航班結果面板 */
 .flights-panel {
   min-height: 400px;
-}
-
-/* 空狀態 */
-.empty-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 50vh;
-}
-
-.empty-state-content {
-  text-align: center;
-  padding: 30px;
-  background-color: white;
-  width: 100%;
-  max-width: 500px;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-}
-
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  color: var(--color-secondary);
-}
-
-.empty-title {
-  font-size: 1.5rem;
-  margin-bottom: 8px;
-  color: var(--color-text-primary);
-}
-
-.empty-message {
-  color: var(--color-text-secondary);
 }
 
 /* 載入指示器 */
