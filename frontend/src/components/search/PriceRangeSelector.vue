@@ -222,10 +222,10 @@ const validateInput = (handleType) => {
 }
 
 const resetPrices = () => {
-  currentMinPrice.value = props.initialMinPrice;
-  currentMaxPrice.value = props.initialMaxPrice;
-  editableMinPrice.value = props.initialMinPrice;
-  editableMaxPrice.value = props.initialMaxPrice;
+  currentMinPrice.value = props.minPriceLimit;
+  currentMaxPrice.value = props.maxPriceLimit;
+  editableMinPrice.value = props.minPriceLimit;
+  editableMaxPrice.value = props.maxPriceLimit;
 };
 
 const histogramBars = computed(() => {

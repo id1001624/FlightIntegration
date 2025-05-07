@@ -173,13 +173,10 @@ export default {
     
     // 當計算出的價格範圍變化時，更新本地的選定範圍
     watch(minMaxPrices, (newValue) => {
-        console.log('[FilterPanel] minMaxPrices changed, updating priceRange ref:', newValue);
-        // 確保 initialMinPrice 和 initialMaxPrice 不會超出新的 minMaxPrices 範圍
-        const newMin = Math.max(newValue.min, Math.min(priceRange.value.min, newValue.max));
-        const newMax = Math.min(newValue.max, Math.max(priceRange.value.max, newValue.min));
-        
-        priceRange.value = { min: newMin, max: newMax };
-        defaultPriceRange.value = { ...newValue }; // 如果重置邏輯需要，也更新 default
+        console.log('[FilterPanel] minMaxPrices changed, resetting priceRange ref to full range:', newValue);
+        // 直接將 priceRange 重置為新的完整範圍
+        priceRange.value = { min: newValue.min, max: newValue.max };
+        defaultPriceRange.value = { ...newValue }; // 更新 defaultPriceRange 以供可能的重置邏輯使用
     }, { immediate: true }); // immediate 確保初始計算完成後立即設置
 
     return {

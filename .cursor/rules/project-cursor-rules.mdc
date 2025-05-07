@@ -61,6 +61,9 @@ FlightIntegration/
 
 ## 4. 當前任務
 
+- 價格篩選器調整
+- 前端設計優化
+
 > 詳細的已完成功能和待開發項目請參考 [activeContext.md](mdc:memory-bank/activeContext.md)，任務追蹤請用 [tasks.md](mdc:memory-bank/tasks.md) 工作完成請更新檔案確保進度追蹤，以memory-bank/去記憶
 
 ## 5. 開發指南
