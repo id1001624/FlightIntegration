@@ -1,19 +1,33 @@
 <template>
   <div class="flight-progress-bar-container" @mouseover="showTooltip = true" @mouseleave="showTooltip = false" :aria-label="`航班進度：${formattedProgress}%`">
-    <div class="flight-duration">{{ totalDuration }}</div>
-    <div class="route-track">
-      <div class="completed-path" :style="{ width: progressPercentage + '%' }"></div>
-      <div class="progress-indicator" :style="{ left: progressPercentage + '%' }">
-        <div class="indicator-head"></div>
-        <div class="indicator-tail-1"></div>
-        <div class="indicator-tail-2"></div>
-        <div class="indicator-tail-3"></div>
+    <div class="journey-visualization">
+      <div class="departure-info">
+        <p class="time">{{ departureTime }}</p>
+        <p class="airport-code">{{ departureCode }}</p>
       </div>
-      <div v-if="showOriginDestinationMarkers" class="origin-marker"></div>
-      <div v-if="showOriginDestinationMarkers" class="destination-marker"></div>
-    </div>
-    <div class="progress-tooltip" v-if="showTooltip" :style="{ left: tooltipPosition + '%' }">
-      已飛行: {{ flownDuration }} ({{ formattedProgress }}%)
+      
+      <div class="journey-content">
+        <div class="flight-duration">{{ totalDuration }}</div>
+        <div class="route-track">
+          <div class="completed-path" :style="{ width: progressPercentage + '%' }"></div>
+          <div class="progress-indicator" :style="{ left: progressPercentage + '%' }">
+            <div class="indicator-head"></div>
+            <div class="indicator-tail-1"></div>
+            <div class="indicator-tail-2"></div>
+            <div class="indicator-tail-3"></div>
+          </div>
+          <div v-if="showOriginDestinationMarkers" class="origin-marker"></div>
+          <div v-if="showOriginDestinationMarkers" class="destination-marker"></div>
+        </div>
+        <div class="progress-tooltip" v-if="showTooltip" :style="{ left: tooltipPosition + '%' }">
+          已飛行: {{ flownDuration }} ({{ formattedProgress }}%)
+        </div>
+      </div>
+      
+      <div class="arrival-info">
+        <p class="time">{{ arrivalTime }}</p>
+        <p class="airport-code">{{ arrivalCode }}</p>
+      </div>
     </div>
   </div>
 </template>
@@ -35,6 +49,22 @@ const props = defineProps({
   showOriginDestinationMarkers: {
     type: Boolean,
     default: false // As per design, these are optional
+  },
+  departureCode: {
+    type: String,
+    default: 'DEP'
+  },
+  arrivalCode: {
+    type: String,
+    default: 'ARR'
+  },
+  departureTime: {
+    type: String,
+    default: '--:--'
+  },
+  arrivalTime: {
+    type: String,
+    default: '--:--'
   }
 });
 
@@ -55,13 +85,13 @@ const formatDuration = (minutes) => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   let formatted = '';
-  if (h > 0) formatted += `${h}h `;
-  formatted += `${m}m`;
+  if (h > 0) formatted += `${h}時`;
+  formatted += `${m}分`;
   return formatted.trim();
 };
 
 const totalDuration = computed(() => {
-  return `總航程: ${formatDuration(totalFlightTime.value)}`;
+  return formatDuration(totalFlightTime.value);
 });
 
 const flownDuration = computed(() => {
@@ -86,6 +116,37 @@ const tooltipPosition = computed(() => {
   padding: 12px 0;
   width: 100%;
   cursor: default; /* Indicate it's not a clickable progress bar unless specified */
+}
+
+.journey-visualization {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.departure-info, .arrival-info {
+  width: 80px;
+  text-align: center;
+}
+
+.time {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #212529);
+  margin: 0 0 0.25rem 0;
+}
+
+.airport-code {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #6C757D);
+  margin: 0;
+  font-weight: 500;
+}
+
+.journey-content {
+  flex: 1;
+  padding: 0 10px;
+  position: relative;
 }
 
 .flight-duration {
@@ -218,4 +279,24 @@ const tooltipPosition = computed(() => {
   transform: translateX(-50%) translateY(-5px); /* Slight upward movement on hover */
 }
 
+/* 響應式設計 */
+@media (max-width: 640px) {
+  .journey-visualization {
+    flex-direction: column;
+  }
+  
+  .departure-info, .arrival-info {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    text-align: left;
+    margin-bottom: 0.5rem;
+  }
+  
+  .journey-content {
+    width: 100%;
+    padding: 1rem 0;
+    order: 3;
+  }
+}
 </style> 

@@ -4,10 +4,11 @@
     
     <div class="content-container">
       <div class="illustration-container">
-        <div class="airplane-animation">
-          <div class="airplane">
-            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 16V14L13 9V3.5C13 2.67 12.33 2 11.5 2C10.67 2 10 2.67 10 3.5V9L2 14V16L10 13.5V19L8 20.5V22L11.5 21L15 22V20.5L13 19V13.5L21 16Z" fill="#F4A261"/>
+        <div class="sky-animation">
+          <div class="plane-container">
+            <svg class="plane" viewBox="0 0 24 24" width="60" height="60">
+              <path d="M22,16.21V14.67L12,9V3.5A1.5,1.5,0,0,0,10.5,2h0A1.5,1.5,0,0,0,9,3.5V9L1.46,13.67v1.55l7.54-1.34V21l-2,1.5v1.77L11.56,23l4.56,1.27V22.5L14,21V13.89Z" fill="#005F73"/>
+              <path d="M10.58,4.2h0a.76.76,0,0,1,.76.76V9a.27.27,0,0,1-.16.24L5.17,12.12a.25.25,0,0,1-.33-.33l5-7.35A.74.74,0,0,1,10.58,4.2Z" fill="#e0f2f1"/>
             </svg>
           </div>
           <div class="clouds">
@@ -63,8 +64,8 @@
         <div class="search-instructions">
           <div class="instruction-arrow">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 12L4 12" stroke="#F4A261" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M10 18L4 12L10 6" stroke="#F4A261" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20 12L4 12" stroke="#005F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 18L4 12L10 6" stroke="#005F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <p class="instruction-text">請使用上方的搜索表單<br>填寫出發地、目的地和日期開始搜索</p>
@@ -81,8 +82,10 @@
 <style scoped>
 .empty-search-state {
   position: relative;
-  height: 500px;
   width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  min-height: 520px;
   background-color: #FFFFFF;
   border-radius: 12px;
   overflow: hidden;
@@ -95,8 +98,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 200px;
-  background: linear-gradient(180deg, rgba(244, 162, 97, 0.15) 0%, rgba(255, 255, 255, 0) 100%);
+  height: 250px;
+  background: linear-gradient(180deg, rgba(0, 95, 115, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
   z-index: 0;
 }
 
@@ -107,29 +110,36 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
   height: 100%;
 }
 
 .illustration-container {
   width: 100%;
-  height: 150px;
+  height: 180px;
   position: relative;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
-.airplane-animation {
+.sky-animation {
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
-.airplane {
+.plane-container {
   position: absolute;
-  left: 10%;
   top: 50%;
+  left: 20%;
   transform: translateY(-50%);
-  animation: fly 20s linear infinite;
+  z-index: 10;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  animation: flyAndTilt 12s ease-in-out infinite;
+}
+
+.plane {
+  transform-origin: center;
 }
 
 .clouds {
@@ -145,46 +155,95 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
+.cloud::before,
+.cloud::after {
+  content: '';
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+}
+
 .cloud-1 {
-  width: 80px;
-  height: 20px;
-  top: 40%;
-  left: 20%;
-  animation: moveCloud 25s linear infinite;
+  width: 100px;
+  height: 30px;
+  top: 30%;
+  left: 10%;
+  animation: moveCloud 20s linear infinite;
+}
+
+.cloud-1::before {
+  width: 45px;
+  height: 45px;
+  top: -25px;
+  left: 10px;
+}
+
+.cloud-1::after {
+  width: 60px;
+  height: 60px;
+  top: -35px;
+  left: 40px;
 }
 
 .cloud-2 {
-  width: 120px;
+  width: 140px;
   height: 30px;
-  top: 30%;
-  left: 50%;
-  animation: moveCloud 30s linear infinite;
+  top: 60%;
+  left: 35%;
+  animation: moveCloud 25s linear infinite;
+}
+
+.cloud-2::before {
+  width: 50px;
+  height: 50px;
+  top: -30px;
+  left: 20px;
+}
+
+.cloud-2::after {
+  width: 70px;
+  height: 70px;
+  top: -40px;
+  left: 60px;
 }
 
 .cloud-3 {
-  width: 60px;
-  height: 15px;
-  top: 60%;
-  left: 70%;
+  width: 120px;
+  height: 25px;
+  top: 40%;
+  left: 65%;
   animation: moveCloud 22s linear infinite;
 }
 
-@keyframes fly {
+.cloud-3::before {
+  width: 40px;
+  height: 40px;
+  top: -20px;
+  left: 15px;
+}
+
+.cloud-3::after {
+  width: 55px;
+  height: 55px;
+  top: -30px;
+  left: 50px;
+}
+
+@keyframes flyAndTilt {
   0% {
-    left: -5%;
-    transform: translateY(-50%) rotate(5deg);
+    transform: translate(-5%, -50%) rotate(-2deg);
+  }
+  25% {
+    transform: translate(25%, -45%) rotate(3deg);
   }
   50% {
-    left: 105%;
-    transform: translateY(-50%) rotate(-5deg);
+    transform: translate(60%, -50%) rotate(-1deg);
   }
-  50.01% {
-    left: -5%;
-    transform: translateY(-50%) rotate(5deg);
+  75% {
+    transform: translate(25%, -55%) rotate(2deg);
   }
   100% {
-    left: 105%;
-    transform: translateY(-50%) rotate(-5deg);
+    transform: translate(-5%, -50%) rotate(-2deg);
   }
 }
 
@@ -193,32 +252,32 @@
     transform: translateX(0);
   }
   100% {
-    transform: translateX(-400%);
+    transform: translateX(-100vw);
   }
 }
 
 .text-content {
   text-align: center;
-  max-width: 600px;
+  max-width: 700px;
 }
 
 .title {
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #212529;
   margin-bottom: 0.5rem;
 }
 
 .subtitle {
-  font-size: 1rem;
+  font-size: 1.125rem;
   color: #6C757D;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
 }
 
 .features {
   display: flex;
   justify-content: space-around;
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
   width: 100%;
 }
 
@@ -230,37 +289,43 @@
 }
 
 .feature-icon {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  transform: scale(1.2);
 }
 
 .feature-text h3 {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: #212529;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .feature-text p {
-  font-size: 0.875rem;
+  font-size: 0.925rem;
   color: #6C757D;
+  line-height: 1.4;
 }
 
 .search-instructions {
   display: flex;
   align-items: center;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: rgba(0, 95, 115, 0.05);
+  border-radius: 8px;
 }
 
 .instruction-arrow {
-  margin-right: 1rem;
+  margin-right: 1.5rem;
   animation: pointUp 2s ease-in-out infinite;
 }
 
 .instruction-text {
-  font-size: 0.875rem;
-  color: #6C757D;
+  font-size: 1rem;
+  color: #495057;
   text-align: left;
   font-weight: 500;
+  line-height: 1.5;
 }
 
 @keyframes pointUp {
@@ -274,6 +339,10 @@
 
 /* 響應式設計 */
 @media (max-width: 768px) {
+  .empty-search-state {
+    min-height: 700px;
+  }
+
   .features {
     flex-direction: column;
     align-items: center;
@@ -281,16 +350,17 @@
   
   .feature {
     width: 100%;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
   }
   
   .search-instructions {
     flex-direction: column;
+    padding: 1.5rem;
   }
   
   .instruction-arrow {
     margin-right: 0;
-    margin-bottom: 0.5rem;
+    margin-bottom: 1rem;
     transform: rotate(90deg);
   }
   

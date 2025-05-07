@@ -61,12 +61,6 @@ FlightIntegration/
 
 ## 4. 當前任務
 
-- **前端調試與優化**
-  - 優化起飛機場排序：根據可用航班數量排序台灣機場
-  - 實現中文名稱搜索：允許用戶使用中文名稱在 `AirportSelector` 元件中搜索機場
-- **腳本新增**
-  - 刪除flights、ticket_prices資料庫舊資料。
-
 > 詳細的已完成功能和待開發項目請參考 [activeContext.md](mdc:memory-bank/activeContext.md)，任務追蹤請用 [tasks.md](mdc:memory-bank/tasks.md) 工作完成請更新檔案確保進度追蹤，以memory-bank/去記憶
 
 ## 5. 開發指南

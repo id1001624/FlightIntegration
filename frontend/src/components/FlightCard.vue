@@ -78,6 +78,10 @@
               :current-progress="currentFlightProgressMinutes" 
               :total-flight-time="totalFlightTimeMinutes" 
               :show-origin-destination-markers="true"
+              :departure-code="getDepartureAirportCode"
+              :arrival-code="getArrivalAirportCode"
+              :departure-time="formattedDepartureTime"
+              :arrival-time="formattedArrivalTime"
             />
           </div>
           <!-- ADD NEW PROGRESS BAR END -->
