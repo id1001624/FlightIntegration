@@ -48,16 +48,15 @@
           </div>
           
           <!-- 行程視覺化 -->
+          <!-- REMOVE OLD VISUALIZATION START -->
+          <!-- 
           <div class="journey-visualization">
-            <!-- 出發資訊 -->
             <div class="departure-info">
               <p class="time">{{ formattedDepartureTime }}</p>
               <p class="airport-code">{{ getDepartureAirportCode }}</p>
             </div>
-
-            <!-- 旅程線條與時長 -->
             <div class="journey-line-container">
-              <p class="flight-duration">{{ flightDuration }}</p>
+              <p class="flight-duration">{{ flightDurationComputed }}</p> 
               <div class="journey-line-wrapper">
                 <div class="journey-line" ref="journeyLine"></div>
                 <div class="airplane-icon" ref="airplaneIcon"></div>
@@ -65,13 +64,23 @@
                 <div class="arrival-dot"></div>
               </div>
             </div>
-
-            <!-- 到達資訊 -->
             <div class="arrival-info">
               <p class="time">{{ formattedArrivalTime }}</p>
               <p class="airport-code">{{ getArrivalAirportCode }}</p>
             </div>
           </div>
+          -->
+          <!-- REMOVE OLD VISUALIZATION END -->
+
+          <!-- ADD NEW PROGRESS BAR START -->
+          <div class="new-flight-progress-container">
+            <FlightProgressBar 
+              :current-progress="currentFlightProgressMinutes" 
+              :total-flight-time="totalFlightTimeMinutes" 
+              :show-origin-destination-markers="true"
+            />
+          </div>
+          <!-- ADD NEW PROGRESS BAR END -->
 
           <!-- 額外資訊 -->
           <div class="flight-meta">
@@ -114,6 +123,7 @@
 import { computed, ref, onMounted, onUnmounted, nextTick, onUpdated } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
+import FlightProgressBar from '../ui/FlightProgressBar.vue'; // 導入新的進度條組件
 
 // **讀取環境變數並移除 /api**
 const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
@@ -137,9 +147,6 @@ export default {
 
     const router = useRouter();
     const isActive = ref(props.active);
-    const journeyLine = ref(null);
-    const airplaneIcon = ref(null);
-    let animationFrame = null;
     const showDetails = ref(false);
     const detailToggleInProgress = ref(false); // Flag to prevent navigation during toggle
     const detailsOverlayRef = ref(null); // 用於點擊外部關閉
@@ -269,7 +276,7 @@ export default {
 
     const flightClassType = computed(() => formatClassType(props.flight.price?.cabin_class));
 
-    const flightDuration = computed(() => {
+    const flightDurationComputed = computed(() => {
       if (props.flight.duration_minutes != null) {
         return formatDuration(props.flight.duration_minutes);
       }
@@ -285,6 +292,33 @@ export default {
         } catch (e) { /* 計算失敗 */ }
       }
       return '--時--分';
+    });
+
+    const totalFlightTimeMinutes = computed(() => {
+      return props.flight.duration_minutes || 0;
+    });
+
+    const currentFlightProgressMinutes = computed(() => {
+      // 簡易進度邏輯：如果航班正在飛行中，顯示50%進度，否則為0%或100%
+      const now = new Date().getTime();
+      const departureTime = new Date(props.flight.departure?.time).getTime();
+      const arrivalTime = new Date(props.flight.arrival?.time).getTime();
+
+      if (isNaN(departureTime) || isNaN(arrivalTime) || totalFlightTimeMinutes.value <= 0) {
+        return 0;
+      }
+
+      if (now < departureTime) { // 尚未起飛
+        return 0;
+      }
+      if (now > arrivalTime) { // 已抵達
+        return totalFlightTimeMinutes.value;
+      }
+      // 正在飛行中 - 估算已飛行時間
+      const flown = (now - departureTime) / (1000 * 60); // 分鐘
+      return Math.min(flown, totalFlightTimeMinutes.value); 
+      // 為了演示，我們先用一個固定值或簡單估算
+      // return totalFlightTimeMinutes.value / 2; // 假設飛行到一半
     });
 
     const detailLinkTarget = computed(() => {
@@ -410,18 +444,18 @@ export default {
       flightNumber,
       displayPrice,
       flightClassType,
-      flightDuration,
+      flightDurationComputed,
       isActive,
       showDetails,
       toggleDetails,
       closeDetails,
       selectFlight,
-      journeyLine,
-      airplaneIcon,
       detailLinkTarget,
       hasValidPrice,
       detailsOverlayRef,
-      detailsButtonRef
+      detailsButtonRef,
+      totalFlightTimeMinutes,
+      currentFlightProgressMinutes
     };
   }
 }
@@ -760,5 +794,12 @@ export default {
     text-align: left;
     margin-top: 0.75rem;
   }
+}
+
+/* Style for the new progress bar container if needed */
+.new-flight-progress-container {
+  padding: 0 10px; /* Add some padding to prevent touching edges */
+  margin-top: 8px; /* Space above the progress bar */
+  margin-bottom: 8px; /* Space below the progress bar */
 }
 </style> 

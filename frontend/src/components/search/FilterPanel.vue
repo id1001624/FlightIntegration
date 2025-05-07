@@ -10,24 +10,28 @@
       v-model="selectedAirlines"
     />
     
-    <PriceRangeSlider 
-      :min="minMaxPrices.min"
-      :max="minMaxPrices.max"
-      v-model="priceRange"
+    <PriceRangeSelector
+      :min-price-limit="minMaxPrices.min"
+      :max-price-limit="minMaxPrices.max"
+      :initial-min-price="priceRange.min"
+      :initial-max-price="priceRange.max"
+      @update:price-range="updatePriceRange"
+      :histogram-data="priceHistogramData" 
+      :average-price="averageFlightPrice"
     />
   </div>
 </template>
 
 <script>
 import AirlineFilter from '../AirlineFilter.vue';
-import PriceRangeSlider from '../PriceRangeSlider.vue';
+import PriceRangeSelector from './PriceRangeSelector.vue';
 import { computed, ref, watch } from 'vue';
 
 export default {
   name: 'FilterPanel',
   components: {
     AirlineFilter,
-    PriceRangeSlider
+    PriceRangeSelector
   },
   props: {
     flights: {
@@ -72,6 +76,9 @@ export default {
       
       // 為最大值添加一點緩衝
       max = Math.ceil(max / 1000) * 1000;
+      if (max === 0 && min === 0 && props.flights.length > 0) { // 如果所有價格都是0或無效，但有航班數據
+        max = 50000; // 設置一個默認最大值
+      }
       
       // 確保最小值不大於最大值 (如果 max 緩衝後仍為 0)
       if (min > max) {
@@ -80,6 +87,46 @@ export default {
       
       console.log(`[FilterPanel] Calculated minMaxPrices: min=${min}, max=${max}`);
       return { min, max };
+    });
+    
+    const averageFlightPrice = computed(() => {
+      if (!props.flights || props.flights.length === 0) return null;
+      let total = 0;
+      let count = 0;
+      props.flights.forEach(flight => {
+        const price = flight.price?.amount ? parseFloat(flight.price.amount) : 0;
+        if (price > 0) {
+          total += price;
+          count++;
+        }
+      });
+      return count > 0 ? Math.round(total / count) : null;
+    });
+
+    const priceHistogramData = computed(() => {
+      if (!props.flights || props.flights.length === 0 || minMaxPrices.value.max === 0) return [];
+      const numBuckets = 20; // 可以調整柱狀圖的精細度
+      const bucketSize = (minMaxPrices.value.max - minMaxPrices.value.min) / numBuckets;
+      if (bucketSize <= 0) return []; // 防止除以零或負數
+
+      const buckets = Array(numBuckets).fill(0).map((_, i) => {
+        return {
+          rangeMin: minMaxPrices.value.min + i * bucketSize,
+          rangeMax: minMaxPrices.value.min + (i + 1) * bucketSize,
+          count: 0
+        };
+      });
+
+      props.flights.forEach(flight => {
+        const price = flight.price?.amount ? parseFloat(flight.price.amount) : 0;
+        if (price > 0) {
+          const bucketIndex = Math.min(Math.floor((price - minMaxPrices.value.min) / bucketSize), numBuckets - 1);
+          if (bucketIndex >= 0 && bucketIndex < numBuckets) {
+             buckets[bucketIndex].count++;
+          }
+        }
+      });
+      return buckets;
     });
     
     // 檢查是否有任何活動的過濾條件
@@ -109,6 +156,11 @@ export default {
       });
     };
 
+    // 新增一個方法來處理新組件的事件
+    const updatePriceRange = (newRange) => {
+      priceRange.value = { ...newRange };
+    };
+
     // 當選擇的航空公司變化時通知父組件
     watch(selectedAirlines, () => {
       emitFilterChange();
@@ -122,7 +174,11 @@ export default {
     // 當計算出的價格範圍變化時，更新本地的選定範圍
     watch(minMaxPrices, (newValue) => {
         console.log('[FilterPanel] minMaxPrices changed, updating priceRange ref:', newValue);
-        priceRange.value = { ...newValue };
+        // 確保 initialMinPrice 和 initialMaxPrice 不會超出新的 minMaxPrices 範圍
+        const newMin = Math.max(newValue.min, Math.min(priceRange.value.min, newValue.max));
+        const newMax = Math.min(newValue.max, Math.max(priceRange.value.max, newValue.min));
+        
+        priceRange.value = { min: newMin, max: newMax };
         defaultPriceRange.value = { ...newValue }; // 如果重置邏輯需要，也更新 default
     }, { immediate: true }); // immediate 確保初始計算完成後立即設置
 
@@ -131,7 +187,10 @@ export default {
       priceRange,
       minMaxPrices,
       hasActiveFilters,
-      resetFilters
+      resetFilters,
+      updatePriceRange,
+      priceHistogramData,
+      averageFlightPrice
     };
   }
 };
