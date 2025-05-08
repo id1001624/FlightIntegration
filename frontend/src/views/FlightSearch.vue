@@ -557,12 +557,12 @@ export default {
 
 /* 搜索背景 */
 .search-background {
-  /* background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg'); */ /* Removed background image */
-  /* background-size: cover; */
-  /* background-position: center; */
-  background-color: var(--color-secondary); /* Changed to secondary color (orange) */
+  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg'); /* 恢復背景圖片 */
+  background-size: cover;
+  background-position: center;
+  /* background-color: var(--color-secondary); */ /* 移除橘色背景 */
   position: relative;
-  color: var(--color-base); /* Changed text color to white for better contrast on orange */
+  color: #333; /* 將文字顏色改回深色以適應淺色背景 */
   padding: 40px 0;
   overflow: hidden;
 }
@@ -574,8 +574,8 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  /* background-color: rgba(255, 255, 255, 0.7); */ /* Removed white overlay */
-  background-color: rgba(0, 0, 0, 0.1); /* Optional: Added a very subtle dark overlay for depth */
+  background-color: rgba(255, 255, 255, 0.7); /* 恢復淺色半透明遮罩 */
+  /* background-color: rgba(0, 0, 0, 0.1); */ /* 移除深色遮罩 */
   z-index: 0;
 }
 
