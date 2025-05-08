@@ -219,8 +219,8 @@ onUnmounted(() => {
 }
 
 .plane-icon-img {
-  width: 80px; /* 放大飛機圖片 */
-  height: 80px; /* 放大飛機圖片 */
+  width: 120px; /* 放大飛機圖片 */
+  height: 120px; /* 放大飛機圖片 */
   object-fit: contain;
   position: relative;
   z-index: 2;

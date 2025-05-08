@@ -70,7 +70,7 @@
       </div>
 
       <!-- 首次載入提示 -->
-      <div v-else>
+      <div v-else class="empty-state-container">
         <EmptySearchState />
       </div>
 
@@ -481,7 +481,7 @@ export default {
       formattedDepartureDate,
       handleSearch,
       handleFilterChange,
-      resultsContainer // 返回參考給模板
+      resultsContainer
     };
   }
 };
@@ -589,6 +589,13 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+/* 空狀態容器樣式 */
+.empty-state-container {
+  margin-top: 40px; /* 增加與搜尋區塊的間距 */
+  margin-bottom: 60px; /* 控制與頁腳的間距 */
+  padding: 0;
 }
 
 /* 頁面標題區 */
