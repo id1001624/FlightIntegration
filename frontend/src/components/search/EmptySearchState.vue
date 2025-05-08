@@ -26,9 +26,21 @@
         
         <div class="features">
           <div class="feature">
-            <div class="feature-icon">
+            <div class="feature-icon price-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13.41 18.09V20H10.74V18.07C9.03 17.71 7.58 16.61 7.05 14.9L9.17 14C9.55 15.09 10.43 15.97 12 15.97C13.95 15.97 15.15 14.63 15.15 13.11C15.15 11.79 14.29 10.86 12.53 10.37L11.46 10.08C10.34 9.78 9.94 9.36 9.94 8.71C9.94 7.93 10.55 7.4 11.56 7.4C12.69 7.4 13.31 8.05 13.59 8.9L15.59 8.07C15.08 6.58 13.93 5.69 12.03 5.51V4H9.36V5.51C7.79 5.84 6.47 7.05 6.47 8.77C6.47 10.4 7.58 11.5 9.44 12.03L10.4 12.29C11.85 12.65 12.35 13.13 12.35 13.88C12.35 14.69 11.74 15.27 10.58 15.27C9.35 15.27 8.39 14.67 8.04 13.67L6 14.5C6.54 16.29 7.86 17.4 10.74 17.95V18.09H13.41Z" fill="#005F73"/>
+                <path d="M18 7H22V9H18V13H16V9H12V7H16V3H18V7Z" fill="#F4A261"/>
+                <path d="M2 7H10V9H2V7Z" fill="#F4A261"/>
+                <path d="M6 11H10V13H6V11Z" fill="#F4A261"/>
+                <path d="M2 11H4V13H2V11Z" fill="#F4A261"/>
+                <path d="M2 15H10V17H2V15Z" fill="#F4A261"/>
+                <path d="M14 15H16V17H14V15Z" fill="#F4A261"/>
+                <path d="M18 15H22V17H18V15Z" fill="#F4A261"/>
+                <path d="M10 19V21H8V19H10Z" fill="#F4A261"/>
+                <path d="M14 19V21H12V19H14Z" fill="#F4A261"/>
+                <path d="M18 19V21H16V19H18Z" fill="#F4A261"/>
+                <path d="M22 19V21H20V19H22Z" fill="#F4A261"/>
+                <path d="M6 19V21H4V19H6Z" fill="#F4A261"/>
+                <path d="M2 19V21H0V19H2Z" fill="#F4A261"/>
               </svg>
             </div>
             <div class="feature-text">
@@ -38,7 +50,7 @@
           </div>
           
           <div class="feature">
-            <div class="feature-icon">
+            <div class="feature-icon time-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M11.99 2C6.47 2 2 6.48 2 12C2 17.52 6.47 22 11.99 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 11.99 2ZM12 20C7.58 20 4 16.42 4 12C4 7.58 7.58 4 12 4C16.42 4 20 7.58 20 12C20 16.42 16.42 20 12 20ZM12.5 7H11V13L16.25 16.15L17 14.92L12.5 12.25V7Z" fill="#005F73"/>
               </svg>
@@ -50,9 +62,9 @@
           </div>
           
           <div class="feature">
-            <div class="feature-icon">
+            <div class="feature-icon location-icon">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="#005F73"/>
+                <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z" fill="#2A9D8F"/>
               </svg>
             </div>
             <div class="feature-text">
@@ -65,8 +77,8 @@
         <div class="search-instructions">
           <div class="instruction-arrow">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 12L4 12" stroke="#005F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M10 18L4 12L10 6" stroke="#005F73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20 12L4 12" stroke="#F4A261" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10 18L4 12L10 6" stroke="#F4A261" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <p class="instruction-text">請使用上方的搜索表單<br>填寫出發地、目的地和日期開始搜索</p>
@@ -84,7 +96,7 @@
 .empty-search-state {
   position: relative;
   width: 100%;
-  max-width: 64rem; /* Equivalent to Tailwind's max-w-5xl */
+  max-width: 100%; /* 改為100%以適應父容器寬度 */
   margin-left: auto;
   margin-right: auto;
   min-height: 520px;
@@ -182,16 +194,16 @@
 
 .cloud {
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(244, 162, 97, 0.15); /* 修改為淡淡的 #F4A261 顏色 */
   border-radius: 50px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 2px 5px rgba(244, 162, 97, 0.05); /* 修改陰影顏色 */
 }
 
 .cloud::before,
 .cloud::after {
   content: '';
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.6);
+  background-color: rgba(244, 162, 97, 0.15); /* 修改為淡淡的 #F4A261 顏色 */
   border-radius: 50%;
 }
 
@@ -354,17 +366,17 @@
 @keyframes moveCloud {
   0% {
     left: 110%;
-    opacity: 0.2;
+    opacity: 0.3; /* 提高初始透明度 */
   }
   10% {
-    opacity: 0.6;
+    opacity: 0.7; /* 提高移動中透明度 */
   }
   90% {
-    opacity: 0.6;
+    opacity: 0.7; /* 提高移動中透明度 */
   }
   100% {
     left: -20%;
-    opacity: 0.2;
+    opacity: 0.3; /* 提高結束透明度 */
   }
 }
 
@@ -403,6 +415,23 @@
 .feature-icon {
   margin-bottom: 0.75rem;
   transform: scale(1.2);
+  transition: transform 0.3s ease;
+}
+
+.feature:hover .feature-icon {
+  transform: scale(1.3);
+}
+
+.price-icon {
+  filter: drop-shadow(0 2px 4px rgba(244, 162, 97, 0.2));
+}
+
+.time-icon {
+  filter: drop-shadow(0 2px 4px rgba(0, 95, 115, 0.2));
+}
+
+.location-icon {
+  filter: drop-shadow(0 2px 4px rgba(42, 157, 143, 0.2));
 }
 
 .feature-text h3 {
@@ -423,7 +452,7 @@
   align-items: center;
   margin-top: 1.5rem;
   padding: 1rem;
-  background-color: rgba(0, 95, 115, 0.05);
+  background-color: rgba(244, 162, 97, 0.05); /* 修改為 #F4A261 顏色 */
   border-radius: 8px;
 }
 
@@ -451,7 +480,8 @@
 
 @media (max-width: 768px) {
   .empty-search-state {
-    min-height: 700px;
+    min-height: 520px; /* 調整為與大螢幕相同，避免過度拉長 */
+    height: auto; /* 自適應高度 */
   }
 
   .features {

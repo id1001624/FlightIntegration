@@ -110,7 +110,7 @@ const fetchFlightDetails = async (id) => {
       }, remainingTime);
     } else {
       // 加載時間已超過最小動畫顯示時間，直接關閉
-      loading.value = false;
+    loading.value = false;
     }
   }
 };

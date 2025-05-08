@@ -524,4 +524,4 @@ backgroundImage: {
 
 ---
 
-本文檔應與 [專案設計指南](mdc:docs/UI-UX/ui-design-guidelines.mdc) 和 [前端開發指南](mdc:docs/development/frontend-guidelines.mdc) 一起參考，確保所有新開發的元件符合系統的視覺標準。
+本文檔應與 [專案設計指南](mdc:docs/UI-UX/ui-design-guidelines.mdc) 和 [前端開發指南](mdc:docs/development/frontend-guidelines.mdc) 一起參考，確保所有新開發的元件符合系統的視覺標準。 
