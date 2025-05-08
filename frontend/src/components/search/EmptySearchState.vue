@@ -1,11 +1,11 @@
 <template>
-  <div class="empty-search-state">
+  <div class="empty-search-state" ref="emptyStateContainer">
     <div class="background-gradient"></div>
     
     <div class="content-container">
       <div class="illustration-container">
         <div class="sky-animation">
-          <div class="plane-container">
+          <div class="plane-container" :class="{ 'animate-plane': isVisible }">
             <div class="plane-light-effect"></div>
             <img src="@/assets/images/sky-views/flighticon.png" alt="Flight Icon" class="plane-icon-img" />
             <div class="engine-animation"></div>
@@ -89,7 +89,40 @@
 </template>
 
 <script setup>
-// 無需額外的腳本邏輯
+import { ref, onMounted, onUnmounted } from 'vue';
+
+const emptyStateContainer = ref(null);
+const isVisible = ref(false);
+
+let observer = null;
+
+onMounted(() => {
+  // 使用 Intersection Observer API 監視元素可見性
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        isVisible.value = true;
+        // 一旦觸發動畫，可以停止觀察
+        if (observer) {
+          observer.disconnect();
+        }
+      }
+    });
+  }, {
+    threshold: 0.3 // 當30%的元素可見時觸發
+  });
+  
+  if (emptyStateContainer.value) {
+    observer.observe(emptyStateContainer.value);
+  }
+});
+
+onUnmounted(() => {
+  // 組件銷毀時清理觀察者
+  if (observer) {
+    observer.disconnect();
+  }
+});
 </script>
 
 <style scoped>
@@ -113,7 +146,7 @@
   left: 0;
   right: 0;
   height: 250px;
-  background: linear-gradient(180deg, rgba(244, 162, 97, 0.1) 0%, rgba(255, 255, 255, 0) 100%); /* 修改為淡淡的 #F4A261 背景 */
+  background: linear-gradient(180deg, rgba(244, 162, 97, 0.25) 0%, rgba(255, 255, 255, 0) 100%); /* 增加不透明度 */
   z-index: 0;
 }
 
@@ -149,7 +182,14 @@
   left: -80px;
   z-index: 10;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  /* 移除原本的動畫，等待觸發 */
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.animate-plane {
   animation: flyInAndHover 8s ease-out forwards;
+  opacity: 1;
 }
 
 .plane-light-effect {
@@ -179,8 +219,8 @@
 }
 
 .plane-icon-img {
-  width: 60px;
-  height: 60px;
+  width: 80px; /* 放大飛機圖片 */
+  height: 80px; /* 放大飛機圖片 */
   object-fit: contain;
   position: relative;
   z-index: 2;
@@ -194,16 +234,16 @@
 
 .cloud {
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.8); /* 恢復雲為白色，但略微提高不透明度 */
+  background-color: rgba(255, 255, 255, 0.9); /* 提高不透明度 */
   border-radius: 50px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.05); /* 加強陰影 */
 }
 
 .cloud::before,
 .cloud::after {
   content: '';
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.8); /* 恢復雲為白色，但略微提高不透明度 */
+  background-color: rgba(255, 255, 255, 0.9); /* 提高不透明度 */
   border-radius: 50%;
 }
 
