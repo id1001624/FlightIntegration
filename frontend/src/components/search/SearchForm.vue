@@ -85,7 +85,7 @@ import AirportSelector from '../AirportSelector.vue';
 import DateSelector from '../DateSelector.vue';
 import ClassTypeSelector from '../ClassTypeSelector.vue';
 import flightService from '@/api/services/flightService';
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, watch } from 'vue';
 import { useSearchStore } from '@/store/modules/search'; // 引入 search store
 
 export default {
@@ -128,6 +128,18 @@ export default {
         returnDate: searchStore.searchParams.returnDate || '',
         classType: searchStore.searchParams.classType || 'economy'
     });
+
+    // --- 新增 Watcher --- 
+    // 監聽 store 中 departureAirport 的變化，以響應外部重置
+    watch(() => searchStore.searchParams.departureAirport, (newVal) => {
+      if (newVal === null) {
+        console.log('[SearchForm] Detected store reset, clearing local form airports.');
+        formData.departureAirport = null;
+        formData.arrivalAirport = null;
+        destinationAirports.value = []; // 同時清除目的地列表
+      }
+    });
+    // --- Watcher 結束 ---
 
     const errors = reactive({
         departureAirport: '',

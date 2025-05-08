@@ -557,11 +557,12 @@ export default {
 
 /* 搜索背景 */
 .search-background {
-  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg');
-  background-size: cover;
-  background-position: center;
+  /* background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg'); */ /* Removed background image */
+  /* background-size: cover; */
+  /* background-position: center; */
+  background-color: var(--color-secondary); /* Changed to secondary color (orange) */
   position: relative;
-  color: var(--color-primary);
+  color: var(--color-base); /* Changed text color to white for better contrast on orange */
   padding: 40px 0;
   overflow: hidden;
 }
@@ -573,7 +574,8 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(255, 255, 255, 0.7);
+  /* background-color: rgba(255, 255, 255, 0.7); */ /* Removed white overlay */
+  background-color: rgba(0, 0, 0, 0.1); /* Optional: Added a very subtle dark overlay for depth */
   z-index: 0;
 }
 
@@ -599,14 +601,16 @@ export default {
   font-size: 2rem;
   margin-bottom: 8px;
   font-weight: 700;
-  color: var(--color-primary);
+  /* color: var(--color-primary); */ /* Changed to white for orange background */
+  color: var(--color-base);
 }
 
 .page-description {
   font-size: 1.1rem;
   font-weight: 300;
   opacity: 0.9;
-  color: var(--color-text-secondary);
+  /* color: var(--color-text-secondary); */ /* Changed to a lighter shade of white for orange background */
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* 搜索面板 */

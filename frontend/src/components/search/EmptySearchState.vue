@@ -6,15 +6,16 @@
       <div class="illustration-container">
         <div class="sky-animation">
           <div class="plane-container">
-            <svg class="plane" viewBox="0 0 24 24" width="60" height="60">
-              <path d="M22,16.21V14.67L12,9V3.5A1.5,1.5,0,0,0,10.5,2h0A1.5,1.5,0,0,0,9,3.5V9L1.46,13.67v1.55l7.54-1.34V21l-2,1.5v1.77L11.56,23l4.56,1.27V22.5L14,21V13.89Z" fill="#005F73"/>
-              <path d="M10.58,4.2h0a.76.76,0,0,1,.76.76V9a.27.27,0,0,1-.16.24L5.17,12.12a.25.25,0,0,1-.33-.33l5-7.35A.74.74,0,0,1,10.58,4.2Z" fill="#e0f2f1"/>
-            </svg>
+            <div class="plane-light-effect"></div>
+            <img src="@/assets/images/sky-views/flighticon.png" alt="Flight Icon" class="plane-icon-img" />
+            <div class="engine-animation"></div>
           </div>
           <div class="clouds">
             <div class="cloud cloud-1"></div>
             <div class="cloud cloud-2"></div>
             <div class="cloud cloud-3"></div>
+            <div class="cloud cloud-4"></div>
+            <div class="cloud cloud-5"></div>
           </div>
         </div>
       </div>
@@ -83,8 +84,9 @@
 .empty-search-state {
   position: relative;
   width: 100%;
-  max-width: 1160px;
-  margin: 0 auto;
+  max-width: 64rem; /* Equivalent to Tailwind's max-w-5xl */
+  margin-left: auto;
+  margin-right: auto;
   min-height: 520px;
   background-color: #FFFFFF;
   border-radius: 12px;
@@ -131,15 +133,45 @@
 .plane-container {
   position: absolute;
   top: 50%;
-  left: 20%;
   transform: translateY(-50%);
+  left: -80px;
   z-index: 10;
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
-  animation: flyAndTilt 12s ease-in-out infinite;
+  animation: flyInAndHover 8s ease-out forwards;
 }
 
-.plane {
-  transform-origin: center;
+.plane-light-effect {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  top: 30%;
+  right: 10%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.8);
+  animation: blinkLight 2s infinite;
+  z-index: 1;
+}
+
+.engine-animation {
+  position: absolute;
+  width: 10px;
+  height: 6px;
+  bottom: 35%;
+  right: 35%;
+  background-color: rgba(240, 240, 240, 0.7);
+  filter: blur(1px);
+  border-radius: 3px;
+  animation: engineVibration 0.2s infinite;
+  z-index: 0;
+}
+
+.plane-icon-img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
 }
 
 .clouds {
@@ -150,16 +182,16 @@
 
 .cloud {
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.6);
   border-radius: 50px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
 }
 
 .cloud::before,
 .cloud::after {
   content: '';
   position: absolute;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.6);
   border-radius: 50%;
 }
 
@@ -167,8 +199,9 @@
   width: 100px;
   height: 30px;
   top: 30%;
-  left: 10%;
+  left: 110%;
   animation: moveCloud 20s linear infinite;
+  animation-delay: 0s;
 }
 
 .cloud-1::before {
@@ -189,8 +222,9 @@
   width: 140px;
   height: 30px;
   top: 60%;
-  left: 35%;
+  left: 110%;
   animation: moveCloud 25s linear infinite;
+  animation-delay: 5s;
 }
 
 .cloud-2::before {
@@ -211,8 +245,9 @@
   width: 120px;
   height: 25px;
   top: 40%;
-  left: 65%;
+  left: 110%;
   animation: moveCloud 22s linear infinite;
+  animation-delay: 10s;
 }
 
 .cloud-3::before {
@@ -229,30 +264,107 @@
   left: 50px;
 }
 
-@keyframes flyAndTilt {
+.cloud-4 {
+  width: 85px;
+  height: 22px;
+  top: 20%;
+  left: 110%;
+  animation: moveCloud 19s linear infinite;
+  animation-delay: 7s;
+}
+
+.cloud-4::before {
+  width: 35px;
+  height: 35px;
+  top: -18px;
+  left: 12px;
+}
+
+.cloud-4::after {
+  width: 48px;
+  height: 48px;
+  top: -25px;
+  left: 35px;
+}
+
+.cloud-5 {
+  width: 110px;
+  height: 24px;
+  top: 70%;
+  left: 110%;
+  animation: moveCloud 23s linear infinite;
+  animation-delay: 15s;
+}
+
+.cloud-5::before {
+  width: 38px;
+  height: 38px;
+  top: -20px;
+  left: 15px;
+}
+
+.cloud-5::after {
+  width: 52px;
+  height: 52px;
+  top: -28px;
+  left: 45px;
+}
+
+@keyframes flyInAndHover {
   0% {
-    transform: translate(-5%, -50%) rotate(-2deg);
+    left: -80px;
+    transform: translateY(-50%) rotate(0deg);
   }
   25% {
-    transform: translate(25%, -45%) rotate(3deg);
+    left: 45%;
+    transform: translateY(-50%) rotate(0deg);
   }
-  50% {
-    transform: translate(60%, -50%) rotate(-1deg);
+  30% { transform: translateY(-52%) rotate(1deg); }
+  35% { transform: translateY(-50%) rotate(-1deg); }
+  40% { transform: translateY(-51%) rotate(0.5deg); }
+  45% { transform: translateY(-49%) rotate(-0.5deg); }
+  50% { transform: translateY(-50%) rotate(0deg); }
+  55% { transform: translateY(-51%) rotate(0.7deg); }
+  60% { transform: translateY(-49%) rotate(-0.7deg); }
+  65% { transform: translateY(-50%) rotate(0.3deg); }
+  70% { transform: translateY(-50%) rotate(-0.3deg); }
+  75% { transform: translateY(-51%) rotate(0.5deg); }
+  80% { transform: translateY(-49%) rotate(-0.5deg); }
+  85% { transform: translateY(-50%) rotate(0.2deg); }
+  90% { transform: translateY(-50%) rotate(-0.2deg); }
+  95% { transform: translateY(-50.5%) rotate(0.1deg); }
+  100% { 
+    left: 45%;
+    transform: translateY(-50%) rotate(0deg);
   }
-  75% {
-    transform: translate(25%, -55%) rotate(2deg);
-  }
-  100% {
-    transform: translate(-5%, -50%) rotate(-2deg);
-  }
+}
+
+@keyframes blinkLight {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes engineVibration {
+  0%, 100% { transform: translate(0px, 0px); }
+  25% { transform: translate(0.5px, 0.2px); }
+  50% { transform: translate(0px, -0.2px); }
+  75% { transform: translate(-0.5px, 0.2px); }
 }
 
 @keyframes moveCloud {
   0% {
-    transform: translateX(0);
+    left: 110%;
+    opacity: 0.2;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
   }
   100% {
-    transform: translateX(-100vw);
+    left: -20%;
+    opacity: 0.2;
   }
 }
 
@@ -337,7 +449,6 @@
   }
 }
 
-/* 響應式設計 */
 @media (max-width: 768px) {
   .empty-search-state {
     min-height: 700px;
@@ -374,6 +485,22 @@
     }
     50% {
       transform: rotate(90deg) translateX(-5px);
+    }
+  }
+  
+  @keyframes flyInAndHover {
+    0% {
+      left: -80px;
+      transform: translateY(-50%) rotate(0deg);
+    }
+    25% {
+      left: 40%;
+      transform: translateY(-50%) rotate(0deg);
+    }
+    30% { transform: translateY(-52%) rotate(1deg); }
+    100% { 
+      left: 40%;
+      transform: translateY(-50%) rotate(0deg);
     }
   }
 }

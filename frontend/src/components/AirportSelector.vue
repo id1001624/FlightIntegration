@@ -29,7 +29,7 @@
       </div>
 
       <!-- 下拉選單 -->
-      <div v-if="isOpen" class="absolute z-50 w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto">
+      <div v-if="isOpen" class="absolute z-[100] w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto">
         <!-- 搜尋框 -->
         <div class="p-2 border-b border-gray-200">
           <input 

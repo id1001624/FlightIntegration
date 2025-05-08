@@ -56,7 +56,7 @@ class PriceService:
 
                 return [{
                     'class_type': price['class_type'],
-                    'price': float(self._get_price_for_class_type(price, price['class_type'])) if self._get_price_for_class_type(price, price['class_type']) is not None else None,
+                    'price': float(PriceService._get_price_for_class_type(price, price['class_type'])) if PriceService._get_price_for_class_type(price, price['class_type']) is not None else None,
                     'available_seats': price['available_seats'],
                     'updated_at': price['price_updated_at'].isoformat() if price['price_updated_at'] else None
                 } for price in prices]
