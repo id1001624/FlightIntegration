@@ -96,7 +96,7 @@
 .empty-search-state {
   position: relative;
   width: 100%;
-  max-width: 100%; /* 改為100%以適應父容器寬度 */
+  max-width: 100%; /* 適應父容器寬度 */
   margin-left: auto;
   margin-right: auto;
   min-height: 520px;
@@ -113,7 +113,7 @@
   left: 0;
   right: 0;
   height: 250px;
-  background: linear-gradient(180deg, rgba(0, 95, 115, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(180deg, rgba(244, 162, 97, 0.1) 0%, rgba(255, 255, 255, 0) 100%); /* 修改為淡淡的 #F4A261 背景 */
   z-index: 0;
 }
 
@@ -194,16 +194,16 @@
 
 .cloud {
   position: absolute;
-  background-color: rgba(244, 162, 97, 0.15); /* 修改為淡淡的 #F4A261 顏色 */
+  background-color: rgba(255, 255, 255, 0.8); /* 恢復雲為白色，但略微提高不透明度 */
   border-radius: 50px;
-  box-shadow: 0 2px 5px rgba(244, 162, 97, 0.05); /* 修改陰影顏色 */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
 }
 
 .cloud::before,
 .cloud::after {
   content: '';
   position: absolute;
-  background-color: rgba(244, 162, 97, 0.15); /* 修改為淡淡的 #F4A261 顏色 */
+  background-color: rgba(255, 255, 255, 0.8); /* 恢復雲為白色，但略微提高不透明度 */
   border-radius: 50%;
 }
 
@@ -480,8 +480,15 @@
 
 @media (max-width: 768px) {
   .empty-search-state {
-    min-height: 520px; /* 調整為與大螢幕相同，避免過度拉長 */
+    min-height: 520px;
     height: auto; /* 自適應高度 */
+    max-height: none; /* 移除最大高度限制 */
+    overflow: visible; /* 確保內容可見 */
+  }
+
+  .content-container {
+    height: auto; /* 讓容器高度由內容決定 */
+    min-height: unset; /* 移除最小高度 */
   }
 
   .features {
