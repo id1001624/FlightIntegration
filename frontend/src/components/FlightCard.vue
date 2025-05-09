@@ -375,6 +375,10 @@ export default {
     
     // 旅程線條動畫
     const animateJourneyLine = () => {
+      // 移除舊的動畫邏輯，因為我們現在使用FlightProgressBar
+      return; // 防止執行舊的動畫代碼
+      
+      /* 原始代碼已移除
       if (!journeyLine.value || !airplaneIcon.value) return;
       
       // 初始化線條寬度為0%
@@ -396,6 +400,7 @@ export default {
           airplaneIcon.value.style.left = '100%';
         }
       });
+      */
     };
 
     // --- Debugging Hook ---
