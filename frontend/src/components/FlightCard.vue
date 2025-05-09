@@ -75,9 +75,7 @@
           <!-- ADD NEW PROGRESS BAR START -->
           <div class="new-flight-progress-container">
             <FlightProgressBar 
-              :current-progress="currentFlightProgressMinutes" 
               :total-flight-time="totalFlightTimeMinutes" 
-              :show-origin-destination-markers="true"
               :departure-code="getDepartureAirportCode"
               :arrival-code="getArrivalAirportCode"
               :departure-time="formattedDepartureTime"
@@ -134,6 +132,9 @@ const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
 
 export default {
   name: 'FlightCard',
+  components: {
+    FlightProgressBar // 確保元件被註冊
+  },
   props: {
     flight: {
       type: Object,
