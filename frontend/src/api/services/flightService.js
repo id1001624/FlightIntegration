@@ -236,13 +236,13 @@ const flightService = {
       if (date) {
         params.date = date;
       }
-      console.log(`[flightService] Requesting destinations for ${departureCode} with params:`, params); // <-- 添加日誌
+      console.log(`[flightService] Requesting destinations for ${departureCode} with params:`, params); 
       const response = await api.get(`/flights/${departureCode}/destinations`, { params });
-      console.log('[flightService] Raw API response for destinations:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
-      const data = this._handleResponse(response);
-      console.log('[flightService] Processed destination data:', JSON.parse(JSON.stringify(data))); // <-- 添加日誌
+      console.log('[flightService] Raw API response for destinations:', JSON.parse(JSON.stringify(response))); 
+      const rawData = this._handleResponse(response); //  首先獲取原始處理過的數據
+      console.log('[flightService] Processed destination data (raw):', JSON.parse(JSON.stringify(rawData))); 
       
-      // 機場按國家和地區進行分類
+      // 機場按國家和地區進行分類，並統一 code 和 name 屬性
       const regionMap = {
         'TPE': { country: 'Taiwan', region: '台灣' },
         'TSA': { country: 'Taiwan', region: '台灣' },
@@ -286,13 +286,17 @@ const flightService = {
         'AKL': { country: 'New Zealand', region: '大洋洲' }
       };
       
-      // 為每個機場添加區域信息
-      const enhancedData = data.map(airport => {
-        const code = airport.iata_code || airport.code || '';
-        const mapping = regionMap[code] || {};
+      // 為每個機場添加區域信息，並確保有 code 和 name 屬性
+      const enhancedData = rawData.map(airport => {
+        // 後端返回的是 airport_id 和 name_zh
+        const airportCode = airport.airport_id || airport.code || ''; // 優先使用 airport_id
+        const airportName = airport.name_zh || airport.name || '未知名稱'; // 優先使用 name_zh
+        const mapping = regionMap[airportCode] || {};
         
         return {
-          ...airport,
+          ...airport, // 保留原始 API 返回的所有其他屬性
+          code: airportCode, // 統一為 code 屬性
+          name: airportName, // 統一為 name 屬性
           country: airport.country || mapping.country || '其他',
           region: mapping.region || '其他'
         };
@@ -305,6 +309,7 @@ const flightService = {
       cache.destinations.data[cacheKey] = enhancedData;
       cache.destinations.timestamp[cacheKey] = Date.now();
       
+      console.log('[flightService] Enhanced destination data for UI:', JSON.parse(JSON.stringify(enhancedData)));
       return enhancedData;
     } catch (error) {
       console.error('獲取目的地機場時出錯:', error);

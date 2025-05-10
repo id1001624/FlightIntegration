@@ -313,7 +313,7 @@ export default {
         router.push(detailLinkTarget.value);
       }
     };
-    
+
     onMounted(() => {
       // 不再需要啟動舊的動畫
       // 保留空實現以保持代碼結構
