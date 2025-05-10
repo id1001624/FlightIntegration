@@ -87,38 +87,12 @@
           <!-- 額外資訊 -->
           <div class="flight-meta">
             <span class="flight-date">{{ formattedDepartureDate }}</span>
-            <button 
-              @click.stop.prevent="toggleDetails"
-              class="details-button"
-              title="查看詳細資訊"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>
     </router-link> <!-- Closing tag restored -->
     <!-- </div> --> <!-- Closing tag for the temporary div -->
     <!-- End: Restore original router-link -->
-
-    <!-- 詳細資訊小卡片 (疊加層) -->
-    <transition name="details-fade">
-      <div v-if="showDetails" class="details-overlay card">
-        <h5 class="details-title">航班資訊</h5>
-        <div class="details-content">
-          <p><span class="details-label">機型:</span> {{ flight.aircraft || 'N/A' }}</p>
-          <p><span class="details-label">出發航廈:</span> {{ flight.departure?.terminal || '--' }}</p>
-          <p><span class="details-label">抵達航廈:</span> {{ flight.arrival?.terminal || '--' }}</p>
-        </div>
-        <button @click="closeDetails" class="details-close-button" title="關閉">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-    </transition>
   </div>
 </template>
 <script>
@@ -152,10 +126,9 @@ export default {
 
     const router = useRouter();
     const isActive = ref(props.active);
-    const showDetails = ref(false);
-    const detailToggleInProgress = ref(false); // Flag to prevent navigation during toggle
-    const detailsOverlayRef = ref(null); // 用於點擊外部關閉
-    const detailsButtonRef = ref(null); // 用於排除點擊按鈕時的關閉
+    
+    // 定義animationFrame變數，避免引用錯誤
+    const animationFrame = ref(null);
     
     // --- 移除 Logo Mapping ---
     // const airlineLogos = {
@@ -335,113 +308,24 @@ export default {
     });
 
     const selectFlight = () => {
-      if (detailToggleInProgress.value) {
-        console.log('[FlightCard] Toggle in progress, cancelling navigation');
-        return;
-      }
-      
-      if (props.flight.flight_id) {
-          router.push({ name: 'FlightDetail', params: { flight_id: props.flight.flight_id } });
-      } else {
-          console.error('Flight ID is missing, cannot navigate to details.', props.flight);
-      }
       emit('select-flight', props.flight);
+      if (detailLinkTarget.value) {
+        router.push(detailLinkTarget.value);
+      }
     };
     
-    const toggleDetails = (event) => {
-      if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-      }
-      
-      detailToggleInProgress.value = true; // Set the flag
-      showDetails.value = !showDetails.value;
-      
-      // Reset the flag after the current event loop cycle
-      nextTick(() => {
-          detailToggleInProgress.value = false;
-      });
-    };
-
-    // 新增關閉詳情的方法，使用 ref 而非直接修改 value
-    const closeDetails = (event) => {
-      if (event) {
-        event.stopPropagation();
-        event.preventDefault();
-      }
-      
-      showDetails.value = false;
-    };
-    
-    // 旅程線條動畫
-    const animateJourneyLine = () => {
-      // 移除舊的動畫邏輯，因為我們現在使用FlightProgressBar
-      return; // 防止執行舊的動畫代碼
-      
-      /* 原始代碼已移除
-      if (!journeyLine.value || !airplaneIcon.value) return;
-      
-      // 初始化線條寬度為0%
-      journeyLine.value.style.width = '0%';
-      
-      // 觸發重排以確保動畫效果
-      void journeyLine.value.offsetWidth;
-      
-      // 開始動畫
-      journeyLine.value.style.width = '100%';
-      
-      // 飛機圖標動畫
-      animationFrame = requestAnimationFrame(function animate() {
-        const progress = parseFloat(journeyLine.value.style.width) || 0;
-        if (progress < 100) {
-          airplaneIcon.value.style.left = `${progress}%`;
-          animationFrame = requestAnimationFrame(animate);
-        } else {
-          airplaneIcon.value.style.left = '100%';
-        }
-      });
-      */
-    };
-
-    // --- Debugging Hook ---
-    onUpdated(() => {
-      console.log(`[FlightCard ${props.flight.flight_id}] updated. showDetails: ${showDetails.value}`);
-    });
-    // --- End Debugging Hook ---
-
     onMounted(() => {
-      // 啟動旅程線條動畫
-      setTimeout(animateJourneyLine, 300); // 稍微延遲以確保DOM已渲染
+      // 不再需要啟動舊的動畫
+      // 保留空實現以保持代碼結構
     });
     
     onUnmounted(() => {
-      // 清理動畫
-      if (animationFrame) {
-        cancelAnimationFrame(animationFrame);
+      // 安全地清理任何可能的動畫資源
+      if (animationFrame.value) {
+        cancelAnimationFrame(animationFrame.value);
+        animationFrame.value = null;
       }
     });
-
-    // Click outside handler
-    const handleClickOutside = (event) => {
-      // IMPORTANT: Only proceed if the overlay was already supposed to be visible
-      // This prevents the handler from interfering with the click that *opens* it.
-      if (!showDetails.value) {
-          return;
-      }
-
-      // Check if the overlay element exists
-      if (detailsOverlayRef.value) {
-        // Check if the click target is inside the overlay or on the button
-        const clickedInsideOverlay = detailsOverlayRef.value.contains(event.target);
-        // Check button ref safely
-        const clickedOnButton = detailsButtonRef.value && detailsButtonRef.value.contains(event.target);
-
-        if (!clickedInsideOverlay && !clickedOnButton) {
-          console.log('[FlightCard] Clicked outside, closing details.');
-          showDetails.value = false; // Close the overlay
-        }
-      }
-    };
 
     return {
       formattedDepartureTime,
@@ -456,16 +340,10 @@ export default {
       flightClassType,
       flightDurationComputed,
       isActive,
-      showDetails,
-      toggleDetails,
-      closeDetails,
+      totalFlightTimeMinutes,
       selectFlight,
       detailLinkTarget,
-      hasValidPrice,
-      detailsOverlayRef,
-      detailsButtonRef,
-      totalFlightTimeMinutes,
-      currentFlightProgressMinutes
+      hasValidPrice
     };
   }
 }

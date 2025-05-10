@@ -9,7 +9,8 @@ from datetime import datetime # 導入 datetime
 from werkzeug.exceptions import NotFound, BadRequest # 導入錯誤類型
 from marshmallow import ValidationError # 導入 ValidationError
 from ..models import Flight, Airport, Airline
-from ..services.search_service import SearchService
+# 使用新的服務導入方式
+from ..services import SearchService, AirportService
 from ..services.data_sync_service import DataSyncService
 from ..clients.flightstats_client import FlightStatsApiClient
 from ..database.db import get_pool # <-- Import get_pool instead of get_db/release_db
@@ -65,28 +66,42 @@ def _error_response(message, status_code):
 # --- API 端點 --- 
 
 @flight_bp.route('/search', methods=['GET'])
-@use_args(search_args_schema, location="query")
-async def search_flights(args):
+@use_args(search_args_schema, location="query") # <--- 恢復裝飾器
+async def search_flights(args): # <--- 恢復 args 參數，由 @use_args 注入
     """搜索航班"""
-    # 1. 參數驗證 (保持不變)
-    try:
-        args = flight_search_args_schema.load(request.args)
-    except ValidationError as err:
-        return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
+    # current_app.logger.info(f"[FlightController.search_flights] 請求已進入。原始 request.args: {request.args.to_dict()}") # 可以移除或改為 DEBUG
+    current_app.logger.debug(f"[FlightController.search_flights] 由 @use_args 驗證並傳入的參數 (args): {args}") # INFO 改為 DEBUG
+    
+    # try:
+    #     # --- 手動加載和驗證參數 ---
+    #     args = flight_search_args_schema.load(request.args)
+    #     current_app.logger.info(f"[FlightController.search_flights] Schema 驗證通過。驗證後的參數 (args): {args}")
+    #     # --------------------------
+    # except ValidationError as err: # @use_args 會自動處理 ValidationError 並返回 422
+    #     current_app.logger.error(f"[FlightController.search_flights] Schema 驗證失敗: {err.messages}", exc_info=True)
+    #     return jsonify({
+    #         'success': False, 
+    #         'message': '請求參數驗證失敗',
+    #         'errors': err.messages 
+    #     }), 422 
+    # except Exception as e: 
+    #     current_app.logger.error(f"[FlightController.search_flights] 加載請求參數時發生未知錯誤: {e}", exc_info=True)
+    #     return _error_response('處理請求參數時發生內部錯誤', 500)
 
-    # 提取驗證後的參數 (保持不變)
+    # --- 提取參數邏輯不變，從 @use_args 注入的 args 中獲取 ---
     departure = args['departure'].upper()
     arrival = args['arrival'].upper()
-    departure_date = args['date'].strftime('%Y-%m-%d')
+    departure_date = args['date'].strftime('%Y-%m-%d') # args['date'] 應該是 datetime 對象
     return_date = args.get('return_date').strftime('%Y-%m-%d') if args.get('return_date') else None
     airlines_input = args.get('airlines')
     price_min = args.get('price_min')
     price_max = args.get('price_max')
-    class_type = args['class_type'] # e.g., "經濟", "商務"
+    cabin_class = args['cabin_class']
     only_target_airlines = args['only_target_airlines']
-    passengers_int = args['passengers']
+    passengers_int = args['adults']
     max_results_int = args['max_results']
     sort_by = args['sort_by']
+    # -------------------------------------------------------------------
 
     # 處理 airlines 列表 (保持不變)
     airlines = None
@@ -95,21 +110,15 @@ async def search_flights(args):
     elif only_target_airlines:
         airlines = TARGET_AIRLINES.copy()
 
-    pool = None
-    conn = None
     try:
-        # --- Connection Management Start ---
-        pool = await get_pool()
-        conn = await pool.acquire()
-        # -----------------------------------
-        
-        # 2. 調用服務層獲取數據，傳入 conn
+        # 2. 調用服務層獲取數據
         service_result = await SearchService.search_flights(
-            conn, # Pass the acquired connection
             departure, arrival, departure_date,
             airlines, return_date,
-            price_min, price_max, class_type,
-            passengers_int, max_results_int, sort_by
+            price_min, price_max, 
+            cabin_class, 
+            passengers_int,
+            max_results_int, sort_by
         )
         
         # 3. ***修正: 直接從 service_result 提取 departure 和 return 列表***
@@ -123,31 +132,15 @@ async def search_flights(args):
         # 5. ***修正: 構建包含新鍵名的最終響應***
         final_response = {
             'departure': serialized_departure, # 使用 'departure'
-            # 可以選擇性地包含總數或其他元數據
-            # 'total_departure': len(serialized_departure)
         }
-        # 只有當請求了回程且實際有回程數據時才添加 return 鍵
         if return_date and serialized_return: 
             final_response['return'] = serialized_return # 使用 'return'
-            # 'total_return': len(serialized_return)
 
-        # 返回包含新鍵名的成功響應
         return _success_response(final_response)
 
     except Exception as e: 
-        # Catch errors from service layer or connection management
         current_app.logger.error(f"搜索航班控制器層發生錯誤: {e}", exc_info=True)
         return _error_response('搜索航班時發生內部錯誤', 500)
-    finally:
-        # --- Connection Management End ---
-        if conn and pool:
-            try:
-                await pool.release(conn)
-            except (RuntimeError, asyncpg.exceptions.InterfaceError) as e:
-                current_app.logger.warning(f"在釋放搜索航班連接時發生可忽略的異常: {e}")
-            except Exception as e:
-                current_app.logger.error(f"在釋放搜索航班連接時發生未預期的異常: {e}", exc_info=True)
-        # -------------------------------
 
 @flight_bp.route('/from_taiwan/<string:arrival_iata>', methods=['GET'])
 async def flights_from_taiwan(arrival_iata):
@@ -159,13 +152,13 @@ async def flights_from_taiwan(arrival_iata):
         return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
 
     # 提取驗證後的參數
-    departure_date = args['date'].strftime('%Y-%m-%d')
+    departure_date_obj = args['date'] # 直接使用 datetime.date 對象
     airlines_input = args.get('airlines') # 獲取驗證後的列表或 None
     price_min = args.get('price_min')
     price_max = args.get('price_max')
-    class_type = args['class_type']
-    passengers_int = args['passengers']
-    max_results_total = args['max_results']
+    cabin_class_from_args = args['cabin_class'] # Schema 中已改為 cabin_class
+    adults_from_args = args['adults']           # Schema 中已改為 adults
+    max_results_from_args = args['max_results'] # Schema 中已是 max_results
     sort_by = args['sort_by']
     only_target_airlines = args['only_target_airlines']
 
@@ -178,17 +171,18 @@ async def flights_from_taiwan(arrival_iata):
         airlines = TARGET_AIRLINES.copy()
 
     try:
-        # 調用新的服務層方法
+        # 調用新的服務層方法，並使用正確的參數名
         all_outbound_flights_list = await SearchService.search_flights_from_taiwan(
-            arrival_iata=arrival_iata.upper(),
-            date_str=departure_date,
+            arrival_airport_id=arrival_iata.upper(),
+            date=departure_date_obj, # 直接傳遞 date 對象
             airlines=airlines,
             price_min=price_min,
             price_max=price_max,
-            class_type=class_type,
-            passengers=passengers_int,
-            max_results_total=max_results_total,
+            cabin_class=cabin_class_from_args, # 傳遞 cabin_class
+            passengers=adults_from_args,       # 傳遞 adults 給 passengers 參數
+            max_results=max_results_from_args, # 傳遞 max_results
             sort_by=sort_by
+            # sort_order 服務層有默認值 'asc'，如果需要可以從 args 獲取並傳遞
         )
 
         # 序列化結果 (直接序列化返回的列表)
@@ -209,12 +203,20 @@ async def flights_from_taiwan(arrival_iata):
 @flight_bp.route('/<string:flight_id>', methods=['GET'])
 async def get_flight_details(flight_id):
     """獲取航班詳細信息"""
+    conn = None
+    pool = None
     try:
-        flight_details_data = await SearchService.get_flight_details_by_id(flight_id)
+        # 從 get_pool() 獲取連接池，然後從池中獲取連接
+        pool = await get_pool() 
+        conn = await pool.acquire()
+        
+        # 調用服務層方法，傳入連接對象
+        flight_details_data = await SearchService.get_flight_details_by_id(conn, flight_id)
+        
         if flight_details_data is None:
             raise NotFound('找不到該航班')
         
-        # 序列化結果
+        # 序列化結果 - flight_schema 實例已在文件頂部定義
         serialized_data = flight_schema.dump(flight_details_data)
         return _success_response(serialized_data)
     except NotFound as e:
@@ -222,6 +224,9 @@ async def get_flight_details(flight_id):
     except Exception as e:
         current_app.logger.error(f"獲取航班 {flight_id} 詳情時發生錯誤: {e}", exc_info=True)
         return _error_response('獲取航班詳情時發生內部錯誤', 500)
+    finally:
+        if conn and pool:
+            await pool.release(conn)
 
 @flight_bp.route('/airlines', methods=['GET'])
 @cache.cached(timeout=3600)  # 快取1小時
@@ -237,44 +242,46 @@ async def get_airlines():
 
 @flight_bp.route('/<string:departure_code>/destinations', methods=['GET'])
 @cache.cached(timeout=3600, query_string=True)  # 緩存1小時，考慮查詢參數
-async def get_available_destinations(departure_code):
+async def get_available_destinations_for_flight_route(departure_code): # 重命名函數以避免與 airport_controller 中的同名函數混淆
     """獲取從指定出發地可以到達的所有目的地（所有航班記錄）
     
     Note:
-        日期參數現在是可選的，返回結果包含所有日期的航班目的地
+        日期參數 (date=YYYY-MM-DD) 現在是可選的，用於過濾特定日期的目的地。
+        若不提供，則返回所有日期的目的地。
     """
     try:
-        # 日期參數現在是可選的，但為了向後兼容，仍然處理它
-        date_str = request.args.get('date')
+        departure_code_upper = departure_code.upper()
+        # 從查詢參數中獲取可選的日期
+        date_str = request.args.get('date') 
+
+        current_app.logger.info(
+            f"開始查詢從 {departure_code_upper} 出發的可用目的地。"
+            f"{' 日期: ' + date_str if date_str else ' (所有日期)'}"
+        )
         
-        # 如果提供了日期，驗證格式
-        if date_str:
-            try:
-                datetime.strptime(date_str, '%Y-%m-%d')
-            except ValueError:
-                raise BadRequest('日期格式錯誤，請使用 YYYY-MM-DD')
+        # 調用 AirportService 的方法
+        # AirportService.get_available_destinations 接受 departure_airport_param, date (可選), limit (可選)
+        destinations = await AirportService.get_available_destinations(
+            departure_airport_param=departure_code_upper,
+            date=date_str  # 如果 date_str 是 None，服務層會處理
+        )
+        
+        if not destinations:
+            # 即使沒有目的地，也返回成功的空列表，而不是404，除非 departure_code 本身無效
+            # 如果要嚴格檢查 departure_code 是否有效，可以在此處調用 AirportService.get_airport_by_id
+            pass
 
-        # 調用服務獲取目的地，不再強制要求日期參數
-        destinations_data = await SearchService.get_available_destinations(departure_code.upper(), date_str)
-
-        # *** 新增：預處理數據以匹配 AirportBasicSchema ***
-        preprocessed_data = []
-        for airport in destinations_data:
-            preprocessed_data.append({
-                'code': airport.get('airport_id'), # 從 airport_id 映射到 code
-                'name': airport.get('name_zh'),    # 從 name_zh 映射到 name
-                'city': airport.get('city'),
-                'country': airport.get('country')
-                # terminal 和 time 在此 API 中不相關
-            })
-
-        # 序列化預處理後的結果
-        serialized_data = airports_basic_schema.dump(preprocessed_data)
-        return _success_response(serialized_data)
-    except BadRequest as e:
+        current_app.logger.info(f"成功返回 {len(destinations)} 個目的地機場。")
+        return _success_response(destinations)
+        
+    except BadRequest as e: # 如果日期格式錯誤等
+        current_app.logger.error(f"獲取從 {departure_code} 出發的目的地時發生請求錯誤: {e}", exc_info=True)
         return _error_response(str(e), 400)
+    except NotFound as e: # 如果 AirportService 內部拋出 NotFound (例如機場無效)
+        current_app.logger.warning(f"獲取從 {departure_code} 出發的目的地時未找到資源: {e}")
+        return _error_response(str(e), 404)
     except Exception as e:
-        current_app.logger.error(f"獲取從 {departure_code} 的可用目的地失敗: {e}", exc_info=True)
+        current_app.logger.error(f"獲取從 {departure_code} 出發的目的地失敗: {e}", exc_info=True)
         return _error_response('獲取可用目的地失敗', 500)
 
 @flight_bp.route('/popular-routes', methods=['GET'])

@@ -1,99 +1,122 @@
 <template>
   <div class="bg-white p-6 shadow-sm">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
       <!-- Row 1: Departure & Arrival -->
       <div>
-          <AirportSelector 
-            id="departure"
-            label="出發地"
-            placeholder="選擇出發機場"
-            :airports="taiwanAirports"
-            v-model="formData.departureAirport"
-            :loading="loadingTaiwanAirports"
-            :error="errors.departureAirport"
-            :disabled="isSearching"
-            :isDeparture="true"
-            @change="onDepartureChange"
+        <AirportSelector 
+          id="departure"
+          label="出發地"
+          placeholder="選擇出發機場"
+          :airports="taiwanAirports"
+          v-model="formData.departureAirport"
+          :loading="loadingTaiwanAirports"
+          :error="errors.departureAirport"
+          :disabled="isSearching"
+          :isDeparture="true"
+          @change="onDepartureChange"
           class="square-selector"
-          />
-        </div>
+        />
+      </div>
         
       <div>
-          <AirportSelector 
-            id="arrival"
-            label="目的地"
-            placeholder="選擇目的地機場"
-            :airports="destinationAirports"
-            v-model="formData.arrivalAirport"
-            :loading="loadingDestinations"
-            :error="errors.arrivalAirport"
-            :disabled="!formData.departureAirport || isSearching"
+        <AirportSelector 
+          id="arrival"
+          label="目的地"
+          placeholder="選擇目的地機場"
+          :airports="destinationAirports"
+          v-model="formData.arrivalAirport"
+          :loading="loadingDestinations"
+          :error="errors.arrivalAirport"
+          :disabled="!formData.departureAirport || isSearching"
           class="square-selector"
-          />
+        />
       </div>
       
       <!-- Row 2: Dates -->
       <div>
-          <DateSelector 
-            id="departure-date"
-            label="出發日期"
-            v-model="formData.departureDate"
-            :error="errors.departureDate"
-            @change="onDepartureDateChange"
+        <DateSelector 
+          id="departure-date"
+          label="出發日期"
+          v-model="formData.departureDate"
+          :error="errors.departureDate"
+          @change="onDepartureDateChange"
           class="square-selector"
-          />
-        </div>
+        />
+      </div>
         
       <div>
-          <DateSelector 
-            id="return-date"
-            label="回程日期 (選填)"
-            v-model="formData.returnDate"
-            :min-date="formData.departureDate"
-            :error="errors.returnDate"
+        <DateSelector 
+          id="return-date"
+          label="回程日期 (選填)"
+          v-model="formData.returnDate"
+          :min-date="formData.departureDate"
+          :error="errors.returnDate"
           class="square-selector"
-          />
+        />
       </div>
       
-      <!-- Row 3: Class Type & Button -->
-      <div>
-          <ClassTypeSelector 
-            v-model="formData.classType"
-            :error="errors.classType"
+      <!-- Row 3: Passenger & Cabin Selection Trigger / Search Button -->
+      <div class="md:col-span-1">
+        <label class="block text-sm font-medium text-gray-700 mb-1">旅客與艙等</label>
+        <button 
+          @click="openPassengerModal"
+          type="button"
+          class="w-full text-left bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 square-selector flex justify-between items-center"
           :disabled="isSearching"
-          class="square-selector"
-          />
-        </div>
+        >
+          <span>{{ passengerCabinDisplay }}</span>
+          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+        </button>
+      </div>
         
       <div class="flex items-end">
-          <button 
-          class="bg-primary text-white w-full py-2.5"
-            @click="submitSearch"
+        <button 
+          class="bg-primary text-white w-full py-2.5 rounded-md shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-150 ease-in-out"
+          @click="submitSearch"
           :disabled="isSearching || loadingTaiwanAirports || loadingDestinations"
           :class="{ 'opacity-50 cursor-not-allowed': isSearching || loadingTaiwanAirports || loadingDestinations }"
-          >
-            <span v-if="isSearching">搜尋中...</span>
-            <span v-else>搜尋航班</span>
-          </button>
+        >
+          <span v-if="isSearching">搜尋中...</span>
+          <span v-else>搜尋航班</span>
+        </button>
       </div>
     </div>
+
+    <!-- Passenger and Cabin Selection Modal -->
+    <PassengerCabinSelectModal
+      :visible="isPassengerModalVisible"
+      :initial-passengers="formData.passengers"
+      :initial-cabin-class="formData.cabinClass"
+      @close="closePassengerModal"
+      @confirm="handlePassengerConfirm"
+    />
+
+    <!-- (可選) 顯示已選路線 -->
+    <div v-if="formData.departureAirport && formData.arrivalAirport" class="mt-4 pt-3 border-t border-gray-200 text-center">
+        <p class="text-sm text-gray-600">
+            <span class="font-medium">{{ formData.departureAirport.name }} ({{ formData.departureAirport.code }})</span>
+            <span class="mx-2">→</span>
+            <span class="font-medium">{{ formData.arrivalAirport.name }} ({{ formData.arrivalAirport.code }})</span>
+        </p>
+    </div>
+
   </div>
 </template>
 
 <script>
 import AirportSelector from '../AirportSelector.vue';
 import DateSelector from '../DateSelector.vue';
-import ClassTypeSelector from '../ClassTypeSelector.vue';
+import PassengerCabinSelectModal from '../ui/PassengerCabinSelectModal.vue';
 import flightService from '@/api/services/flightService';
-import { ref, reactive, onMounted, watch } from 'vue';
-import { useSearchStore } from '@/store/modules/search'; // 引入 search store
+import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { useSearchStore } from '@/store/modules/search';
 
 export default {
   name: 'SearchForm',
   components: {
     AirportSelector,
     DateSelector,
-    ClassTypeSelector
+    PassengerCabinSelectModal
   },
   props: {
     isSearching: {
@@ -103,7 +126,6 @@ export default {
   },
   emits: ['search'],
   setup(props, { emit }) {
-    // 使用 search store
     const searchStore = useSearchStore();
     
     const taiwanAirports = ref([]);
@@ -111,7 +133,8 @@ export default {
     const loadingTaiwanAirports = ref(false);
     const loadingDestinations = ref(false);
 
-    // 輔助函數：獲取本地時區的 YYYY-MM-DD 日期
+    const isPassengerModalVisible = ref(false);
+
     const getLocalDateString = () => {
       const date = new Date();
       const year = date.getFullYear();
@@ -120,33 +143,43 @@ export default {
       return `${year}-${month}-${day}`;
     };
 
-    // 從 store 中讀取保存的搜索參數初始化表單
     const formData = reactive({
         departureAirport: searchStore.searchParams.departureAirport || null,
         arrivalAirport: searchStore.searchParams.arrivalAirport || null,
         departureDate: searchStore.searchParams.departureDate || getLocalDateString(),
         returnDate: searchStore.searchParams.returnDate || '',
-        classType: searchStore.searchParams.classType || 'economy'
+        cabinClass: searchStore.searchParams.cabinClass || 'Economy',
+        passengers: searchStore.searchParams.passengers || { adults: 1, children: 0, infants: 0 },
     });
 
-    // --- 新增 Watcher --- 
-    // 監聽 store 中 departureAirport 的變化，以響應外部重置
+    const passengerCabinDisplay = computed(() => {
+      const { adults, children, infants } = formData.passengers;
+      const totalPassengers = adults + children + infants;
+      const cabinText = cabinClassesMap[formData.cabinClass] || formData.cabinClass;
+      return `${totalPassengers}位旅客, ${cabinText}`;
+    });
+
+    const cabinClassesMap = {
+      'Economy': '經濟艙',
+      'PremiumEconomy': '豪華經濟艙',
+      'Business': '商務艙',
+      'First': '頭等艙'
+    };
+
     watch(() => searchStore.searchParams.departureAirport, (newVal) => {
       if (newVal === null) {
         console.log('[SearchForm] Detected store reset, clearing local form airports.');
         formData.departureAirport = null;
         formData.arrivalAirport = null;
-        destinationAirports.value = []; // 同時清除目的地列表
+        destinationAirports.value = [];
       }
     });
-    // --- Watcher 結束 ---
 
     const errors = reactive({
         departureAirport: '',
         arrivalAirport: '',
         departureDate: '',
         returnDate: '',
-        classType: ''
     });
 
     const fetchTaiwanAirports = async () => {
@@ -166,7 +199,6 @@ export default {
           }));
           console.log('SearchForm: Mapped Taiwan airports:', JSON.parse(JSON.stringify(taiwanAirports.value)));
           
-          // 如果已有出發機場選擇，但目的地為空，嘗試加載目的地
           if (formData.departureAirport && !formData.arrivalAirport) {
             onDepartureChange(formData.departureAirport);
           }
@@ -188,7 +220,6 @@ export default {
       console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
       console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
 
-      // 清空目的地選擇（僅當前出發地與之前不同時）
       if (!formData.arrivalAirport || 
           (formData.departureAirport && formData.departureAirport.code !== selectedAirport?.code)) {
         formData.arrivalAirport = null;
@@ -274,21 +305,14 @@ export default {
     const onDepartureDateChange = (newDate) => {
       console.log('出發日期變更:', newDate);
       
-      // 清空錯誤訊息
       errors.departureDate = '';
       errors.returnDate = '';
       
-      // 只有在出發地變更時才清空目的地選擇
-      // 移除自動清空的代碼，保留用戶之前的選擇
-      
-      // 更新可用機場列表
       fetchTaiwanAirports();
       
-      // 如果有選擇出發地，更新目的地
       if (formData.departureAirport) {
         onDepartureChange(formData.departureAirport);
       } else {
-        // 如果沒有選擇出發地，清空目的地列表
         destinationAirports.value = [];
       }
     };
@@ -299,7 +323,6 @@ export default {
       errors.arrivalAirport = '';
       errors.departureDate = '';
       errors.returnDate = '';
-      errors.classType = '';
 
       if (!formData.departureAirport) {
         errors.departureAirport = '請選擇出發機場';
@@ -332,26 +355,38 @@ export default {
         return;
       }
       
-      // 保存完整的機場對象
-      const searchStore = useSearchStore();
+      const searchData = {
+        departure_airport_id: formData.departureAirport.code,
+        arrival_airport_id: formData.arrivalAirport.code,
+        departure_date: formData.departureDate,
+        return_date: formData.returnDate || null,
+        cabin_class: formData.cabinClass,
+        passengers: formData.passengers.adults + formData.passengers.children + formData.passengers.infants,
+      };
+      
+      emit('search', searchData);
       searchStore.setSearchParams({
         departureAirport: formData.departureAirport,
         arrivalAirport: formData.arrivalAirport,
         departureDate: formData.departureDate,
-        returnDate: formData.returnDate || null,
-        classType: formData.classType
+        returnDate: formData.returnDate,
+        cabinClass: formData.cabinClass,
+        passengers: formData.passengers,
       });
-      
-      // 構建 API 需要的簡化參數
-      const searchParams = {
-        departure: formData.departureAirport ? formData.departureAirport.code : null,
-        arrival: formData.arrivalAirport.code,
-        date: formData.departureDate,
-        return_date: formData.returnDate || null,
-        class_type: formData.classType
-      };
-      
-      emit('search', searchParams);
+    };
+
+    const openPassengerModal = () => {
+      isPassengerModalVisible.value = true;
+    };
+
+    const closePassengerModal = () => {
+      isPassengerModalVisible.value = false;
+    };
+
+    const handlePassengerConfirm = (data) => {
+      formData.passengers = { ...data.passengers };
+      formData.cabinClass = data.cabinClass;
+      closePassengerModal();
     };
 
     onMounted(() => {
@@ -368,7 +403,12 @@ export default {
       errors,
       onDepartureChange,
       onDepartureDateChange,
-      submitSearch
+      submitSearch,
+      isPassengerModalVisible,
+      openPassengerModal,
+      closePassengerModal,
+      handlePassengerConfirm,
+      passengerCabinDisplay
     };
   }
 };

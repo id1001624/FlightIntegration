@@ -221,6 +221,12 @@ def register_blueprints(app):
     from .controllers.price_controller import ticket_price_bp
     from .controllers.line_webhook_controller import line_webhook_bp
     
+    # 在開發環境中導入測試藍圖
+    if app.config.get('DEBUG', False):
+        from .controllers.test_controller import test_bp
+        app.register_blueprint(test_bp)
+        app.logger.info("已註冊測試藍圖 (/api/test/*) - 僅用於開發環境")
+    
     # 註冊藍圖
     app.register_blueprint(airline_bp, url_prefix='/api/airlines')
     app.register_blueprint(airport_bp, url_prefix='/api/airports')

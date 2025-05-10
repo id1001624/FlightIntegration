@@ -104,12 +104,87 @@
 
 ## 主要 API 端點
 
-- `GET /api/flights/search`: 搜索航班 (主要端點)
-  - 參數: `departure`, `arrival`, `date`, `class_type`, `return_date` (可選)
-- `GET /api/flights/<flight_id>`: 獲取單一航班詳情
-- `GET /api/airports/taiwan`: 獲取台灣機場列表
-- `GET /api/flights/{departure}/destinations`: 獲取從指定機場出發的可達目的地
-- `GET /api/airlines`: 獲取航空公司列表 (包含 logo_path)
+### 航班 (`/api/flights`)
+- `GET /search`: 搜索航班。
+  - **查詢參數**:
+    - `departure` (起飛機場代碼, 必填)
+    - `arrival` (抵達機場代碼, 必填)
+    - `date` (日期 YYYY-MM-DD, 必填)
+    - `return_date` (回程日期 YYYY-MM-DD, 可選)
+    - `airlines` (航空公司代碼列表，以逗號分隔，可選)
+    - `price_min` (最低價格, 可選)
+    - `price_max` (最高價格, 可選)
+    - `cabin_class` (艙等, 預設 "經濟")
+    - `only_target_airlines` (布林值，是否僅搜索目標航空公司, 預設 false)
+    - `adults` (成人乘客數量, 預設 1)
+    - `max_results` (最大結果數量, 預設 50)
+    - `sort_by` (排序依據, 例如 "price", "departure_time", 預設 "price")
+- `GET /from_taiwan/<string:arrival_iata>`: 獲取從台灣所有機場飛往指定 `arrival_iata` 機場的航班。
+  - **路徑參數**: `arrival_iata` (抵達機場的IATA代碼)
+  - **查詢參數**:
+    - `date` (日期 YYYY-MM-DD, 必填)
+    - `airlines` (航空公司代碼列表，以逗號分隔，可選)
+    - `price_min` (最低價格, 可選)
+    - `price_max` (最高價格, 可選)
+    - `cabin_class` (艙等, 預設 "經濟")
+    - `adults` (成人乘客數量, 預設 1)
+    - `max_results` (最大結果數量, 預設 50)
+    - `sort_by` (排序依據, 預設 "price")
+    - `only_target_airlines` (布林值，是否僅搜索目標航空公司, 預設 false)
+- `GET /<string:flight_id>`: 獲取特定航班的詳細資訊。
+  - **路徑參數**: `flight_id` (航班的唯一ID)
+- `GET /<string:departure_code>/destinations`: 獲取從指定 `departure_code` 機場出發可以到達的所有目的地機場列表。
+  - **路徑參數**: `departure_code` (出發機場的IATA代碼)
+  - **查詢參數**:
+    - `date` (日期 YYYY-MM-DD, 可選，用於過濾特定日期的目的地)
+- `GET /popular-routes`: 獲取熱門航線列表，分類為 `domestic` (台灣境內) 和 `international` (國際)。
+- `GET /all-routes`: 獲取所有可查詢到的直飛航線列表，包含是否為熱門航線的標記。
+- `GET /<string:flight_id>/status`: 獲取特定航班的最新狀態 (資訊來源 FlightStats)。
+  - **路徑參數**: `flight_id` (航班的唯一ID)
+- `GET /popular`: 獲取熱門航線的未來航班資訊。
+  - **查詢參數**:
+    - `limit` (返回的最大航班數量, 預設 20, 最大 100)
+    - `cabin_class` (用於格式化價格的艙等，例如 "經濟", "商務", "頭等", 預設 "經濟")
+
+### 機場 (`/api/airports`)
+- `GET /`: 獲取機場列表 (當前實現為獲取台灣機場，與 `/taiwan` 功能相似)。
+- `GET /taiwan`: 獲取台灣所有機場的列表。
+- `GET /<string:airport_id>`: 根據機場ID (IATA代碼) 獲取特定機場的詳細資訊。
+  - **路徑參數**: `airport_id` (機場的IATA代碼)
+- `GET /available-departures`: 獲取所有有未來出發航班的機場列表，按未來航班數量降序排序。
+- `GET /available-destinations/<string:departure_code>`: 獲取從指定 `departure_code` 機場出發，有未來航班可達的目的地機場列表。
+  - **路徑參數**: `departure_code` (出發機場的IATA代碼)
+
+### 航空公司 (`/api/airlines`)
+- `GET /`: 獲取所有航空公司的列表 (包含 `logo_path`)。
+- `GET /domestic`: 獲取所有被標記為台灣國內線的航空公司。
+- `GET /international`: 獲取所有被標記為國際線的航空公司。
+- `GET /<string:airline_id>`: 根據航空公司ID (IATA代碼) 獲取特定航空公司的詳細資訊。
+  - **路徑參數**: `airline_id` (航空公司的IATA代碼)
+- `GET /search`: 根據名稱搜索航空公司。
+  - **查詢參數**: `name` (搜索關鍵詞, 必填)
+
+### 價格分析 (未來規劃)
+- `POST /api/flights/analyze-prices` (尚未實現): 分析指定航線的歷史價格趨勢。
+  - **預期請求體 (JSON)**: `{ "departure_code": "TPE", "arrival_code": "NRT", "start_date": "YYYY-MM-DD", "end_date": "YYYY-MM-DD" }`
+- `GET /api/ticket-prices/low-fare-calendar` (尚未實現): 查詢在指定日期範圍內，每天特定航線和艙等的最低票價。
+  - **預期查詢參數**: `departure_code`, `arrival_code`, `start_date`, `end_date`, `cabin_class`
+
+### 資料同步與生成 (POST請求，主要用於開發和維護)
+- `POST /api/flights/sync-taiwan-flights`: 從外部源同步特定日期範圍內台灣出發的航班數據。
+  - **請求體 (JSON)**:
+    - `date` (開始同步的日期 YYYY-MM-DD, 必填)
+    - `days` (從開始日期算起，需要同步的天數, 必填)
+- `POST /api/flights/generate-test-data`: 為特定航線生成指定天數的測試航班和票價數據。
+  - **請求體 (JSON)**:
+    - `departure` (起飛機場IATA代碼, 必填)
+    - `arrival` (抵達機場IATA代碼, 必填)
+    - `start_date` (開始日期 YYYY-MM-DD, 必填)
+    - `num_days` (生成數據的天數, 必填)
+    - `flights_per_day` (每天生成的航班數量, 必填)
+
+### LINE Bot
+- `POST /api/line/webhook`: LINE Platform 的 Webhook 端點，用於接收和處理來自 LINE 的事件 (例如：用戶訊息、追蹤事件等)。
 
 ## 部署
 
@@ -131,9 +206,10 @@
 
 ## LINE Bot 整合
 
-- 後端包含一個基礎的 Webhook Handler (`/api/line/webhook`)，用於驗證 LINE 簽名並響應。
-- 在 LINE Developers Console 中設置 Webhook URL 指向部署後的後端地址。
-- 創建了一個簡單的 Rich Menu，其按鈕動作類型為 `uri`，指向部署後的前端網站 URL。
+- 後端通過 `/api/line/webhook` 端點接收來自 LINE Platform 的事件。此端點負責驗證 LINE 簽名、解析事件內容，並根據事件類型（如文字訊息、追蹤事件、Postback 事件等）調用相應的處理邏輯。
+- LINE Bot 的主要功能實現在 `backend/app/services/line_service.py` 和 `backend/app/controllers/line_controller.py` 中。
+- 在 LINE Developers Console 中，Webhook URL 需設置為您後端服務部署後的 `/api/line/webhook` 地址。
+- Rich Menu 功能已設計並可通過 LINE Developers Console 上傳設定，其按鈕動作可配置為發送 Postback 事件或 `uri` 動作（例如，重定向至前端網站的特定頁面）。
 
 ## 授權資訊
 

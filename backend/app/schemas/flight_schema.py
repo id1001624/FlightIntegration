@@ -19,9 +19,10 @@ class FlightSearchArgsSchema(Schema):
     airlines = fields.List(fields.Str(), allow_none=True) # 允許不傳遞
     price_min = fields.Float(validate=validate.Range(min=0), allow_none=True)
     price_max = fields.Float(validate=validate.Range(min=0), allow_none=True)
-    class_type = fields.Str(load_default='經濟') # 默認值
+    cabin_class = fields.Str(load_default='Economy') # 修改: class_type -> cabin_class, 默認值改為 Economy (更通用)
     only_target_airlines = fields.Bool(load_default=True) # 默認值
-    passengers = fields.Int(validate=validate.Range(min=1), load_default=1) # 默認值
+    adults = fields.Int(validate=validate.Range(min=1), load_default=1) # 修改: passengers -> adults
+    # 如果將來需要更細致的乘客類型，可以在此添加 children, infants
     max_results = fields.Int(validate=validate.Range(min=1), load_default=20) # 默認值
     sort_by = fields.Str(validate=validate.OneOf(['price', 'departure_time', 'arrival_time', 'duration']), load_default='price') # 限制選項
 
@@ -85,8 +86,8 @@ class FlightsFromTaiwanArgsSchema(Schema):
     airlines = fields.List(fields.String(), required=False, load_default=None, metadata={"description": "航空公司代碼列表 (e.g., 'CI,BR')"})
     price_min = fields.Float(required=False, load_default=None, validate=validate.Range(min=0), metadata={"description": "最低價格"})
     price_max = fields.Float(required=False, load_default=None, validate=validate.Range(min=0), metadata={"description": "最高價格"})
-    class_type = fields.String(required=False, load_default='經濟', validate=validate.OneOf(['經濟', '商務', '頭等']), metadata={"description": "艙位等級"})
-    passengers = fields.Int(required=False, load_default=1, validate=validate.Range(min=1), metadata={"description": "乘客數量"})
+    cabin_class = fields.String(required=False, load_default='Economy', validate=validate.OneOf(['Economy', 'Business', 'First']), metadata={"description": "艙位等級 (Economy, Business, First)"})
+    adults = fields.Int(required=False, load_default=1, validate=validate.Range(min=1), metadata={"description": "成人乘客數量"})
     max_results = fields.Int(required=False, load_default=20, validate=validate.Range(min=1), metadata={"description": "最大結果數量"})
     sort_by = fields.String(required=False, load_default='price', validate=validate.OneOf(['price', 'duration', 'departure_time', 'arrival_time']), metadata={"description": "排序依據"})
     only_target_airlines = fields.Boolean(required=False, load_default=True, metadata={"description": "是否僅顯示目標航空公司"})

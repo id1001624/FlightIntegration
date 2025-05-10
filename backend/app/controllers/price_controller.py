@@ -4,7 +4,8 @@
 """
 from flask import Blueprint, jsonify, request
 from ..models import TicketPrice, Flight
-from ..services.price_service import PriceService
+# 只導入 PriceAnalysisService (注意: 現在它包含了 PriceService 的所有功能)
+from ..services.price_analysis_service import PriceAnalysisService
 # 導入必要的輔助工具和異常
 from datetime import datetime
 from werkzeug.exceptions import BadRequest, NotFound
@@ -33,7 +34,7 @@ def _error_response(message, status_code):
 ticket_price_bp = Blueprint('ticket_price', __name__)
 
 @ticket_price_bp.route('/flight/<string:flight_id>', methods=['GET'])
-def get_prices_by_flight(flight_id):
+async def get_prices_by_flight(flight_id):
     """獲取特定航班的票價信息"""
     try:
         # 使用 Schema 驗證請求參數
@@ -43,10 +44,10 @@ def get_prices_by_flight(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        class_type = args.get('class_type')
+        cabin_class = args.get('class_type')
         
-        # 使用票價服務查詢
-        prices = PriceService.get_price_by_flight(flight_id, class_type)
+        # 使用 PriceAnalysisService 查詢票價
+        prices = await PriceAnalysisService.get_price_by_flight(flight_id, cabin_class)
         
         # 如果服務層返回空列表，也視為成功（只是沒有數據）
         return _success_response(prices)
@@ -57,7 +58,7 @@ def get_prices_by_flight(flight_id):
         return _error_response('獲取航班票價時發生內部錯誤', 500)
 
 @ticket_price_bp.route('/lowest', methods=['GET'])
-def get_lowest_prices():
+async def get_lowest_prices():
     """獲取特定路線和日期範圍的最低票價"""
     try:
         # 使用 Schema 驗證請求參數
@@ -69,15 +70,17 @@ def get_lowest_prices():
         # 提取驗證後的參數
         departure = args['departure'].upper()
         arrival = args['arrival'].upper()
-        start_date = args['start_date'].isoformat()
-        end_date = args.get('end_date').isoformat() if args.get('end_date') else None
+        start_date = args['start_date'].strftime('%Y-%m-%d')
+        end_date = args.get('end_date').strftime('%Y-%m-%d') if args.get('end_date') else None
+        cabin_class = args.get('class_type', '經濟')
         
-        # 使用票價服務查詢
-        prices = PriceService.get_lowest_prices(
-            departure, 
-            arrival, 
-            start_date,
-            end_date
+        # 使用 PriceAnalysisService 查詢
+        prices = await PriceAnalysisService.get_lowest_prices(
+            departure_code=departure, 
+            arrival_code=arrival, 
+            start_date=start_date,
+            end_date=end_date,
+            cabin_class=cabin_class
         )
         
         # 服務層可能返回錯誤字典
@@ -95,7 +98,7 @@ def get_lowest_prices():
         return _error_response('獲取最低票價時發生內部錯誤', 500)
 
 @ticket_price_bp.route('/history/<string:flight_id>', methods=['GET'])
-def get_price_history(flight_id):
+async def get_price_history(flight_id):
     """獲取航班的歷史票價"""
     try:
         # 使用 Schema 驗證請求參數
@@ -105,11 +108,11 @@ def get_price_history(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        class_type = args['class_type']
+        cabin_class = args['class_type']
         days = args['days']
         
-        # 使用票價服務查詢
-        history = PriceService.get_price_history(flight_id, class_type, days)
+        # 使用 PriceAnalysisService 查詢
+        history = await PriceAnalysisService.get_price_history(flight_id, cabin_class, days)
         
         # 服務層可能返回錯誤，但在當前實現中，找不到數據會返回空列表
         return _success_response(history)
@@ -119,7 +122,7 @@ def get_price_history(flight_id):
         return _error_response('獲取歷史票價時發生內部錯誤', 500)
 
 @ticket_price_bp.route('/analyze/<string:flight_id>', methods=['GET'])
-def analyze_price_trend(flight_id):
+async def analyze_price_trend(flight_id):
     """分析票價趨勢並提供購買建議"""
     try:
         # 使用 Schema 驗證請求參數
@@ -129,10 +132,10 @@ def analyze_price_trend(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        class_type = args['class_type']
+        cabin_class = args.get('class_type', '經濟')
         
-        # 使用票價服務分析
-        analysis = PriceService.analyze_price_trend(flight_id, class_type)
+        # 使用 PriceAnalysisService 進行分析
+        analysis = await PriceAnalysisService.analyze_price_trend(flight_id, cabin_class)
         
         # 服務層會處理找不到數據的情況並返回特定結構
         return _success_response(analysis)

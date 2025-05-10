@@ -12,9 +12,9 @@
 
 ### 2. 前端介面開發
 - ✅ 航空公司Logo整合
-  - 添加 `logo_path` 欄位到 `airlines` 資料表
-  - 更新資料庫中航空公司的 Logo 路徑
-  - 前端整合 Logo 到 `FlightCard.vue`, `AirlineFilter.vue`, `FlightDetailCard.vue`
+- ✅添加 `logo_path` 欄位到 `airlines` 資料表
+- ✅更新資料庫中航空公司的 Logo 路徑
+- ✅前端整合 Logo 到 `FlightCard.vue`, `AirlineFilter.vue`, `FlightDetailCard.vue`
 - ✅ 搜索表單元件開發
 - ✅ 航班結果頁面實現
 - ✅ 實現中文名稱搜索功能

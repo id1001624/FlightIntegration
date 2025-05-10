@@ -8,11 +8,7 @@
 import os
 import logging
 from typing import AsyncGenerator, Optional
-import asyncio  # 添加 asyncio 導入
-# import urllib.parse # 不再需要解析
-
-# --- 移除頂層環境變數讀取 ---
-# DATABASE_URL = os.environ.get("SQLALCHEMY_DATABASE_URI") 
+import asyncio 
 
 # 從模型基礎導入 SQLAlchemy db 對象
 from ..models.base import db as sqlalchemy_db 
@@ -23,17 +19,6 @@ from asyncpg.pool import Pool
 
 # 配置日誌
 logger = logging.getLogger("database")
-
-# --- 移除頂層 DB_URL 設置和解析 ---
-# DB_URL = DATABASE_URL or "postgresql://postgres@localhost:5432/flight_integration"
-# parsed_url = urllib.parse.urlparse(DB_URL)
-# DB_HOST = parsed_url.hostname or "localhost"
-# DB_PORT = parsed_url.port or 5432
-# DB_NAME = parsed_url.path[1:] if parsed_url.path else "flight_integration"
-# DB_USER = parsed_url.username or "postgres"
-# DB_PASSWORD = parsed_url.password or ""
-# DB_SSL = "sslmode=require" in DB_URL
-# ------------------------------------
 
 # 異步數據庫連接池
 # _asyncpg_pool: Optional[Pool] = None # 移除全局變數

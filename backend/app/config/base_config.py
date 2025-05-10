@@ -1,16 +1,5 @@
 # backend/config/base_config.py
 import os
-# --- 移除導入時的 .env 加載 --- 
-# from dotenv import load_dotenv, find_dotenv
-
-# # 查找並加載 .env 文件
-# dotenv_path = find_dotenv()
-# if dotenv_path:
-#     print(f"[BaseConfig] 找到 .env 文件: {dotenv_path}")
-#     load_dotenv(dotenv_path=dotenv_path)
-# else:
-#     print("[BaseConfig] 警告: 未找到 .env 文件。")
-# ------------------------------
 
 class BaseConfig:
     """基礎配置類"""
