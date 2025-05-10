@@ -369,14 +369,14 @@ const flightService = {
     try {
       // 轉換參數格式以符合後端API
       const apiParams = {
-        departure_code: params.departure,
-        arrival_code: params.arrival,
+        departure: params.departure,
+        arrival: params.arrival,
         date: params.date,
         return_date: params.return_date,
         airlines: params.airlines,
         price_min: params.price_min,
         price_max: params.price_max,
-        cabin_class: this._mapClassTypeToAPI(params.class_type)
+        cabin_class: this._mapClassTypeToAPI(params.class_type || 'Economy'),
       };
       
       // 移除空值參數，避免發送空的查詢參數
