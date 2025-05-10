@@ -356,12 +356,12 @@ export default {
       }
       
       const searchData = {
-        departure_airport_id: formData.departureAirport.code,
-        arrival_airport_id: formData.arrivalAirport.code,
-        departure_date: formData.departureDate,
+        departure: formData.departureAirport.code,
+        arrival: formData.arrivalAirport.code,
+        date: formData.departureDate,
         return_date: formData.returnDate || null,
-        cabin_class: formData.cabinClass,
-        passengers: formData.passengers.adults + formData.passengers.children + formData.passengers.infants,
+        class_type: formData.cabinClass,
+        // passengers: formData.passengers.adults + formData.passengers.children + formData.passengers.infants,
       };
       
       emit('search', searchData);
