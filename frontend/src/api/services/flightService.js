@@ -164,14 +164,13 @@ const flightService = {
 
   /**
    * 獲取所有有航班的出發機場
-   * @param {string} [date] 出發日期 YYYY-MM-DD格式，如提供將只返回該日期有航班的機場
    * @returns {Promise} 返回機場列表
    */
-  async getTaiwanAirports(date) {
-    console.log(`獲取台灣機場列表，日期: ${date}`);
+  async getTaiwanAirports() {
+    console.log(`獲取台灣機場列表`);
     
-    // 生成緩存鍵
-    const cacheKey = `airports_${date}`;
+    // 生成緩存鍵 (不再包含日期)
+    const cacheKey = `airports_taiwan_all`; // 修改緩存鍵以反映不區分日期
     
     // 檢查緩存
     if (checkCache('airports', cacheKey)) {
@@ -180,15 +179,15 @@ const flightService = {
     }
 
     try {
-      // 發送API請求 - 修正端點 URL
-      const correctUrl = `/airports/taiwan${date ? `?date=${date}` : ''}`;
-      console.log(`[flightService] Requesting Taiwan airports: ${correctUrl}`); // <-- 更新日誌標識
+      // 發送API請求 - 修正端點 URL (不再包含日期查詢參數)
+      const correctUrl = `/airports/taiwan`; 
+      console.log(`[flightService] Requesting Taiwan airports: ${correctUrl}`);
       const response = await api.get(correctUrl);
-      console.log('[flightService] Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(response))); // <-- 添加日誌
+      console.log('[flightService] Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(response)));
       
       // 處理API回應
       const data = this._handleResponse(response);
-      console.log('[flightService] Processed airport data:', JSON.parse(JSON.stringify(data))); // <-- 更新日誌標識
+      console.log('[flightService] Processed airport data:', JSON.parse(JSON.stringify(data)));
       
       // 如果數據為空，丟出錯誤
       if (!data || !Array.isArray(data)) {
@@ -365,18 +364,25 @@ const flightService = {
     try {
       // 轉換參數格式以符合後端API
       const apiParams = {
-        departure: params.departure,
-        arrival: params.arrival,
+        departure_code: params.departure,
+        arrival_code: params.arrival,
         date: params.date,
         return_date: params.return_date,
         airlines: params.airlines,
         price_min: params.price_min,
         price_max: params.price_max,
-        class_type: this._mapClassTypeToAPI(params.class_type)
+        cabin_class: this._mapClassTypeToAPI(params.class_type)
       };
       
-      console.log('[flightService] Requesting flight search with params:', apiParams); // <-- 添加日誌
-      const response = await api.get('/flights/search', { params });
+      // 移除空值參數，避免發送空的查詢參數
+      Object.keys(apiParams).forEach(key => {
+        if (apiParams[key] === undefined || apiParams[key] === null || apiParams[key] === '') {
+          delete apiParams[key];
+        }
+      });
+
+      console.log('[flightService] Requesting flight search with apiParams:', apiParams); 
+      const response = await api.get('/flights/search', { params: apiParams });
       console.log('[flightService] Raw API response for flights:', JSON.parse(JSON.stringify(response)));
 
       // *** 修正：直接處理新的響應結構 ***

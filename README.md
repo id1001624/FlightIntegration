@@ -107,15 +107,14 @@
 ### 航班 (`/api/flights`)
 - `GET /search`: 搜索航班。
   - **查詢參數**:
-    - `departure` (起飛機場代碼, 必填)
-    - `arrival` (抵達機場代碼, 必填)
+    - `departure_code` (起飛機場代碼, 必填)
+    - `arrival_code` (抵達機場代碼, 必填)
     - `date` (日期 YYYY-MM-DD, 必填)
     - `return_date` (回程日期 YYYY-MM-DD, 可選)
     - `airlines` (航空公司代碼列表，以逗號分隔，可選)
     - `price_min` (最低價格, 可選)
     - `price_max` (最高價格, 可選)
-    - `cabin_class` (艙等, 預設 "經濟")
-    - `only_target_airlines` (布林值，是否僅搜索目標航空公司, 預設 false)
+    - `cabin_class` (艙等, 例如 "economy", "business", "first", 預設 "economy")
     - `adults` (成人乘客數量, 預設 1)
     - `max_results` (最大結果數量, 預設 50)
     - `sort_by` (排序依據, 例如 "price", "departure_time", 預設 "price")
