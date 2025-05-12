@@ -16,9 +16,17 @@
           </div>
         </div>
         <div :class="{ 'pl-8': internalLoading && !selectedAirport }">
-          <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
-          <span v-else-if="!isOpen" class="text-gray-500">{{ placeholder }}</span>
-          {/* 搜尋框將移到下拉內部，所以這裡不需要 placeholder 給搜尋 */}
+          <span v-if="selectedAirport && !isOpen">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
+          <input
+            v-else-if="isOpen || !selectedAirport"
+            type="text"
+            v-model="searchQuery"
+            :placeholder="selectedAirport ? '搜尋其他機場...' : (placeholder || '搜尋機場名稱或代碼...')"
+            class="w-full focus:outline-none bg-transparent"
+            @click.stop
+            @focus="isOpen = true" 
+            ref="searchInput"
+          />
         </div>
       </div>
 
@@ -66,18 +74,6 @@
           尚無最近搜尋記錄
         </div>
         
-        <!-- 搜尋框 -->
-        <div class="p-2 border-b border-gray-200 sticky top-0 bg-white z-10"> {/* 使搜尋框也置頂 */}
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            :placeholder="selectedAirport ? '搜尋其他機場...' : '搜尋機場名稱或代碼...'"
-            class="w-full p-2 border border-gray-300 focus:border-primary focus:outline-none rounded-md"
-            @click.stop
-            ref="searchInput"
-          />
-        </div>
-
         <!-- 台灣出發地特殊顯示 (僅當作為出發地選擇器時) -->
         <div v-if="isTaiwanDeparture && !searchQuery" class="border-b border-gray-200">
           <div class="bg-primary text-white px-3 py-2.5 font-medium sticky top-0">台灣出發</div>
