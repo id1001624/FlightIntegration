@@ -436,6 +436,7 @@ const flightService = {
       // *** 修正：緩存並返回直接提取的數據 ***
       cache.flights.data[cacheKey] = flightsData;
       cache.flights.timestamp[cacheKey] = Date.now();
+      console.log('[flightService] Final flightsData to be returned to store:', JSON.parse(JSON.stringify(flightsData))); // 新增的日誌
       return flightsData;
 
     } catch (error) {

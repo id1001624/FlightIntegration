@@ -142,7 +142,7 @@ async def insert_prices_batch(conn, prices_list):
         available_seats, price_updated_at, is_test_data
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) -- Adjusted placeholders
-    ON CONFLICT (flight_id) DO UPDATE SET       -- Changed conflict target
+    ON CONFLICT (flight_id) DO UPDATE SET       -- 使用列名而非約束名稱
         economy_price = EXCLUDED.economy_price,
         business_price = EXCLUDED.business_price,
         first_price = EXCLUDED.first_price,

@@ -14,7 +14,7 @@ from marshmallow import ValidationError
 from ..models import Airline, Airport, Flight, TicketPrice
 from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema, FlightSearchResultSchema
 from ..database.db import init_asyncpg_pool
-from .db_utils import execute_db_operation, execute_query, normalize_cabin_class, get_price_field_by_cabin_class
+from .db_utils import execute_db_operation, execute_query, normalize_cabin_class, get_price_field_by_cabin_class, get_display_name_by_cabin_field
 from ..scripts.constants import POPULAR_DOMESTIC_ROUTES_TUPLES, POPULAR_INTERNATIONAL_ROUTES_TUPLES # 確保導入
 
 logger = logging.getLogger(__name__)
@@ -317,11 +317,11 @@ class FlightSearchService:
             price = None
             available_seats = flight.get('available_seats', 0)
             
-            if normalized_cabin_class == '經濟艙':
+            if normalized_cabin_class == 'economy':
                 price = flight.get('economy_price')
-            elif normalized_cabin_class == '商務艙':
+            elif normalized_cabin_class == 'business':
                 price = flight.get('business_price')
-            elif normalized_cabin_class == '頭等艙':
+            elif normalized_cabin_class == 'first':
                 price = flight.get('first_price')
                 
             # 確保價格存在且座位數大於0，否則跳過此航班
@@ -366,7 +366,7 @@ class FlightSearchService:
                 'price': { # 價格嵌套
                     'amount': price,
                     'currency': 'TWD',
-                    'cabin_class': normalized_cabin_class,  # 使用標準化後的艙等
+                    'cabin_class': get_display_name_by_cabin_field(get_price_field_by_cabin_class(normalized_cabin_class)),  # 顯示中文艙等名稱
                     'isAvailable': isAvailable  # 添加可用性標誌
                 },
                 'airline': { # 航空公司嵌套
