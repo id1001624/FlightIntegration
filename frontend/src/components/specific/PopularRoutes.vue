@@ -82,7 +82,7 @@ export default {
     // 導航到搜索頁面，並傳遞出發地和目的地參數
     const goToSearch = (fromCode, toCode) => {
       router.push({
-        path: '/search', // 請確保這與您的搜索頁面路由匹配
+        path: '/flight-search', // **修正路徑**
         query: {
           from: fromCode,
           to: toCode
