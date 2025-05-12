@@ -41,7 +41,7 @@
           <path fill-rule="evenodd" d="M10 3a.75.75 0 01.53.22l3.75 3.75a.75.75 0 01-1.06 1.06L10 5.06l-3.22 3.22a.75.75 0 01-1.06-1.06l3.75-3.75A.75.75 0 0110 3zM10 17a.75.75 0 01-.53-.22l-3.75-3.75a.75.75 0 011.06-1.06L10 14.94l3.22-3.22a.75.75 0 011.06 1.06l-3.75 3.75A.75.75 0 0110 17z" clip-rule="evenodd" />
         </svg>
       </div>
-      
+
       <!-- 清除選擇按鈕 - 增強版 -->
       <button 
         v-if="selectedAirport && !disabled" 
@@ -50,7 +50,7 @@
         class="absolute inset-y-0 right-8 px-4 flex items-center justify-center text-gray-400 hover:text-gray-600 z-[5]"
         aria-label="清除選擇"
       >
-        <svg @click.stop.prevent="clearSelection" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
         </svg>
       </button>
@@ -81,7 +81,7 @@
         <div v-else-if="isOpen && (!recentSearches || recentSearches.length === 0) && !searchQuery && !selectedRegion" class="px-3 py-2 text-xs text-gray-400 border-b border-gray-200">
           尚無最近搜尋記錄
         </div>
-        
+
         <!-- 台灣出發地特殊顯示 (僅當作為出發地選擇器時) -->
         <div v-if="isTaiwanDeparture && !searchQuery" class="border-b border-gray-200">
           <div class="bg-primary text-white px-3 py-2.5 font-medium sticky top-0">台灣出發</div>
@@ -245,7 +245,7 @@ export default {
 
     // 從 store 獲取最近搜尋記錄
     const recentSearches = computed(() => searchStore.recentSearches);
-
+    
     // 內部加載狀態
     const internalLoading = ref(props.loading);
     const loadingTimer = ref(null);
@@ -477,20 +477,13 @@ export default {
     const clearSelection = () => {
       console.log('[AirportSelector] Clearing selection');
       
-      // 防止事件繼續傳播
-      event?.stopPropagation();
-      event?.preventDefault();
-      
-      // 直接發出 null 值
       emit('update:modelValue', null);
       emit('change', null);
       
-      // 確保內部狀態一致
       searchQuery.value = '';
       selectedRegion.value = null;
       isOpen.value = false;
       
-      // 手動觸發父元件的更新
       nextTick(() => {
         console.log('[AirportSelector] Selection cleared, modelValue should now be null');
       });
@@ -509,9 +502,9 @@ export default {
         dropdownElement.value && 
         !dropdownElement.value.contains(e.target)
       ) {
-        isOpen.value = false;
-        selectedRegion.value = null;
-        searchQuery.value = '';
+      isOpen.value = false;
+      selectedRegion.value = null;
+      searchQuery.value = '';
       }
     };
 
