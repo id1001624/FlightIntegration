@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-white p-6 shadow-sm">
+  <div class="bg-white p-6 shadow-sm relative z-20">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
       <!-- Row 1: Departure & Arrival -->
       <div>
