@@ -472,9 +472,21 @@ export default {
     };
 
     const clearSelection = () => {
-      selectAirport(null); 
-      searchQuery.value = ''; 
-      isOpen.value = false; 
+      console.log('[AirportSelector] Clearing selection');
+      
+      // 直接發出 null 值
+      emit('update:modelValue', null);
+      emit('change', null);
+      
+      // 確保內部狀態一致
+      searchQuery.value = '';
+      selectedRegion.value = null;
+      isOpen.value = false;
+      
+      // 手動觸發父元件的更新 (以防萬一)
+      nextTick(() => {
+        console.log('[AirportSelector] Selection cleared');
+      });
     };
 
     const selectRecentRoute = (route) => {
