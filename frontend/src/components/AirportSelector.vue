@@ -42,14 +42,17 @@
         </svg>
       </div>
       
+      <!-- 清除選擇按鈕 - 增強版 -->
       <button 
         v-if="selectedAirport && !disabled" 
-        @click.stop="clearSelection" 
+        @click.stop.prevent="clearSelection" 
         type="button"
-        class="absolute inset-y-0 right-8 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-        aria-label="Clear selection"
+        class="absolute inset-y-0 right-8 px-4 flex items-center justify-center text-gray-400 hover:text-gray-600 z-[5]"
+        aria-label="清除選擇"
       >
-        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+        <svg @click.stop.prevent="clearSelection" class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        </svg>
       </button>
 
       <!-- 下拉選單 - 使用 fixed 定位 -->
@@ -474,6 +477,10 @@ export default {
     const clearSelection = () => {
       console.log('[AirportSelector] Clearing selection');
       
+      // 防止事件繼續傳播
+      event?.stopPropagation();
+      event?.preventDefault();
+      
       // 直接發出 null 值
       emit('update:modelValue', null);
       emit('change', null);
@@ -483,9 +490,9 @@ export default {
       selectedRegion.value = null;
       isOpen.value = false;
       
-      // 手動觸發父元件的更新 (以防萬一)
+      // 手動觸發父元件的更新
       nextTick(() => {
-        console.log('[AirportSelector] Selection cleared');
+        console.log('[AirportSelector] Selection cleared, modelValue should now be null');
       });
     };
 
