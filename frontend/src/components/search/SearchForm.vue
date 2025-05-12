@@ -195,24 +195,32 @@ export default {
           loadingTaiwanAirports.value = true;
           loadingDestinations.value = true;
           
-          const [fromResponse, toResponse] = await Promise.all([
-            flightService.getAirportByCode(route.query.from),
-            flightService.getAirportByCode(route.query.to)
+          // 從URL查詢參數獲取機場代碼
+          const fromCode = route.query.from;
+          const toCode = route.query.to;
+          
+          const [fromResponse, toResponse, allAirportsResponse] = await Promise.all([
+            flightService.getAirportByCode(fromCode),
+            flightService.getAirportByCode(toCode),
+            flightService.getAllAirports()
           ]);
           
+          // 設置出發地機場
           if (fromResponse.success && fromResponse.data) {
             formData.departureAirport = fromResponse.data;
             console.log('[SearchForm] 已設置出發地機場:', fromResponse.data.name);
-            
-            const allAirportsResponse = await flightService.getAllAirports();
-            if (allAirportsResponse.success) {
-              destinationAirports.value = allAirportsResponse.data || [];
-            }
           }
           
+          // 設置目的地機場
           if (toResponse.success && toResponse.data) {
             formData.arrivalAirport = toResponse.data;
             console.log('[SearchForm] 已設置目的地機場:', toResponse.data.name);
+          }
+          
+          // 設置目的地機場選項
+          if (allAirportsResponse.success && allAirportsResponse.data) {
+            destinationAirports.value = allAirportsResponse.data;
+            console.log('[SearchForm] 已加載所有目的地機場');
           }
         } catch (error) {
           console.error('[SearchForm] 獲取機場信息時出錯:', error);
@@ -224,16 +232,36 @@ export default {
     };
 
     const fetchTaiwanAirports = async () => {
-      if (taiwanAirports.value.length > 0) return;
-      
+      loadingTaiwanAirports.value = true;
+      errors.departureAirport = '';
       try {
-        loadingTaiwanAirports.value = true;
-        const response = await flightService.getTaiwanAirports();
-        if (response.success) {
-          taiwanAirports.value = response.data || [];
+        const response = await flightService.getTaiwanAirports(formData.departureDate);
+        console.log('SearchForm: Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(response)));
+        
+        if (response && Array.isArray(response)) {
+          // 直接處理返回的數組
+          taiwanAirports.value = response.map(airport => ({
+            id: airport.id || airport.airport_id,
+            code: airport.code || airport.iata_code || 'N/A',
+            name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
+            city: airport.city || '',
+            country: airport.country || 'Taiwan',
+            region: airport.region || '台灣'
+          }));
+          console.log('SearchForm: Mapped Taiwan airports:', JSON.parse(JSON.stringify(taiwanAirports.value)));
+          
+          if (formData.departureAirport && !formData.arrivalAirport) {
+            onDepartureChange(formData.departureAirport);
+          }
+        } else {
+          console.warn('API未返回有效的台灣機場數據數組');
+          taiwanAirports.value = [];
+          errors.departureAirport = '無法載入出發機場';
         }
       } catch (error) {
-        console.error('獲取台灣機場列表時出錯:', error);
+        console.error('獲取台灣機場資料時出錯:', error);
+        taiwanAirports.value = [];
+        errors.departureAirport = '載入出發機場失敗';
       } finally {
         loadingTaiwanAirports.value = false;
       }
