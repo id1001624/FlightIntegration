@@ -222,6 +222,13 @@ export default {
       console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
       console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
 
+      if (!selectedAirport) {
+        console.log('出發地已被清除，重置目的地和目的地列表');
+        formData.arrivalAirport = null;
+        destinationAirports.value = [];
+        return;
+      }
+
       if (!formData.arrivalAirport || 
           (formData.departureAirport && formData.departureAirport.code !== selectedAirport?.code)) {
         formData.arrivalAirport = null;
