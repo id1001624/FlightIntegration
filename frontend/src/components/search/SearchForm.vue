@@ -195,16 +195,28 @@ export default {
         console.log('SearchForm: 獲取到的台灣機場資料:', airportsData);
         
         // 判斷 airportsData 是否為數組或對象
+        let airportsArray = [];
         if (Array.isArray(airportsData)) {
           // 直接使用數組
-          taiwanAirports.value = airportsData;
+          airportsArray = airportsData;
         } else if (airportsData && airportsData.success && Array.isArray(airportsData.data)) {
           // 使用 {success, data} 格式
-          taiwanAirports.value = airportsData.data;
+          airportsArray = airportsData.data;
         } else {
           console.error('獲取台灣機場列表：資料格式不符合預期');
-          taiwanAirports.value = [];
         }
+        
+        // 映射數據，確保有 code 屬性
+        taiwanAirports.value = airportsArray.map(airport => ({
+          id: airport.id || airport.airport_id,
+          code: airport.iata_code || airport.code || airport.airport_id,
+          name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
+          city: airport.city || '',
+          country: airport.country || 'Taiwan',
+          region: airport.region || '台灣'
+        }));
+        console.log('SearchForm: 映射後的台灣機場資料:', JSON.parse(JSON.stringify(taiwanAirports.value)));
+
       } catch (error) {
         console.error('獲取台灣機場列表時出錯:', error);
       } finally {
@@ -226,47 +238,57 @@ export default {
             flightService.getAirportByCode(route.query.to)
           ]);
           
-          // 檢查 fromResponse 的格式並處理
+          // 處理出發地響應
           if (fromResponse) {
-            let fromAirport = null;
+            let fromAirportData = null;
             if (fromResponse.success && fromResponse.data) {
-              // 使用 {success, data} 格式
-              fromAirport = fromResponse.data;
-            } else if (typeof fromResponse === 'object' && fromResponse.code) {
-              // 直接使用機場對象
-              fromAirport = fromResponse;
+              fromAirportData = fromResponse.data;
+            } else if (typeof fromResponse === 'object' && (fromResponse.code || fromResponse.airport_id)) {
+              fromAirportData = fromResponse;
             }
             
-            if (fromAirport) {
-              formData.departureAirport = fromAirport;
-              console.log('[SearchForm] 已設置出發地機場:', fromAirport.name);
+            if (fromAirportData) {
+              // **確保 formData.departureAirport 包含 code 屬性**
+              formData.departureAirport = {
+                ...fromAirportData,
+                code: fromAirportData.code || fromAirportData.airport_id
+              };
+              console.log('[SearchForm] 已設置出發地機場 (含code):', JSON.parse(JSON.stringify(formData.departureAirport)));
               
               // 獲取所有機場信息
               const allAirportsResponse = await flightService.getAllAirports();
               if (allAirportsResponse) {
+                let allAirportsArray = [];
                 if (allAirportsResponse.success && Array.isArray(allAirportsResponse.data)) {
-                  destinationAirports.value = allAirportsResponse.data;
+                  allAirportsArray = allAirportsResponse.data;
                 } else if (Array.isArray(allAirportsResponse)) {
-                  destinationAirports.value = allAirportsResponse;
+                  allAirportsArray = allAirportsResponse;
                 }
+                // **確保 destinationAirports 中的對象包含 code 屬性**
+                destinationAirports.value = allAirportsArray.map(ap => ({
+                  ...ap,
+                  code: ap.code || ap.airport_id
+                }));
               }
             }
           }
           
-          // 檢查 toResponse 的格式並處理
+          // 處理目的地響應
           if (toResponse) {
-            let toAirport = null;
+            let toAirportData = null;
             if (toResponse.success && toResponse.data) {
-              // 使用 {success, data} 格式
-              toAirport = toResponse.data;
-            } else if (typeof toResponse === 'object' && toResponse.code) {
-              // 直接使用機場對象
-              toAirport = toResponse;
+              toAirportData = toResponse.data;
+            } else if (typeof toResponse === 'object' && (toResponse.code || toResponse.airport_id)) {
+              toAirportData = toResponse;
             }
             
-            if (toAirport) {
-              formData.arrivalAirport = toAirport;
-              console.log('[SearchForm] 已設置目的地機場:', toAirport.name);
+            if (toAirportData) {
+              // **確保 formData.arrivalAirport 包含 code 屬性**
+              formData.arrivalAirport = {
+                ...toAirportData,
+                code: toAirportData.code || toAirportData.airport_id
+              };
+              console.log('[SearchForm] 已設置目的地機場 (含code):', JSON.parse(JSON.stringify(formData.arrivalAirport)));
             }
           }
         } catch (error) {
@@ -391,9 +413,29 @@ export default {
 
     const handleRecentRouteSelected = (route) => {
       console.log('[SearchForm] Recent route selected:', route);
-      formData.departureAirport = route.departureAirport ? { ...route.departureAirport } : null;
-      formData.arrivalAirport = route.arrivalAirport ? { ...route.arrivalAirport } : null;
       
+      // **確保從最近搜索記錄設置的機場物件包含 code 屬性**
+      if (route.departureAirport) {
+        formData.departureAirport = {
+          ...route.departureAirport,
+          code: route.departureAirport.code || route.departureAirport.airport_id
+        };
+      } else {
+        formData.departureAirport = null;
+      }
+      
+      if (route.arrivalAirport) {
+        formData.arrivalAirport = {
+          ...route.arrivalAirport,
+          code: route.arrivalAirport.code || route.arrivalAirport.airport_id
+        };
+      } else {
+        formData.arrivalAirport = null;
+      }
+      
+      console.log('[SearchForm] After recent route selection (departure):', JSON.parse(JSON.stringify(formData.departureAirport)));
+      console.log('[SearchForm] After recent route selection (arrival):', JSON.parse(JSON.stringify(formData.arrivalAirport)));
+
       if (formData.departureAirport && formData.departureAirport.code) {
         onDepartureChange(formData.departureAirport);
       } else {
