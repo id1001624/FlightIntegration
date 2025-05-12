@@ -570,21 +570,24 @@ const flightService = {
     try {
       // 嘗試從API獲取單個機場信息
       const response = await api.get(`/airports/${code}`);
-      console.log(`獲取機場 ${code} 信息 API 回應:`, response);
+      console.log(`[getAirportByCode] 獲取機場 ${code} 信息 API 原始回應:`, JSON.parse(JSON.stringify(response))); // **<-- 添加日誌**
       
-      // 處理API回應
-      const data = this._handleResponse(response);
+      // **注意：這裡 _handleResponse 可能會改變 response 結構**
+      // 為了更清晰地看到 API 的直接返回，考慮在 handleResponse 前後都打印
+      const data = this._handleResponse(response); 
+      console.log(`[getAirportByCode] _handleResponse 處理後的數據 for ${code}:`, JSON.parse(JSON.stringify(data))); // **<-- 添加日誌**
       
-      if (data) {
+      if (data && typeof data === 'object' && !Array.isArray(data)) { // **確保 data 是單一物件**
         // 標準化數據結構
         const airport = {
-          id: data.airport_id || data.id,
-          code: data.iata_code || data.code || code,
-          name: data.name_zh || data.name || '未知機場',
+          id: data.airport_id || data.id, // 原始 ID
+          code: data.iata_code || data.code || code, // **確保 code**
+          name: data.name_zh || data.name || '未知機場', // **確保 name**
           city: data.city || '',
           country: data.country || '',
-          region: this._getAirportRegion(code)
+          region: this._getAirportRegion(data.iata_code || data.code || code) // 使用最終的 code 來獲取 region
         };
+        console.log(`[getAirportByCode] 標準化後的 airport 物件 for ${code}:`, JSON.parse(JSON.stringify(airport))); // **<-- 添加日誌**
         
         // 設置緩存
         cache.airports.data[cacheKey] = airport;
@@ -592,8 +595,8 @@ const flightService = {
         
         return { success: true, data: airport };
       } else {
-        console.warn(`API未返回有效的機場信息: ${code}`);
-        return { success: false, error: '未找到機場信息' };
+        console.warn(`[getAirportByCode] API未返回有效的單一機場信息對象: ${code}`, data);
+        return { success: false, error: '未找到機場信息或格式錯誤' };
       }
     } catch (error) {
       console.error(`獲取機場 ${code} 信息時出錯:`, error);
