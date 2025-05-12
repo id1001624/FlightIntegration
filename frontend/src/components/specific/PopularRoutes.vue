@@ -6,7 +6,7 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- 台北 → 東京 -->
         <div class="route-card rounded-lg shadow-md overflow-hidden bg-white">
-          <img src="@/assets/images/cities/tokyo.jpg" alt="東京" class="w-full h-48 object-cover">
+          <img src="@/assets/images/cities/tokyo.png" alt="東京" class="w-full h-48 object-cover">
           <div class="p-4">
             <h3 class="text-xl font-bold">台北 → 東京</h3>
             <div class="flex items-center my-3">
@@ -27,7 +27,7 @@
         
         <!-- 高雄 → 香港 -->
         <div class="route-card rounded-lg shadow-md overflow-hidden bg-white">
-          <img src="@/assets/images/cities/hongkong.jpg" alt="香港" class="w-full h-48 object-cover">
+          <img src="@/assets/images/cities/hongkong.png" alt="香港" class="w-full h-48 object-cover">
           <div class="p-4">
             <h3 class="text-xl font-bold">高雄 → 香港</h3>
             <div class="flex items-center my-3">
@@ -48,7 +48,7 @@
         
         <!-- 台中 → 澳門 -->
         <div class="route-card rounded-lg shadow-md overflow-hidden bg-white">
-          <img src="@/assets/images/cities/macau.jpg" alt="澳門" class="w-full h-48 object-cover">
+          <img src="@/assets/images/cities/macau.png" alt="澳門" class="w-full h-48 object-cover">
           <div class="p-4">
             <h3 class="text-xl font-bold">台中 → 澳門</h3>
             <div class="flex items-center my-3">
