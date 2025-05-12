@@ -1,5 +1,5 @@
 <template>
-  <div class="mb-4" ref="selectorContainer">
+  <div class="mb-4">
     <label v-if="label" :for="id" class="label">{{ label }}</label>
     <div class="relative" :id="id">
       <!-- 主互動元件：顯示已選機場 或 作為下拉觸發器 -->
@@ -52,131 +52,128 @@
         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
       </button>
 
-      <!-- 下拉選單 - 使用 Teleport -->
-      <Teleport to="body">
-        <div 
-          v-if="isOpen" 
-          ref="dropdownElement"
-          class="fixed z-[2000] bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto rounded-md"
-          :style="dropdownStyle" 
-        >
-          <!-- 最近搜尋路線 -->
-          <div v-if="recentSearches && recentSearches.length > 0" class="recent-searches p-2 border-b border-gray-200">
-            <div class="text-xs text-gray-500 px-1 pb-1 sticky top-0 bg-white z-10">最近搜尋</div>
-            <div 
-              v-for="(route, index) in recentSearches" 
-              :key="`recent-${index}-${route.departureAirport.code}-${route.arrivalAirport.code}`"
-              class="recent-search-item px-2 py-1.5 hover:bg-gray-100 cursor-pointer text-sm flex items-center justify-between"
-              @click="selectRecentRoute(route)"
-            >
-              <span>
-                {{ route.departureAirport.name_zh || route.departureAirport.name }} ({{ route.departureAirport.code }}) 
-                <span class="mx-1">→</span>
-                {{ route.arrivalAirport.name_zh || route.arrivalAirport.name }} ({{ route.arrivalAirport.code }})
-              </span>
-            </div>
-          </div>
-          <div v-else-if="isOpen && (!recentSearches || recentSearches.length === 0) && !searchQuery && !selectedRegion" class="px-3 py-2 text-xs text-gray-400 border-b border-gray-200">
-            尚無最近搜尋記錄
-          </div>
-          
-          <!-- 台灣出發地特殊顯示 (僅當作為出發地選擇器時) -->
-          <div v-if="isTaiwanDeparture && !searchQuery" class="border-b border-gray-200">
-            <div class="bg-primary text-white px-3 py-2.5 font-medium sticky top-0">台灣出發</div>
-            <div 
-              v-for="airport in taiwanAirports" 
-              :key="airport.code" 
-              @click="selectAirport(airport, $event)"
-              class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
-              :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
-            >
-              <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
-              <span class="mx-1">-</span>
-              <span class="text-text-secondary">{{ airport.name }}</span>
-            </div>
-          </div>
-          
-          <!-- 國家/地區選擇 (非搜尋時顯示) -->
-          <div v-if="!selectedRegion && !searchQuery && !isTaiwanDeparture" class="border-b border-gray-200">
-            <!-- 熱門目的地分類 -->
-            <div 
-              v-if="popularDestinations.length > 0"
-              @click="handleRegionClick($event, '熱門目的地')" 
-              class="px-3 py-3 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center border-b border-gray-100"
-            >
-              <span class="font-medium text-[#212529]">熱門目的地</span> <!-- #006D77 -->
-              <span class="ml-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
-              </span>
-            </div>
-            
-            <!-- 國家/地區列表 -->
-            <div class="px-3 py-2 font-medium bg-gray-50 text-gray-600 text-sm sticky top-0">國家 / 地區</div>
-            <div 
-              v-for="region in availableRegions" 
-              :key="region" 
-              @click="handleRegionClick($event, region)"
-              class="px-3 py-3 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
-            >
-              <span class="text-text-primary font-medium">{{ region }}</span>
-              <span class="ml-auto">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-                </svg>
-              </span>
-            </div>
-          </div>
-
-          <!-- 選擇了地區後顯示機場 -->
-          <div v-if="selectedRegion && !searchQuery" class="border-b border-gray-200">
-            <div class="bg-gray-50 px-3 py-2 flex items-center sticky top-0">
-              <button 
-                @click="handleBackButtonClick($event)" 
-                class="mr-2 text-primary hover:text-primary-dark"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
-              </button>
-              <span class="font-medium text-gray-600 text-sm">{{ selectedRegion }}</span>
-            </div>
-            <div 
-              v-for="airport in getSelectedAirports" 
-              :key="airport.code" 
-              @click="selectAirport(airport, $event)"
-              class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
-              :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
-            >
-              <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
-              <span class="mx-1">-</span>
-              <span class="text-text-secondary">{{ airport.name }}</span>
-            </div>
-          </div>
-
-          <!-- 搜尋結果 -->
-          <div v-if="searchQuery" class="border-b border-gray-200">
-            <div class="px-3 py-2 font-medium bg-gray-50 text-gray-600 text-sm sticky top-0">搜尋結果</div>
-            <div 
-              v-for="airport in searchResults" 
-              :key="airport.code" 
-              @click="selectAirport(airport, $event)"
-              class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
-              :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
-            >
-              <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
-              <span class="mx-1">-</span>
-              <span class="text-text-secondary">{{ airport.name }}</span>
-            </div>
-            
-            <!-- 無匹配結果 -->
-            <div v-if="searchResults.length === 0" class="p-3 text-center text-gray-500">
-              無匹配結果
-            </div>
+      <!-- 下拉選單 - 移除 Teleport -->
+      <div 
+        v-if="isOpen" 
+        ref="dropdownElement"
+        class="absolute z-[1050] w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto rounded-md"
+      >
+        <!-- 最近搜尋路線 -->
+        <div v-if="recentSearches && recentSearches.length > 0" class="recent-searches p-2 border-b border-gray-200">
+          <div class="text-xs text-gray-500 px-1 pb-1 sticky top-0 bg-white z-10">最近搜尋</div>
+          <div 
+            v-for="(route, index) in recentSearches" 
+            :key="`recent-${index}-${route.departureAirport.code}-${route.arrivalAirport.code}`"
+            class="recent-search-item px-2 py-1.5 hover:bg-gray-100 cursor-pointer text-sm flex items-center justify-between"
+            @click="selectRecentRoute(route)"
+          >
+            <span>
+              {{ route.departureAirport.name_zh || route.departureAirport.name }} ({{ route.departureAirport.code }}) 
+              <span class="mx-1">→</span>
+              {{ route.arrivalAirport.name_zh || route.arrivalAirport.name }} ({{ route.arrivalAirport.code }})
+            </span>
           </div>
         </div>
-      </Teleport>
+        <div v-else-if="isOpen && (!recentSearches || recentSearches.length === 0) && !searchQuery && !selectedRegion" class="px-3 py-2 text-xs text-gray-400 border-b border-gray-200">
+          尚無最近搜尋記錄
+        </div>
+        
+        <!-- 台灣出發地特殊顯示 (僅當作為出發地選擇器時) -->
+        <div v-if="isTaiwanDeparture && !searchQuery" class="border-b border-gray-200">
+          <div class="bg-primary text-white px-3 py-2.5 font-medium sticky top-0">台灣出發</div>
+          <div 
+            v-for="airport in taiwanAirports" 
+            :key="airport.code" 
+            @click="selectAirport(airport, $event)"
+            class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
+            :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
+          >
+            <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
+            <span class="mx-1">-</span>
+            <span class="text-text-secondary">{{ airport.name }}</span>
+          </div>
+        </div>
+        
+        <!-- 國家/地區選擇 (非搜尋時顯示) -->
+        <div v-if="!selectedRegion && !searchQuery && !isTaiwanDeparture" class="border-b border-gray-200">
+          <!-- 熱門目的地分類 -->
+          <div 
+            v-if="popularDestinations.length > 0"
+            @click="handleRegionClick($event, '熱門目的地')" 
+            class="px-3 py-3 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center border-b border-gray-100"
+          >
+            <span class="font-medium text-[#212529]">熱門目的地</span> <!-- #006D77 -->
+            <span class="ml-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+          
+          <!-- 國家/地區列表 -->
+          <div class="px-3 py-2 font-medium bg-gray-50 text-gray-600 text-sm sticky top-0">國家 / 地區</div>
+          <div 
+            v-for="region in availableRegions" 
+            :key="region" 
+            @click="handleRegionClick($event, region)"
+            class="px-3 py-3 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
+          >
+            <span class="text-text-primary font-medium">{{ region }}</span>
+            <span class="ml-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- 選擇了地區後顯示機場 -->
+        <div v-if="selectedRegion && !searchQuery" class="border-b border-gray-200">
+          <div class="bg-gray-50 px-3 py-2 flex items-center sticky top-0">
+            <button 
+              @click="handleBackButtonClick($event)" 
+              class="mr-2 text-primary hover:text-primary-dark"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </button>
+            <span class="font-medium text-gray-600 text-sm">{{ selectedRegion }}</span>
+          </div>
+          <div 
+            v-for="airport in getSelectedAirports" 
+            :key="airport.code" 
+            @click="selectAirport(airport, $event)"
+            class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
+            :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
+          >
+            <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
+            <span class="mx-1">-</span>
+            <span class="text-text-secondary">{{ airport.name }}</span>
+          </div>
+        </div>
+
+        <!-- 搜尋結果 -->
+        <div v-if="searchQuery" class="border-b border-gray-200">
+          <div class="px-3 py-2 font-medium bg-gray-50 text-gray-600 text-sm sticky top-0">搜尋結果</div>
+          <div 
+            v-for="airport in searchResults" 
+            :key="airport.code" 
+            @click="selectAirport(airport, $event)"
+            class="px-3 py-2.5 hover:bg-primary hover:bg-opacity-10 cursor-pointer flex items-center"
+            :class="{'bg-primary bg-opacity-20': isSelected(airport)}"
+          >
+            <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
+            <span class="mx-1">-</span>
+            <span class="text-text-secondary">{{ airport.name }}</span>
+          </div>
+          
+          <!-- 無匹配結果 -->
+          <div v-if="searchResults.length === 0" class="p-3 text-center text-gray-500">
+            無匹配結果
+          </div>
+        </div>
+      </div>
     </div>
     <p v-if="error" class="absolute bottom-[-1.25rem] left-0 w-full text-xs text-red-600 px-1">{{ error }}</p>
   </div>
@@ -234,10 +231,8 @@ export default {
     const searchStore = useSearchStore();
     const searchInput = ref(null);
 
-    const selectorContainer = ref(null); 
     const triggerElement = ref(null);    
     const dropdownElement = ref(null);   
-    const dropdownStyle = ref({});     
 
     // 從 store 獲取最近搜尋記錄
     const recentSearches = computed(() => searchStore.recentSearches);
@@ -284,8 +279,6 @@ export default {
       if (loadingTimer.value) {
         clearTimeout(loadingTimer.value);
       }
-      window.removeEventListener('scroll', handleScrollOrResize, true);
-      window.removeEventListener('resize', handleScrollOrResize);
       document.removeEventListener('click', closeDropdownOnClickOutside);
     });
     
@@ -438,27 +431,12 @@ export default {
       return selectedAirport.value.code === airport.code;
     };
 
-    const calculateDropdownPosition = () => {
-      if (!isOpen.value || !triggerElement.value) {
-        dropdownStyle.value = { display: 'none' }; 
-        return;
-      }
-      const rect = triggerElement.value.getBoundingClientRect();
-      dropdownStyle.value = {
-        top: `${rect.bottom + window.pageYOffset}px`,
-        left: `${rect.left + window.pageXOffset}px`,
-        width: `${rect.width}px`,
-        display: 'block',
-      };
-    };
-
     const toggleDropdown = () => {
       if (props.disabled) return;
       isOpen.value = !isOpen.value;
       if (isOpen.value) {
         nextTick(() => {
           searchInput.value?.focus();
-          calculateDropdownPosition(); 
         });
       }
     };
@@ -510,23 +488,14 @@ export default {
         searchQuery.value = '';
       }
     };
-    
-    const handleScrollOrResize = () => {
-      if (isOpen.value) {
-        calculateDropdownPosition();
-      }
-    };
 
     onMounted(() => {
       searchStore.loadRecentSearches();
-      window.addEventListener('scroll', handleScrollOrResize, true); 
-      window.addEventListener('resize', handleScrollOrResize);
       document.addEventListener('click', closeDropdownOnClickOutside);
     });
     
     watch(isOpen, (newValue) => {
       if (newValue) {
-        nextTick(calculateDropdownPosition);
       }
     });
 
@@ -551,10 +520,8 @@ export default {
       internalLoading,
       recentSearches,
       selectRecentRoute,
-      selectorContainer,
       triggerElement,
       dropdownElement,
-      dropdownStyle
     };
   }
 }
