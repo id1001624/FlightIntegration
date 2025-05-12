@@ -187,9 +187,7 @@ export default {
                   'scrollToResults:', shouldScrollToResults,
                   'lastViewedFlight:', lastViewedFlight);
 
-      // 如果是從詳情頁返回且有搜索結果，保持狀態並滾動到結果
       if (fromDetail && shouldScrollToResults && searchStore.hasSearched) {
-        // 使用setTimeout確保DOM已完全載入
         setTimeout(() => {
           if (lastViewedFlight) {
             scrollToFlightCard(lastViewedFlight);
@@ -198,15 +196,16 @@ export default {
           }
         }, 300);
       } 
-      // 如果不是從詳情頁返回，重置搜索狀態
-      else if (!fromDetail && searchStore.hasSearched) {
+      else if (!fromDetail && searchStore.hasSearched && route.name === 'FlightSearch') { // 只有當前就是 FlightSearch 且非 fromDetail 才重置
         console.log('[FlightSearch] 不是從詳情頁返回，重置搜索狀態');
         searchStore.resetAll();
+        window.scrollTo(0, 0); // 新增：滾動到頂部
         
-        // 清除路由中的參數
         if (Object.keys(route.query).length > 0) {
           router.replace({ query: {} });
         }
+      } else if (!fromDetail) { // 如果不是從詳情頁，且未觸發其他條件（例如首次加載或從其他非詳情頁跳轉）
+        window.scrollTo(0, 0); // 新增：滾動到頂部
       }
     });
 
@@ -608,8 +607,7 @@ export default {
   font-size: 2rem;
   margin-bottom: 8px;
   font-weight: 700;
-  /* color: var(--color-primary); */ /* Changed to white for orange background */
-  color: var(--color-base);
+  color: var(--color-primary); /* 修改顏色 */
 }
 
 .page-description {

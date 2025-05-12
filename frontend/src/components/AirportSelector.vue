@@ -2,42 +2,79 @@
   <div class="mb-4">
     <label v-if="label" :for="id" class="label">{{ label }}</label>
     <div class="relative" :id="id">
-      <!-- 顯示選擇的機場 -->
+      <!-- 主互動元件：顯示已選機場 或 作為下拉觸發器 -->
       <div 
         @click="toggleDropdown" 
-        class="input w-full pr-10 border-gray-300 focus:border-primary flex items-center cursor-pointer"
+        class="input w-full pr-10 border-gray-300 focus-within:border-primary flex items-center cursor-pointer"
         :class="{ 'border-red-500': error, 'opacity-50 cursor-not-allowed': disabled }"
       >
-        <div v-if="internalLoading" class="loader-wrapper">
+        <div v-if="internalLoading && !selectedAirport" class="loader-wrapper"> {/* 只在未選擇機場時顯示完整寬度loader */}
           <div class="cool-loader">
             <div class="cool-loader-ring"></div>
             <div class="cool-loader-ring"></div>
             <div class="cool-loader-dot"></div>
           </div>
         </div>
-        <div :class="{ 'pl-8': internalLoading }">
+        <div :class="{ 'pl-8': internalLoading && !selectedAirport }">
           <span v-if="selectedAirport">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
-          <span v-else class="text-gray-500">{{ placeholder }}</span>
+          <span v-else-if="!isOpen" class="text-gray-500">{{ placeholder }}</span>
+          {/* 搜尋框將移到下拉內部，所以這裡不需要 placeholder 給搜尋 */}
         </div>
       </div>
 
       <!-- Dropdown Arrow -->
-      <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+      <div 
+        class="absolute inset-y-0 right-0 pr-3 flex items-center"
+        :class="{'pointer-events-none': !isOpen}" 
+        @click="toggleDropdown"
+      >
         <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M10 3a.75.75 0 01.53.22l3.75 3.75a.75.75 0 01-1.06 1.06L10 5.06l-3.22 3.22a.75.75 0 01-1.06-1.06l3.75-3.75A.75.75 0 0110 3zM10 17a.75.75 0 01-.53-.22l-3.75-3.75a.75.75 0 011.06-1.06L10 14.94l3.22-3.22a.75.75 0 011.06 1.06l-3.75 3.75A.75.75 0 0110 17z" clip-rule="evenodd" />
         </svg>
       </div>
+      
+      <button 
+        v-if="selectedAirport && !disabled" 
+        @click.stop="clearSelection" 
+        type="button"
+        class="absolute inset-y-0 right-8 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+        aria-label="Clear selection"
+      >
+        <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
+      </button>
+
 
       <!-- 下拉選單 -->
-      <div v-if="isOpen" class="absolute z-[1050] w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto">
+      <div v-if="isOpen" class="absolute z-[1050] w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto rounded-md">
+        <!-- 最近搜尋路線 -->
+        <div v-if="recentSearches && recentSearches.length > 0" class="recent-searches p-2 border-b border-gray-200">
+          <div class="text-xs text-gray-500 px-1 pb-1 sticky top-0 bg-white z-10">最近搜尋</div>
+          <div 
+            v-for="(route, index) in recentSearches" 
+            :key="`recent-${index}-${route.departureAirport.code}-${route.arrivalAirport.code}`"
+            class="recent-search-item px-2 py-1.5 hover:bg-gray-100 cursor-pointer text-sm flex items-center justify-between"
+            @click="selectRecentRoute(route)"
+          >
+            <span>
+              {{ route.departureAirport.name_zh || route.departureAirport.name }} ({{ route.departureAirport.code }}) 
+              <span class="mx-1">→</span>
+              {{ route.arrivalAirport.name_zh || route.arrivalAirport.name }} ({{ route.arrivalAirport.code }})
+            </span>
+          </div>
+        </div>
+        <div v-else-if="isOpen && (!recentSearches || recentSearches.length === 0) && !searchQuery && !selectedRegion" class="px-3 py-2 text-xs text-gray-400 border-b border-gray-200">
+          尚無最近搜尋記錄
+        </div>
+        
         <!-- 搜尋框 -->
-        <div class="p-2 border-b border-gray-200">
+        <div class="p-2 border-b border-gray-200 sticky top-0 bg-white z-10"> {/* 使搜尋框也置頂 */}
           <input 
             type="text" 
             v-model="searchQuery" 
-            placeholder="搜尋機場..." 
-            class="w-full p-2 border border-gray-300 focus:border-primary focus:outline-none"
+            :placeholder="selectedAirport ? '搜尋其他機場...' : '搜尋機場名稱或代碼...'"
+            class="w-full p-2 border border-gray-300 focus:border-primary focus:outline-none rounded-md"
             @click.stop
+            ref="searchInput"
           />
         </div>
 
@@ -143,7 +180,8 @@
 </template>
 
 <script>
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { useSearchStore } from '@/store/modules/search';
 
 export default {
   name: 'AirportSelector',
@@ -185,12 +223,17 @@ export default {
       default: false
     }
   },
-  emits: ['update:modelValue', 'change'],
+  emits: ['update:modelValue', 'change', 'select-recent-route'],
   setup(props, { emit }) {
     const isOpen = ref(false);
     const searchQuery = ref('');
     const selectedRegion = ref(null);
-    
+    const searchStore = useSearchStore();
+    const searchInput = ref(null);
+
+    // 從 store 獲取最近搜尋記錄
+    const recentSearches = computed(() => searchStore.recentSearches);
+
     // 內部加載狀態
     const internalLoading = ref(props.loading);
     const loadingTimer = ref(null);
@@ -385,19 +428,12 @@ export default {
     };
 
     const toggleDropdown = () => {
-      if (props.disabled || props.loading) return;
-      
+      if (props.disabled) return;
       isOpen.value = !isOpen.value;
-      
-      // 當下拉選單打開時，總是重置地區和搜索查詢
       if (isOpen.value) {
-        selectedRegion.value = null;
-        searchQuery.value = '';
-      } 
-      // 當下拉選單關閉時，也重置 (保持原有邏輯，以防萬一)
-      else {
-        selectedRegion.value = null;
-        searchQuery.value = '';
+        nextTick(() => {
+          searchInput.value?.focus();
+        });
       }
     };
 
@@ -418,28 +454,24 @@ export default {
     };
 
     const selectAirport = (airport, event) => {
-      // 阻止事件冒泡
-      if (event) {
-        event.stopPropagation();
-      }
-      
-      // *** 創建一個普通對象副本 ***
-      const plainAirport = { ...airport };
-      // const airportCode = plainAirport.code; // No longer needed here
-      
-      console.log('AirportSelector: 即將 emit 的 airport (原始):', JSON.parse(JSON.stringify(airport)));
-      console.log('AirportSelector: 即將 emit 的 airport (複製後, restored):', plainAirport); 
-      // console.log('AirportSelector: 即將 emit 的 code:', airportCode); // No longer needed here
-      
-      // Emit the plain object for v-model compatibility
-      emit('update:modelValue', plainAirport); 
-
-      // *** Emit the plain object again for the change event ***
-      emit('change', plainAirport); 
-      
-      isOpen.value = false;
-      selectedRegion.value = null;
+      if (event) event.stopPropagation();
+      emit('update:modelValue', airport); // airport 可以是 null
+      emit('change', airport); // airport 可以是 null
       searchQuery.value = '';
+      selectedRegion.value = null; // 清除選中區域
+      isOpen.value = false;
+    };
+
+    const clearSelection = () => {
+      selectAirport(null); // 傳遞 null 以清除選擇
+    };
+
+    // 新增：處理點擊最近搜尋的事件 (稍後會綁定到實際列表)
+    const selectRecentRoute = (route) => {
+      // 這裡的邏輯將由父組件 SearchForm.vue 處理
+      // AirportSelector 只負責 emit 事件
+      emit('select-recent-route', route);
+      isOpen.value = false;
     };
 
     // 點擊外部關閉下拉選單
@@ -459,6 +491,7 @@ export default {
 
     onMounted(() => {
       document.addEventListener('click', closeDropdown);
+      searchStore.loadRecentSearches();
     });
 
     onBeforeUnmount(() => {
@@ -483,7 +516,9 @@ export default {
       selectAirport,
       isSelected,
       getSelectedAirports,
-      internalLoading
+      internalLoading,
+      recentSearches,
+      selectRecentRoute
     };
   }
 }
@@ -513,13 +548,10 @@ export default {
 /* 機場選擇加載動畫-酷炫版 */
 .loader-wrapper {
   position: absolute;
-  left: 10px;
+  left: 0.75rem; /* pl-3 */
   top: 50%;
   transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+  z-index: 5; /* 確保在文字之上 */
 }
 
 .cool-loader {
@@ -572,5 +604,17 @@ export default {
 @keyframes cool-loader-pulse {
   0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
   50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+}
+
+/* 增加 focus-within 樣式使父容器在 input focus 時有邊框 */
+.input.focus-within\\:border-primary:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* 微調 sticky top 的值，確保在滾動時正確覆蓋 */
+.recent-searches .sticky,
+.p-2.border-b.sticky {
+  top: 0; /* 確保搜尋框和最近搜尋標題在滾動時固定在下拉選單頂部 */
 }
 </style> 

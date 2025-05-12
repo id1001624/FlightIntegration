@@ -6,7 +6,7 @@
         <AirportSelector 
           id="departure"
           label="出發地"
-          placeholder="選擇出發機場"
+          placeholder="選擇或搜尋出發機場"
           :airports="taiwanAirports"
           v-model="formData.departureAirport"
           :loading="loadingTaiwanAirports"
@@ -14,6 +14,7 @@
           :disabled="isSearching"
           :isDeparture="true"
           @change="onDepartureChange"
+          @select-recent-route="handleRecentRouteSelected"
           class="square-selector"
         />
       </div>
@@ -22,12 +23,13 @@
         <AirportSelector 
           id="arrival"
           label="目的地"
-          placeholder="選擇目的地機場"
+          placeholder="選擇或搜尋目的地機場"
           :airports="destinationAirports"
           v-model="formData.arrivalAirport"
           :loading="loadingDestinations"
           :error="errors.arrivalAirport"
           :disabled="!formData.departureAirport || isSearching"
+          @select-recent-route="handleRecentRouteSelected"
           class="square-selector"
         />
       </div>
@@ -302,15 +304,21 @@ export default {
       }
     };
 
-    const onDepartureDateChange = (newDate) => {
-      console.log('出發日期變更:', newDate);
+    const onDepartureDateChange = () => {
+      if (formData.returnDate && new Date(formData.returnDate) < new Date(formData.departureDate)) {
+        formData.returnDate = '';
+      }
+      if (formData.departureAirport && formData.departureAirport.code) {
+        onDepartureChange(formData.departureAirport);
+      }
+    };
+
+    const handleRecentRouteSelected = (route) => {
+      console.log('[SearchForm] Recent route selected:', route);
+      formData.departureAirport = route.departureAirport ? { ...route.departureAirport } : null;
+      formData.arrivalAirport = route.arrivalAirport ? { ...route.arrivalAirport } : null;
       
-      errors.departureDate = '';
-      errors.returnDate = '';
-      
-      fetchTaiwanAirports();
-      
-      if (formData.departureAirport) {
+      if (formData.departureAirport && formData.departureAirport.code) {
         onDepartureChange(formData.departureAirport);
       } else {
         destinationAirports.value = [];
@@ -361,7 +369,6 @@ export default {
         date: formData.departureDate,
         return_date: formData.returnDate || null,
         class_type: formData.cabinClass,
-        // passengers: formData.passengers.adults + formData.passengers.children + formData.passengers.infants,
       };
       
       emit('search', searchData);
@@ -373,6 +380,14 @@ export default {
         cabinClass: formData.cabinClass,
         passengers: formData.passengers,
       });
+      
+      if (formData.departureAirport && formData.departureAirport.code && 
+          formData.arrivalAirport && formData.arrivalAirport.code) {
+        searchStore.addRecentSearch({
+          departureAirport: { ...formData.departureAirport },
+          arrivalAirport: { ...formData.arrivalAirport }
+        });
+      }
     };
 
     const openPassengerModal = () => {
@@ -408,7 +423,8 @@ export default {
       openPassengerModal,
       closePassengerModal,
       handlePassengerConfirm,
-      passengerCabinDisplay
+      passengerCabinDisplay,
+      handleRecentRouteSelected
     };
   }
 };

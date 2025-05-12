@@ -30,7 +30,8 @@ export const useSearchStore = defineStore('search', {
         min: 0,
         max: 50000
       }
-    }
+    },
+    recentSearches: [] // 新增：最近搜尋記錄
   }),
   
   getters: {
@@ -61,6 +62,62 @@ export const useSearchStore = defineStore('search', {
   },
   
   actions: {
+    // 新增：載入最近搜尋記錄
+    loadRecentSearches() {
+      try {
+        const storedSearches = localStorage.getItem('recentFlightSearches');
+        if (storedSearches) {
+          const parsedSearches = JSON.parse(storedSearches);
+          if (Array.isArray(parsedSearches)) {
+            this.recentSearches = parsedSearches;
+            console.log('[SearchStore] Loaded recent searches from localStorage:', this.recentSearches);
+          }
+        }
+      } catch (error) {
+        console.error('[SearchStore] Error loading recent searches from localStorage:', error);
+        this.recentSearches = []; // 發生錯誤時重置為空
+      }
+    },
+
+    // 新增：添加最近搜尋記錄
+    addRecentSearch(routeDetails) {
+      if (!routeDetails || !routeDetails.departureAirport || !routeDetails.departureAirport.code ||
+          !routeDetails.arrivalAirport || !routeDetails.arrivalAirport.code) {
+        console.warn('[SearchStore] Invalid routeDetails for addRecentSearch:', routeDetails);
+        return;
+      }
+
+      const newSearch = {
+        departureAirport: { ...routeDetails.departureAirport },
+        arrivalAirport: { ...routeDetails.arrivalAirport }
+        // 可以在這裡添加其他需要儲存的資訊，例如：
+        // departureDate: routeDetails.departureDate,
+        // classType: routeDetails.classType,
+      };
+
+      // 去重：檢查是否已存在相同的路線
+      this.recentSearches = this.recentSearches.filter(search => 
+        !(search.departureAirport.code === newSearch.departureAirport.code && 
+          search.arrivalAirport.code === newSearch.arrivalAirport.code)
+      );
+
+      // 添加到列表頂部
+      this.recentSearches.unshift(newSearch);
+
+      // 限制數量，最多5條
+      if (this.recentSearches.length > 5) {
+        this.recentSearches.pop(); // 移除最舊的（最後一個）
+      }
+
+      // 更新 localStorage
+      try {
+        localStorage.setItem('recentFlightSearches', JSON.stringify(this.recentSearches));
+        console.log('[SearchStore] Saved recent searches to localStorage:', this.recentSearches);
+      } catch (error) {
+        console.error('[SearchStore] Error saving recent searches to localStorage:', error);
+      }
+    },
+    
     // 更新搜索參數
     setSearchParams(params) {
       // 創建深拷貝以避免對原始對象的修改影響 store
@@ -172,6 +229,11 @@ export const useSearchStore = defineStore('search', {
       this.searchParams.departureAirport = null;
       this.searchParams.arrivalAirport = null;
       // 注意：這裡不清空日期或其他參數，僅機場
+
+      // 當清除機場選擇時，也考慮是否要清除最近一次的 flights 和 filteredFlights，
+      // 以及 hasSearched 狀態，讓介面回到初始狀態。
+      // 或者，這部分邏輯應由調用方（例如 FlightSearch.vue 的路由監聽器）決定。
+      // 目前保持原樣，只清除機場選擇。
     }
   }
 }); 
