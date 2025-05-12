@@ -52,11 +52,12 @@
         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>
       </button>
 
-      <!-- 下拉選單 - 移除 Teleport -->
+      <!-- 下拉選單 - 使用 fixed 定位 -->
       <div 
         v-if="isOpen" 
         ref="dropdownElement"
-        class="absolute z-[1050] w-full mt-1 bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto rounded-md"
+        class="fixed z-[9999] bg-white border border-gray-300 shadow-lg max-h-80 overflow-y-auto rounded-md"
+        :style="{ top: dropdownTop + 'px', left: dropdownLeft + 'px', width: dropdownWidth + 'px' }"
       >
         <!-- 最近搜尋路線 -->
         <div v-if="recentSearches && recentSearches.length > 0" class="recent-searches p-2 border-b border-gray-200">
@@ -232,7 +233,12 @@ export default {
     const searchInput = ref(null);
 
     const triggerElement = ref(null);    
-    const dropdownElement = ref(null);   
+    const dropdownElement = ref(null);
+    
+    // 添加下拉選單位置計算所需的變數
+    const dropdownTop = ref(0);
+    const dropdownLeft = ref(0);
+    const dropdownWidth = ref(0);
 
     // 從 store 獲取最近搜尋記錄
     const recentSearches = computed(() => searchStore.recentSearches);
@@ -437,6 +443,7 @@ export default {
       if (isOpen.value) {
         nextTick(() => {
           searchInput.value?.focus();
+          updateDropdownPosition(); // 新增: 更新下拉選單位置
         });
       }
     };
@@ -489,13 +496,44 @@ export default {
       }
     };
 
+    // 新增: 更新下拉選單位置的方法
+    const updateDropdownPosition = () => {
+      if (!triggerElement.value) return;
+      
+      const rect = triggerElement.value.getBoundingClientRect();
+      dropdownTop.value = rect.bottom;
+      dropdownLeft.value = rect.left;
+      dropdownWidth.value = rect.width;
+    };
+
+    // 新增: 處理滾動和調整大小事件
+    const handleScrollResize = () => {
+      if (isOpen.value) {
+        updateDropdownPosition();
+      }
+    };
+
     onMounted(() => {
       searchStore.loadRecentSearches();
       document.addEventListener('click', closeDropdownOnClickOutside);
+      window.addEventListener('scroll', handleScrollResize, true);
+      window.addEventListener('resize', handleScrollResize);
+    });
+
+    onBeforeUnmount(() => {
+      if (loadingTimer.value) {
+        clearTimeout(loadingTimer.value);
+      }
+      document.removeEventListener('click', closeDropdownOnClickOutside);
+      window.removeEventListener('scroll', handleScrollResize, true);
+      window.removeEventListener('resize', handleScrollResize);
     });
     
     watch(isOpen, (newValue) => {
       if (newValue) {
+        nextTick(() => {
+          updateDropdownPosition(); // 新增: 當下拉選單打開時更新位置
+        });
       }
     });
 
@@ -522,6 +560,10 @@ export default {
       selectRecentRoute,
       triggerElement,
       dropdownElement,
+      // 新增: 導出下拉選單位置變數
+      dropdownTop,
+      dropdownLeft,
+      dropdownWidth,
     };
   }
 }
