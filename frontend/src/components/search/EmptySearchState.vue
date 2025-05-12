@@ -1,5 +1,5 @@
 <template>
-  <div class="empty-search-state" ref="emptyStateContainer">
+  <div class="empty-search-state z-10" ref="emptyStateContainer">
     <div class="background-gradient"></div>
     
     <div class="content-container">
