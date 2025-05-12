@@ -171,7 +171,7 @@
         </div>
       </div>
     </div>
-    <p v-if="error" class="mt-1 text-xs text-red-600">{{ error }}</p>
+    <p v-if="error" class="absolute bottom-[-1.25rem] left-0 w-full text-xs text-red-600 px-1">{{ error }}</p>
   </div>
 </template>
 
@@ -524,7 +524,7 @@ export default {
 .input {
   display: block;
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 0.75rem calc(0.5rem + 1em); /* 假設錯誤文字高度約為1em */
   border-width: 1px;
   background-color: #fff;
   transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -536,9 +536,18 @@ export default {
 
 .label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.5rem; /* 確保 label 和 input 之間有足夠間距 */
   font-weight: 500;
   color: #212529;
+}
+
+/* 給 AirportSelector 的根 div 增加 padding-bottom 以容納絕對定位的錯誤訊息 */
+.mb-4 {
+  /* Tailwind's mb-4 is margin-bottom: 1rem. We need padding-bottom for the absolute error message */
+  /* Let's assume error message height is roughly 1rem (text-xs + some line height) */
+  /* We'll add position relative here, and use a specific class for the padding if needed */
+  position: relative; /* Ensure this is relative for absolute positioning of error message */
+  padding-bottom: 1.5rem; /* 預留給錯誤訊息的空間，根據實際錯誤訊息高度調整 */
 }
 
 /* 機場選擇加載動畫-酷炫版 */
