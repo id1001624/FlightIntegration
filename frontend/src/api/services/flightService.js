@@ -559,48 +559,54 @@ const flightService = {
       console.error('getAirportByCode: 未提供機場代碼');
       return { success: false, error: '未提供機場代碼' };
     }
-    
+
     // 先檢查緩存中是否已有此機場信息
     const cacheKey = `airport_${code}`;
     if (checkCache('airports', cacheKey)) {
       console.log(`從緩存返回機場信息: ${code}`);
       return { success: true, data: cache.airports.data[cacheKey] };
     }
-    
+
     try {
       // 嘗試從API獲取單個機場信息
       const response = await api.get(`/airports/${code}`);
-      console.log(`[getAirportByCode] 獲取機場 ${code} 信息 API 原始回應:`, JSON.parse(JSON.stringify(response))); // **<-- 添加日誌**
-      
-      // **注意：這裡 _handleResponse 可能會改變 response 結構**
-      // 為了更清晰地看到 API 的直接返回，考慮在 handleResponse 前後都打印
-      const data = this._handleResponse(response); 
-      console.log(`[getAirportByCode] _handleResponse 處理後的數據 for ${code}:`, JSON.parse(JSON.stringify(data))); // **<-- 添加日誌**
-      
-      if (data && typeof data === 'object' && !Array.isArray(data)) { // **確保 data 是單一物件**
+      console.log(`[getAirportByCode] 獲取機場 ${code} 信息 API 原始回應:`, JSON.parse(JSON.stringify(response)));
+
+      // *** 修改：直接檢查和使用 response.data ***
+      if (response && response.success && response.data && typeof response.data === 'object') {
+        const airportData = response.data; // 直接取用 data
+        console.log(`[getAirportByCode] 直接從 API response.data 獲取的數據 for ${code}:`, JSON.parse(JSON.stringify(airportData)));
+
         // 標準化數據結構
         const airport = {
-          id: data.airport_id || data.id, // 原始 ID
-          code: data.iata_code || data.code || code, // **確保 code**
-          name: data.name_zh || data.name || '未知機場', // **確保 name**
-          city: data.city || '',
-          country: data.country || '',
-          region: this._getAirportRegion(data.iata_code || data.code || code) // 使用最終的 code 來獲取 region
+          id: airportData.airport_id || airportData.id, // 原始 ID
+          code: airportData.iata_code || airportData.code || code, // **確保 code**
+          name: airportData.name_zh || airportData.name || '未知機場', // **確保 name**
+          city: airportData.city || '',
+          country: airportData.country || '',
+          region: this._getAirportRegion(airportData.iata_code || airportData.code || code) // 使用最終的 code 來獲取 region
         };
-        console.log(`[getAirportByCode] 標準化後的 airport 物件 for ${code}:`, JSON.parse(JSON.stringify(airport))); // **<-- 添加日誌**
-        
+        console.log(`[getAirportByCode] 標準化後的 airport 物件 for ${code}:`, JSON.parse(JSON.stringify(airport)));
+
         // 設置緩存
+        // 確保 cache.airports.data 和 cache.airports.timestamp 已初始化
+        if (!cache.airports.data) cache.airports.data = {};
+        if (!cache.airports.timestamp) cache.airports.timestamp = {};
+
         cache.airports.data[cacheKey] = airport;
         cache.airports.timestamp[cacheKey] = Date.now();
-        
+
         return { success: true, data: airport };
       } else {
-        console.warn(`[getAirportByCode] API未返回有效的單一機場信息對象: ${code}`, data);
-        return { success: false, error: '未找到機場信息或格式錯誤' };
+        console.warn(`[getAirportByCode] API未返回有效的單一機場信息對象或 response.success 不為 true: ${code}`, response);
+        const errorMsg = (response && response.message) ? response.message : '未找到機場信息或格式錯誤';
+        return { success: false, error: errorMsg };
       }
     } catch (error) {
       console.error(`獲取機場 ${code} 信息時出錯:`, error);
-      return { success: false, error: error.message || '獲取機場信息失敗' };
+      // 嘗試解析後端返回的錯誤信息
+      const backendError = error.response?.data?.message || error.message || '獲取機場信息失敗';
+      return { success: false, error: backendError };
     }
   },
   
