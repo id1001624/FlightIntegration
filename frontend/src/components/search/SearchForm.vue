@@ -191,9 +191,19 @@ export default {
       
       try {
         loadingTaiwanAirports.value = true;
-        const response = await flightService.getTaiwanAirports();
-        if (response.success) {
-          taiwanAirports.value = response.data || [];
+        const airportsData = await flightService.getTaiwanAirports();
+        console.log('SearchForm: 獲取到的台灣機場資料:', airportsData);
+        
+        // 判斷 airportsData 是否為數組或對象
+        if (Array.isArray(airportsData)) {
+          // 直接使用數組
+          taiwanAirports.value = airportsData;
+        } else if (airportsData && airportsData.success && Array.isArray(airportsData.data)) {
+          // 使用 {success, data} 格式
+          taiwanAirports.value = airportsData.data;
+        } else {
+          console.error('獲取台灣機場列表：資料格式不符合預期');
+          taiwanAirports.value = [];
         }
       } catch (error) {
         console.error('獲取台灣機場列表時出錯:', error);
@@ -216,19 +226,48 @@ export default {
             flightService.getAirportByCode(route.query.to)
           ]);
           
-          if (fromResponse.success && fromResponse.data) {
-            formData.departureAirport = fromResponse.data;
-            console.log('[SearchForm] 已設置出發地機場:', fromResponse.data.name);
+          // 檢查 fromResponse 的格式並處理
+          if (fromResponse) {
+            let fromAirport = null;
+            if (fromResponse.success && fromResponse.data) {
+              // 使用 {success, data} 格式
+              fromAirport = fromResponse.data;
+            } else if (typeof fromResponse === 'object' && fromResponse.code) {
+              // 直接使用機場對象
+              fromAirport = fromResponse;
+            }
             
-            const allAirportsResponse = await flightService.getAllAirports();
-            if (allAirportsResponse.success) {
-              destinationAirports.value = allAirportsResponse.data || [];
+            if (fromAirport) {
+              formData.departureAirport = fromAirport;
+              console.log('[SearchForm] 已設置出發地機場:', fromAirport.name);
+              
+              // 獲取所有機場信息
+              const allAirportsResponse = await flightService.getAllAirports();
+              if (allAirportsResponse) {
+                if (allAirportsResponse.success && Array.isArray(allAirportsResponse.data)) {
+                  destinationAirports.value = allAirportsResponse.data;
+                } else if (Array.isArray(allAirportsResponse)) {
+                  destinationAirports.value = allAirportsResponse;
+                }
+              }
             }
           }
           
-          if (toResponse.success && toResponse.data) {
-            formData.arrivalAirport = toResponse.data;
-            console.log('[SearchForm] 已設置目的地機場:', toResponse.data.name);
+          // 檢查 toResponse 的格式並處理
+          if (toResponse) {
+            let toAirport = null;
+            if (toResponse.success && toResponse.data) {
+              // 使用 {success, data} 格式
+              toAirport = toResponse.data;
+            } else if (typeof toResponse === 'object' && toResponse.code) {
+              // 直接使用機場對象
+              toAirport = toResponse;
+            }
+            
+            if (toAirport) {
+              formData.arrivalAirport = toAirport;
+              console.log('[SearchForm] 已設置目的地機場:', toAirport.name);
+            }
           }
         } catch (error) {
           console.error('[SearchForm] 獲取機場信息時出錯:', error);
@@ -256,6 +295,7 @@ export default {
         destinationAirports.value = [];
       }
 
+      // 檢查機場代碼是否有效，防止使用 'N/A' 或空值作為機場代碼
       const airportCode = selectedAirport?.code;
       if (!airportCode || airportCode === 'N/A') {
         console.log('無效或缺失的 airport code，提前退出 onDepartureChange');
@@ -270,10 +310,18 @@ export default {
         const destinations = await flightService.getDestinations(airportCode, formData.departureDate);
         console.log('原始目的地數據:', destinations);
 
-        if (destinations && destinations.length > 0) {
-          const mappedDestinations = destinations.map(airport => {
-            const code = airport.code || 'N/A';
-            const name = airport.name || '未知名稱';
+        // 確保 destinations 是數組
+        let destinationsArray = [];
+        if (Array.isArray(destinations)) {
+          destinationsArray = destinations;
+        } else if (destinations && destinations.success && Array.isArray(destinations.data)) {
+          destinationsArray = destinations.data;
+        }
+
+        if (destinationsArray && destinationsArray.length > 0) {
+          const mappedDestinations = destinationsArray.map(airport => {
+            const code = airport.code || airport.airport_id || 'N/A';
+            const name = airport.name || airport.name_zh || '未知名稱';
             const country = airport.country || '';
 
             let region = '其他';
@@ -298,10 +346,10 @@ export default {
             }
             
             return {
-              id: airport.id,
+              id: airport.id || airport.airport_id,
               code: code,
               name: name,
-              city: airport.city,
+              city: airport.city || '',
               country: country,
               region: region
             };
