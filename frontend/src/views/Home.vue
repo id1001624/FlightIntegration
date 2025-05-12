@@ -89,59 +89,18 @@
     </section>
 
     <!-- 熱門航線區塊 -->
-    <section class="trending-section">
-      <h2 class="section-title">熱門航線推薦</h2>
-      <div class="trending-grid">
-        <div class="trending-card animate-on-scroll">
-          <div class="destination-image taipei"></div>
-          <div class="destination-info">
-            <h3 class="destination-name">台北 → 東京</h3>
-            <div class="journey-line">
-              <span class="journey-dot start"></span>
-              <span class="journey-path-mini"></span>
-              <span class="journey-dot end"></span>
-            </div>
-            <p class="destination-description">直飛航線，飛行時間約3小時</p>
-            <p class="destination-price">NT$ 8,500 起</p>
-          </div>
-          <router-link to="/flight-search" class="destination-link">查看航班</router-link>
-        </div>
-        <div class="trending-card animate-on-scroll">
-          <div class="destination-image kaohsiung"></div>
-          <div class="destination-info">
-            <h3 class="destination-name">高雄 → 香港</h3>
-            <div class="journey-line">
-              <span class="journey-dot start"></span>
-              <span class="journey-path-mini"></span>
-              <span class="journey-dot end"></span>
-            </div>
-            <p class="destination-description">直飛航線，飛行時間約1.5小時</p>
-            <p class="destination-price">NT$ 6,000 起</p>
-          </div>
-          <router-link to="/flight-search" class="destination-link">查看航班</router-link>
-        </div>
-        <div class="trending-card animate-on-scroll">
-          <div class="destination-image taichung"></div>
-          <div class="destination-info">
-            <h3 class="destination-name">台中 → 澳門</h3>
-            <div class="journey-line">
-              <span class="journey-dot start"></span>
-              <span class="journey-path-mini"></span>
-              <span class="journey-dot end"></span>
-            </div>
-            <p class="destination-description">直飛航線，飛行時間約2小時</p>
-            <p class="destination-price">NT$ 5,800 起</p>
-          </div>
-          <router-link to="/flight-search" class="destination-link">查看航班</router-link>
-        </div>
-      </div>
-    </section>
+    <PopularRoutes />
   </div>
 </template>
 
 <script>
+import PopularRoutes from '@/components/specific/PopularRoutes.vue';
+
 export default {
   name: 'HomeView',
+  components: {
+    PopularRoutes
+  },
   mounted() {
     // 監聽滾動事件，啟用滾動觸發動畫
     this.setupScrollAnimations();

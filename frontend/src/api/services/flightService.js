@@ -547,6 +547,135 @@ const flightService = {
       }
     });
     console.log('已清除所有緩存');
+  },
+
+  /**
+   * 根據機場代碼獲取單個機場詳細信息
+   * @param {string} code 機場IATA代碼
+   * @returns {Promise} 返回機場詳細信息
+   */
+  async getAirportByCode(code) {
+    if (!code) {
+      console.error('getAirportByCode: 未提供機場代碼');
+      return { success: false, error: '未提供機場代碼' };
+    }
+    
+    // 先檢查緩存中是否已有此機場信息
+    const cacheKey = `airport_${code}`;
+    if (checkCache('airports', cacheKey)) {
+      console.log(`從緩存返回機場信息: ${code}`);
+      return { success: true, data: cache.airports.data[cacheKey] };
+    }
+    
+    try {
+      // 嘗試從API獲取單個機場信息
+      const response = await api.get(`/airports/${code}`);
+      console.log(`獲取機場 ${code} 信息 API 回應:`, response);
+      
+      // 處理API回應
+      const data = this._handleResponse(response);
+      
+      if (data) {
+        // 標準化數據結構
+        const airport = {
+          id: data.airport_id || data.id,
+          code: data.iata_code || data.code || code,
+          name: data.name_zh || data.name || '未知機場',
+          city: data.city || '',
+          country: data.country || '',
+          region: this._getAirportRegion(code)
+        };
+        
+        // 設置緩存
+        cache.airports.data[cacheKey] = airport;
+        cache.airports.timestamp[cacheKey] = Date.now();
+        
+        return { success: true, data: airport };
+      } else {
+        console.warn(`API未返回有效的機場信息: ${code}`);
+        return { success: false, error: '未找到機場信息' };
+      }
+    } catch (error) {
+      console.error(`獲取機場 ${code} 信息時出錯:`, error);
+      return { success: false, error: error.message || '獲取機場信息失敗' };
+    }
+  },
+  
+  /**
+   * 獲取所有機場信息
+   * @returns {Promise} 返回所有機場信息列表
+   */
+  async getAllAirports() {
+    const cacheKey = 'all_airports';
+    
+    // 檢查緩存
+    if (checkCache('airports', cacheKey)) {
+      console.log('從緩存返回所有機場信息');
+      return { success: true, data: cache.airports.data[cacheKey] };
+    }
+    
+    try {
+      const response = await api.get('/airports');
+      console.log('獲取所有機場 API 回應:', response);
+      
+      // 處理API回應
+      const data = this._handleResponse(response);
+      
+      if (data && Array.isArray(data)) {
+        // 標準化數據結構
+        const airports = data.map(airport => ({
+          id: airport.airport_id || airport.id,
+          code: airport.iata_code || airport.code || 'N/A',
+          name: airport.name_zh || airport.name || '未知機場',
+          city: airport.city || '',
+          country: airport.country || '',
+          region: this._getAirportRegion(airport.iata_code || airport.code)
+        }));
+        
+        // 設置緩存
+        cache.airports.data[cacheKey] = airports;
+        cache.airports.timestamp[cacheKey] = Date.now();
+        
+        return { success: true, data: airports };
+      } else {
+        console.warn('API未返回有效的機場列表');
+        return { success: false, error: '未找到機場信息' };
+      }
+    } catch (error) {
+      console.error('獲取所有機場信息時出錯:', error);
+      return { success: false, error: error.message || '獲取機場信息失敗' };
+    }
+  },
+  
+  /**
+   * 根據機場代碼獲取區域信息
+   * @private
+   * @param {string} code 機場IATA代碼
+   * @returns {string} 區域名稱
+   */
+  _getAirportRegion(code) {
+    if (!code) return '其他';
+    
+    const regionMap = {
+      // 台灣
+      'TPE': '台灣', 'TSA': '台灣', 'KHH': '台灣', 'RMQ': '台灣', 'TNN': '台灣',
+      // 中國
+      'PEK': '中國', 'PVG': '中國', 'CAN': '中國', 'SHA': '中國', 'SZX': '中國', 'CTU': '中國',
+      // 港澳
+      'HKG': '香港/澳門', 'MFM': '香港/澳門',
+      // 日韓
+      'NRT': '東北亞', 'HND': '東北亞', 'KIX': '東北亞', 'ICN': '東北亞', 'GMP': '東北亞',
+      // 東南亞
+      'BKK': '東南亞', 'SIN': '東南亞', 'KUL': '東南亞', 'MNL': '東南亞', 'CGK': '東南亞',
+      // 美洲
+      'LAX': '美洲', 'JFK': '美洲', 'SFO': '美洲', 'YVR': '美洲',
+      // 歐洲
+      'LHR': '歐洲', 'CDG': '歐洲', 'FRA': '歐洲',
+      // 大洋洲
+      'SYD': '大洋洲', 'MEL': '大洋洲', 'AKL': '大洋洲'
+    };
+    
+    return regionMap[code] || '其他';
   }
 };
 

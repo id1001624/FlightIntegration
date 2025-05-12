@@ -112,6 +112,7 @@ import PassengerCabinSelectModal from '../ui/PassengerCabinSelectModal.vue';
 import flightService from '@/api/services/flightService';
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useSearchStore } from '@/store/modules/search';
+import { useRoute } from 'vue-router';
 
 export default {
   name: 'SearchForm',
@@ -129,6 +130,7 @@ export default {
   emits: ['search'],
   setup(props, { emit }) {
     const searchStore = useSearchStore();
+    const route = useRoute();
     
     const taiwanAirports = ref([]);
     const destinationAirports = ref([]);
@@ -184,35 +186,54 @@ export default {
         returnDate: '',
     });
 
-    const fetchTaiwanAirports = async () => {
-      loadingTaiwanAirports.value = true;
-      errors.departureAirport = '';
-      try {
-        const airports = await flightService.getTaiwanAirports(formData.departureDate);
-        console.log('SearchForm: Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(airports)));
-        if (airports && airports.length > 0) {
-          taiwanAirports.value = airports.map(airport => ({
-            id: airport.airport_id || airport.id,
-            code: airport.iata_code || airport.code || airport.airport_id || airport.id || 'N/A',
-            name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
-            city: airport.city,
-            country: airport.country || 'Taiwan',
-            region: '台灣'
-          }));
-          console.log('SearchForm: Mapped Taiwan airports:', JSON.parse(JSON.stringify(taiwanAirports.value)));
+    const checkUrlParams = async () => {
+      if (route.query.from && route.query.to && 
+          (!formData.departureAirport || !formData.arrivalAirport)) {
+        console.log('[SearchForm] 從URL參數填充機場信息:', route.query.from, route.query.to);
+        
+        try {
+          loadingTaiwanAirports.value = true;
+          loadingDestinations.value = true;
           
-          if (formData.departureAirport && !formData.arrivalAirport) {
-            onDepartureChange(formData.departureAirport);
+          const [fromResponse, toResponse] = await Promise.all([
+            flightService.getAirportByCode(route.query.from),
+            flightService.getAirportByCode(route.query.to)
+          ]);
+          
+          if (fromResponse.success && fromResponse.data) {
+            formData.departureAirport = fromResponse.data;
+            console.log('[SearchForm] 已設置出發地機場:', fromResponse.data.name);
+            
+            const allAirportsResponse = await flightService.getAllAirports();
+            if (allAirportsResponse.success) {
+              destinationAirports.value = allAirportsResponse.data || [];
+            }
           }
-        } else {
-          taiwanAirports.value = [];
-          console.error('API 未返回有效台灣機場資料');
-          errors.departureAirport = '無法載入出發機場';
+          
+          if (toResponse.success && toResponse.data) {
+            formData.arrivalAirport = toResponse.data;
+            console.log('[SearchForm] 已設置目的地機場:', toResponse.data.name);
+          }
+        } catch (error) {
+          console.error('[SearchForm] 獲取機場信息時出錯:', error);
+        } finally {
+          loadingTaiwanAirports.value = false;
+          loadingDestinations.value = false;
+        }
+      }
+    };
+
+    const fetchTaiwanAirports = async () => {
+      if (taiwanAirports.value.length > 0) return;
+      
+      try {
+        loadingTaiwanAirports.value = true;
+        const response = await flightService.getTaiwanAirports();
+        if (response.success) {
+          taiwanAirports.value = response.data || [];
         }
       } catch (error) {
-        console.error('獲取台灣機場資料時出錯:', error);
-        taiwanAirports.value = [];
-        errors.departureAirport = '載入出發機場失敗';
+        console.error('獲取台灣機場列表時出錯:', error);
       } finally {
         loadingTaiwanAirports.value = false;
       }
@@ -411,9 +432,9 @@ export default {
       closePassengerModal();
     };
 
-    onMounted(() => {
-      console.log('[SearchForm] 組件掛載，從 store 載入搜索參數:', JSON.stringify(searchStore.searchParams));
-      fetchTaiwanAirports();
+    onMounted(async () => {
+      await fetchTaiwanAirports();
+      await checkUrlParams();
     });
 
     return {
