@@ -45,9 +45,9 @@
       <!-- 清除選擇按鈕 - 增強版 -->
       <button 
         v-if="selectedAirport && !disabled" 
-        @click.stop.prevent="clearSelection" 
+        @click.stop.prevent="() => { $emit('update:modelValue', null); $emit('change', null); }"
         type="button"
-        class="absolute inset-y-0 right-8 px-4 flex items-center justify-center text-gray-400 hover:text-gray-600 z-[5]"
+        class="absolute inset-y-0 right-8 px-4 flex items-center justify-center text-gray-400 hover:text-gray-600 z-[20]"
         aria-label="清除選擇"
       >
         <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -442,6 +442,17 @@ export default {
 
     const toggleDropdown = () => {
       if (props.disabled) return;
+      
+      // 如果選擇器已經被清除，那麼打開下拉選單
+      if (!selectedAirport.value) {
+        isOpen.value = true;
+        nextTick(() => {
+          searchInput.value?.focus();
+          updateDropdownPosition();
+        });
+        return;
+      }
+      
       isOpen.value = !isOpen.value;
       if (isOpen.value) {
         nextTick(() => {
