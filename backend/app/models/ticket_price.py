@@ -5,120 +5,119 @@ from sqlalchemy.dialects.postgresql import UUID
 from uuid import uuid4
 from datetime import datetime
 from .base import db, Base
+from typing import Optional
+from sqlalchemy.orm.attributes import get_history
+from .flight import Flight
 
 class TicketPrice(Base):
     """機票價格數據模型"""
     __tablename__ = 'ticket_prices'
     
-    price_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    flight_id = db.Column(UUID(as_uuid=True), db.ForeignKey('flights.flight_id'), nullable=False)
-    class_type = db.Column(db.String(20), nullable=False)
-    economy_price = db.Column(db.Numeric, nullable=True)
-    business_price = db.Column(db.Numeric, nullable=True)
-    first_price = db.Column(db.Numeric, nullable=True)
-    available_seats = db.Column(db.Integer)
+    price_id = db.Column(db.String, primary_key=True, default=lambda: str(uuid4()))
+    flight_id = db.Column(db.String, db.ForeignKey('flights.flight_id'), nullable=False)
+    economy_price = db.Column(db.Float, nullable=True)
+    business_price = db.Column(db.Float, nullable=True)
+    first_price = db.Column(db.Float, nullable=True)
+    available_seats = db.Column(db.Integer, nullable=True)
     price_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    is_test_data = db.Column(db.Boolean, default=False, nullable=False)
+    is_test_data = db.Column(db.Boolean, default=False)
+    
+    flight = db.relationship('Flight', back_populates='ticket_prices_relationship')
+    price_history = db.relationship('PriceHistory', back_populates='ticket_price_snapshot', cascade='all, delete-orphan')
     
     __table_args__ = (
-        db.UniqueConstraint('flight_id', 'class_type', name='uq_flight_class'),
+        db.UniqueConstraint('flight_id', name='uq_flight_price_entry'),
     )
     
     def __repr__(self):
-        return f"<TicketPrice {self.flight_id} {self.class_type} Eco:{self.economy_price} Biz:{self.business_price} Fst:{self.first_price}>"
+        return f"<TicketPrice {self.flight_id} Eco:{self.economy_price} Biz:{self.business_price} Fst:{self.first_price}>"
     
-    def update_price(self, economy_price=None, business_price=None, first_price=None, available_seats=None):
-        """
-        更新價格並記錄歷史
-        
-        Args:
-            economy_price: 新的經濟艙價格
-            business_price: 新的商務艙價格
-            first_price: 新的頭等艙價格
-            available_seats: 可選，新的可用座位數
-        """
+    @staticmethod
+    def before_flush(session, flush_context, instances):
         from .price_history import PriceHistory
-        
-        # 記錄歷史價格 (根據 class_type 記錄對應的舊價格)
-        old_price = None
-        if self.class_type == '經濟':
-            old_price = self.economy_price
-        elif self.class_type == '商務':
-            old_price = self.business_price
-        elif self.class_type == '頭等':
-            old_price = self.first_price
-            
-        if old_price is not None:
-            history = PriceHistory(
+        for instance in session.dirty:
+            if isinstance(instance, TicketPrice) and session.is_modified(instance):
+                changes = get_history(instance, 'economy_price')
+                if changes.has_changes():
+                    instance.record_price_change(session, 'economy_price', changes.deleted[0] if changes.deleted else None)
+                
+                changes_business = get_history(instance, 'business_price')
+                if changes_business.has_changes():
+                    instance.record_price_change(session, 'business_price', changes_business.deleted[0] if changes_business.deleted else None)
+
+                changes_first = get_history(instance, 'first_price')
+                if changes_first.has_changes():
+                    instance.record_price_change(session, 'first_price', changes_first.deleted[0] if changes_first.deleted else None)
+
+    def record_price_change(self, session, cabin_identifier: str, old_price: Optional[float]):
+        """記錄特定艙等的價格變動。 cabin_identifier 是 'economy_price', 'business_price', or 'first_price'."""
+        from .price_history import PriceHistory
+        new_price = getattr(self, cabin_identifier)
+        if old_price is not None and new_price != old_price:
+            history_entry = PriceHistory(
                 flight_id=self.flight_id,
-                class_type=self.class_type,
-                price=old_price # 記錄變更前的價格
+                ticket_price_id=self.price_id,
+                cabin_info=cabin_identifier,
+                price=new_price,
+                recorded_at=datetime.utcnow(),
+                is_test_data=self.is_test_data
             )
-            db.session.add(history)
-            
-        # 更新價格
-        if economy_price is not None:
-            self.economy_price = economy_price
-        if business_price is not None:
-            self.business_price = business_price
-        if first_price is not None:
-            self.first_price = first_price
-            
-        if available_seats is not None:
-            self.available_seats = available_seats
-            
-        self.price_updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        return self
-    
-    @classmethod
-    def get_by_flight_class(cls, flight_id, class_type):
-        """獲取特定航班和艙位的價格記錄"""
-        return cls.query.filter_by(
-            flight_id=flight_id,
-            class_type=class_type
-        ).first()
-    
-    @classmethod
-    def get_lowest_price(cls, departure_airport_id, arrival_airport_id, date, class_type='經濟'):
-        """獲取特定路線在特定日期的指定艙位最低價格"""
-        from .flight import Flight
-        
-        # 設置日期範圍
-        date_start = datetime.combine(date, datetime.min.time())
-        date_end = datetime.combine(date, datetime.max.time())
-        
-        # 根據艙等選擇價格欄位
-        price_column = cls.economy_price
-        if class_type == '商務':
-            price_column = cls.business_price
-        elif class_type == '頭等':
-            price_column = cls.first_price
-            
-        return db.session.query(
-            Flight, db.func.min(price_column).label('min_price')
-        ).join(
-            Flight, Flight.flight_id == cls.flight_id
-        ).filter(
-            Flight.departure_airport_id == departure_airport_id,
-            Flight.arrival_airport_id == arrival_airport_id,
-            Flight.scheduled_departure >= date_start,
-            Flight.scheduled_departure <= date_end,
-            cls.class_type == class_type, # 確保只比較同一艙等
-            price_column.isnot(None) # 確保價格存在
-        ).group_by(
-            Flight.flight_id
-        ).order_by(
-            'min_price'
-        ).first()
+            session.add(history_entry)
 
     @classmethod
-    def get_latest_price(cls, flight_id, class_type=None, is_test_data=False):
-        """獲取最新票價記錄"""
-        query = cls.query.filter_by(flight_id=flight_id, is_test_data=is_test_data)
+    def get_by_flight_id(cls, flight_id):
+        return cls.query.filter_by(flight_id=flight_id).first()
+    
+    @classmethod
+    def get_lowest_price_for_flight(cls, flight_id: str) -> Optional[float]:
+        """獲取指定航班的最低可用票價 (從三個艙等中選取)"""
+        price_entry = cls.query.filter_by(flight_id=flight_id).first()
+        if not price_entry:
+            return None
         
-        if class_type:
-            query = query.filter_by(class_type=class_type)
+        prices = []
+        if price_entry.economy_price is not None:
+            prices.append(price_entry.economy_price)
+        if price_entry.business_price is not None:
+            prices.append(price_entry.business_price)
+        if price_entry.first_price is not None:
+            prices.append(price_entry.first_price)
             
+        return min(prices) if prices else None
+
+    @classmethod
+    def get_lowest_price(cls, departure_airport_id, arrival_airport_id, date, cabin_preference: Optional[str] = None):
+        """獲取指定航線和日期的最低票價，可選艙等偏好"""
+        query = db.session.query(cls).join(Flight).filter(
+            Flight.departure_airport_id == departure_airport_id,
+            Flight.arrival_airport_id == arrival_airport_id,
+            db.func.date(Flight.scheduled_departure) == date
+        )
+
+        flights_prices = query.all()
+        if not flights_prices:
+            return None
+
+        lowest_overall_price = float('inf')
+        
+        for price_entry in flights_prices:
+            current_flight_prices = []
+            if cabin_preference == 'economy' or cabin_preference is None:
+                if price_entry.economy_price is not None: current_flight_prices.append(price_entry.economy_price)
+            if cabin_preference == 'business' or cabin_preference is None:
+                if price_entry.business_price is not None: current_flight_prices.append(price_entry.business_price)
+            if cabin_preference == 'first' or cabin_preference is None:
+                if price_entry.first_price is not None: current_flight_prices.append(price_entry.first_price)
+            
+            if current_flight_prices:
+                lowest_overall_price = min(lowest_overall_price, min(current_flight_prices))
+
+        return lowest_overall_price if lowest_overall_price != float('inf') else None
+
+    @classmethod
+    def get_latest_price(cls, flight_id, is_test_data=False):
+        """獲取最新的票價記錄 (現在一個 flight_id 只有一筆)"""
+        query = cls.query.filter_by(flight_id=flight_id)
+        if is_test_data is not None:
+            query = query.filter_by(is_test_data=is_test_data)
         return query.order_by(cls.price_updated_at.desc()).first() 

@@ -158,7 +158,7 @@ def backup_data(flight_ids: List[str], backup_dir: str = "./backups") -> str:
         
         # 查詢要備份的票價資料
         prices_query = text("""
-            SELECT price_id, flight_id, class_type, economy_price, business_price, 
+            SELECT price_id, flight_id, economy_price, business_price, 
                    first_price, available_seats, is_test_data
             FROM ticket_prices
             WHERE flight_id IN :flight_ids
@@ -170,12 +170,11 @@ def backup_data(flight_ids: List[str], backup_dir: str = "./backups") -> str:
             prices_data.append({
                 'price_id': str(row[0]),
                 'flight_id': str(row[1]),
-                'class_type': row[2],
-                'economy_price': float(row[3]) if row[3] is not None else None,
-                'business_price': float(row[4]) if row[4] is not None else None,
-                'first_price': float(row[5]) if row[5] is not None else None,
-                'available_seats': row[6],
-                'is_test_data': row[7]
+                'economy_price': float(row[2]) if row[2] is not None else None,
+                'business_price': float(row[3]) if row[3] is not None else None,
+                'first_price': float(row[4]) if row[4] is not None else None,
+                'available_seats': row[5],
+                'is_test_data': row[6]
             })
         
         # 寫入備份文件

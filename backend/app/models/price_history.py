@@ -10,37 +10,63 @@ class PriceHistory(Base):
     """價格歷史數據模型"""
     __tablename__ = 'price_history'
     
-    history_id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    flight_id = db.Column(UUID(as_uuid=True), db.ForeignKey('flights.flight_id'), nullable=False)
-    class_type = db.Column(db.String, nullable=False)
-    price = db.Column(db.Numeric, nullable=False)
-    recorded_at = db.Column(db.DateTime)
+    history_id = db.Column(db.String, primary_key=True, default=lambda: str(uuid4()))
+    flight_id = db.Column(db.String, db.ForeignKey('flights.flight_id'), nullable=False)
+    ticket_price_id = db.Column(db.String, db.ForeignKey('ticket_prices.price_id'), nullable=False)
+    cabin_info = db.Column(db.String, nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    is_test_data = db.Column(db.Boolean, default=False)
+    
+    ticket_price_snapshot = db.relationship('TicketPrice', back_populates='price_history')
     
     def __repr__(self):
-        return f"<PriceHistory {self.flight_id} {self.class_type} ${self.price} @ {self.recorded_at}>"
+        return f"<PriceHistory {self.flight_id} {self.cabin_info} ${self.price} @ {self.recorded_at}>"
     
     @classmethod
-    def get_price_trend(cls, flight_id, class_type, days=30, is_test_data=False):
+    def get_price_trend(cls, flight_id, cabin_info, days=30, is_test_data=False):
         """
-        獲取特定航班和艙位的價格趨勢
+        獲取指定航班特定價格欄位的歷史價格趨勢
         
         Args:
             flight_id: 航班ID
-            class_type: 艙位類型
-            days: 查詢過去的天數
+            cabin_info: 價格欄位標識符 (e.g., 'economy_price')
+            days: 查詢天數
             is_test_data: 是否為測試數據
             
         Returns:
-            價格歷史記錄列表，按時間排序
+            歷史價格列表
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
-        return cls.query.filter(
+        start_date = datetime.utcnow() - timedelta(days=days)
+        query = cls.query.filter(
             cls.flight_id == flight_id,
-            cls.class_type == class_type,
-            cls.is_test_data == is_test_data,
-            cls.recorded_at >= cutoff_date
-        ).order_by(cls.recorded_at).all()
+            cls.cabin_info == cabin_info,
+            cls.recorded_at >= start_date
+        )
+        if is_test_data is not None:
+            query = query.filter_by(is_test_data=is_test_data)
+        return query.order_by(cls.recorded_at.asc()).all()
+    
+    @classmethod
+    def get_price_comparison_data(cls, flight_id_1, flight_id_2, cabin_info='economy_price', days=30):
+        """
+        獲取兩個航班特定價格欄位的歷史價格數據以供比較
+        
+        Args:
+            flight_id_1: 第一個航班ID
+            flight_id_2: 第二個航班ID
+            cabin_info: 價格欄位標識符 (e.g., 'economy_price')
+            days: 查詢天數
+            
+        Returns:
+            一個字典，包含兩個航班的歷史價格列表
+        """
+        history1 = cls.get_price_trend(flight_id_1, cabin_info, days)
+        history2 = cls.get_price_trend(flight_id_2, cabin_info, days)
+        return {
+            'flight1': [{"date": h.recorded_at.strftime('%Y-%m-%d'), "price": h.price} for h in history1],
+            'flight2': [{"date": h.recorded_at.strftime('%Y-%m-%d'), "price": h.price} for h in history2]
+        }
     
     @classmethod
     def get_route_price_trend(cls, departure_airport_id, arrival_airport_id, 
@@ -70,7 +96,7 @@ class PriceHistory(Base):
         ).filter(
             Flight.departure_airport_id == departure_airport_id,
             Flight.arrival_airport_id == arrival_airport_id,
-            cls.class_type == class_type,
+            cls.cabin_info == class_type,
             cls.recorded_at >= cutoff_date
         ).group_by(
             func.date_trunc('day', cls.recorded_at)

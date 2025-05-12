@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 from dotenv import load_dotenv, find_dotenv
+import argparse
 
 # --- 將 .env 加載移至頂部 --- 
 dotenv_path = find_dotenv(filename='.env', raise_error_if_not_found=False, usecwd=True)
@@ -40,7 +41,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # --- 配置 ---
-CABIN_CLASSES = ["經濟", "商務", "頭等"]
+# CABIN_CLASSES = ["經濟", "商務", "頭等"] # Removed
 PRICE_RANGES = {
     "經濟": (1500, 8000),  # 基礎價格範圍 (TWD)
     "商務": (5000, 20000),
@@ -72,82 +73,76 @@ async def release_db_connection(conn):
         logger.info("資料庫連接已關閉")
 
 # --- 主要邏輯 ---
-async def find_flights_without_prices(conn, limit=BATCH_SIZE):
-    """查找在 flights 表存在但在 ticket_prices 表中沒有任何記錄的航班"""
-    # 使用 LEFT JOIN 查找在 flights 存在但在 ticket_prices 不存在的 flight_id
-    # 同時獲取 is_test_data 欄位
-    query = """
+async def find_flights_without_prices(conn, limit=BATCH_SIZE, from_date=None):
+    """
+    查找在 flights 表存在但在 ticket_prices 表中沒有任何記錄，且 created_at >= from_date 的航班
+    """
+    date_filter = ""
+    params = [limit]
+    if from_date:
+        date_filter = "AND f.created_at >= $2"
+        params.append(from_date)
+    query = f"""
     SELECT f.flight_id, f.is_test_data
     FROM flights f
     LEFT JOIN ticket_prices tp ON f.flight_id = tp.flight_id
-    WHERE tp.flight_id IS NULL 
+    WHERE tp.flight_id IS NULL
+    {date_filter}
     LIMIT $1;
     """
     try:
-        rows = await conn.fetch(query, limit)
-        # 修改返回格式，包括 flight_id 和 is_test_data
+        rows = await conn.fetch(query, *params)
         flights_info = [{"flight_id": row['flight_id'], "is_test_data": row['is_test_data']} for row in rows]
-        # 修改日誌消息以反映新的查找邏輯
         logger.info(f"找到 {len(flights_info)} 個在 flights 表存在但在 ticket_prices 表中沒有記錄的航班")
         return flights_info
     except Exception as e:
-        # 修改錯誤消息
         logger.error(f"查找缺少票價記錄的航班時出錯: {e}")
         return []
 
 def generate_fake_price_data(flight_info):
-    """為單個航班生成所有艙位的模擬票價數據"""
+    """為單個航班生成模擬票價數據 (單一記錄包含所有艙等價格)"""
     flight_id = flight_info["flight_id"]
     is_test_data = flight_info["is_test_data"]
-    prices = []
-    now = datetime.now() # 使用本地時間或 UTC 取決於你的需求
+    now = datetime.now()
 
-    # 為基礎的經濟艙生成價格
     min_eco_price, max_eco_price = PRICE_RANGES["經濟"]
     economy_price = round(random.uniform(min_eco_price, max_eco_price), 2)
-
-    # 生成其他艙等價格，可能為 None
     business_price = round(economy_price * random.uniform(1.5, 3.0), 2) if random.random() > 0.2 else None
     first_price = round(economy_price * random.uniform(3.0, 5.0), 2) if random.random() > 0.5 else None
 
-    # 對於每個艙位類型，生成一個記錄（因為當前模型仍依賴 class_type）
-    for cabin in CABIN_CLASSES:
-        # 生成可用座位數，有 10% 的機率為 0（表示客滿）
-        if random.random() < 0.1:
-            available_seats = 0  # 模擬客滿情況
-        else:
-            available_seats = random.randint(SEAT_RANGE[0], SEAT_RANGE[1])
-            
-        # 票價更新時間
-        price_updated_at = now
+    if random.random() < 0.1:
+        available_seats = 0
+    else:
+        available_seats = random.randint(SEAT_RANGE[0], SEAT_RANGE[1])
+    
+    price_updated_at = now
 
-        prices.append({
-            'price_id': str(uuid.uuid4()),
-            'flight_id': flight_id,
-            'class_type': cabin, # 保留 class_type 以匹配當前模型
-            'economy_price': economy_price, # 插入經濟艙價格
-            'business_price': business_price, # 插入商務艙價格 (可能為 None)
-            'first_price': first_price, # 插入頭等艙價格 (可能為 None)
-            'available_seats': available_seats,
-            'price_updated_at': price_updated_at,
-            'is_test_data': is_test_data  # 同步航班的測試資料標記
-        })
-    return prices
+    return {
+        'price_id': str(uuid.uuid4()),
+        'flight_id': flight_id,
+        # 'class_type': cabin, # Removed
+        'economy_price': economy_price,
+        'business_price': business_price,
+        'first_price': first_price,
+        'available_seats': available_seats, # This available_seats is now general, not per class
+        'price_updated_at': price_updated_at,
+        'is_test_data': is_test_data
+    }
 
 async def insert_prices_batch(conn, prices_list):
     """批量插入票價數據"""
     if not prices_list:
         return 0
 
-    # 修改 SQL 以包含所有價格欄位和 is_test_data
+    # 修改 SQL 以移除 class_type 並包含所有價格欄位和 is_test_data
     query = """
     INSERT INTO ticket_prices (
-        price_id, flight_id, class_type,
+        price_id, flight_id, /* class_type, */
         economy_price, business_price, first_price,
         available_seats, price_updated_at, is_test_data
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) -- 使用 $1, $2... 佔位符
-    ON CONFLICT (flight_id, class_type) DO UPDATE SET
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8) -- Adjusted placeholders
+    ON CONFLICT (flight_id) DO UPDATE SET       -- Changed conflict target
         economy_price = EXCLUDED.economy_price,
         business_price = EXCLUDED.business_price,
         first_price = EXCLUDED.first_price,
@@ -157,12 +152,11 @@ async def insert_prices_batch(conn, prices_list):
     """
 
     try:
-        # 將字典列表轉換為元組列表以供 executemany 使用
         data_tuples = [
             (
                 p['price_id'],
                 p['flight_id'],
-                p['class_type'],
+                # p['class_type'], # Removed
                 p['economy_price'],
                 p['business_price'],
                 p['first_price'],
@@ -172,7 +166,6 @@ async def insert_prices_batch(conn, prices_list):
             ) for p in prices_list
         ]
         status = await conn.executemany(query, data_tuples)
-        # executemany 不直接返回插入的行數，我們返回嘗試插入的記錄數
         logger.debug(f"批量插入狀態: {status}")
         return len(prices_list)
     except Exception as e:
@@ -181,44 +174,41 @@ async def insert_prices_batch(conn, prices_list):
         return 0
 
 async def main():
-    """腳本主函數"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--from-date', type=str, default=None, help='只補此日期(含)之後 created_at 的航班票價 (格式: YYYY-MM-DD)')
+    args = parser.parse_args()
+    from_date = args.from_date
+    if from_date:
+        try:
+            from_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except Exception as e:
+            print(f"[generate_fake_prices.py] --from-date 格式錯誤，請用 YYYY-MM-DD。錯誤: {e}")
+            return
     conn = None
     total_flights_processed = 0
     total_prices_inserted = 0
-    
     try:
         conn = await get_db_connection()
-        
         while True:
             logger.info(f"正在查找下一批 ({BATCH_SIZE}) 個缺少票價的航班...")
-            flights_info = await find_flights_without_prices(conn, BATCH_SIZE)
-            
+            flights_info = await find_flights_without_prices(conn, BATCH_SIZE, from_date)
             if not flights_info:
                 logger.info("沒有更多缺少票價的航班了。")
                 break
-                
             logger.info(f"找到 {len(flights_info)} 個航班，正在生成票價...")
-            
             all_prices_to_insert = []
             for flight_info in flights_info:
-                fake_prices = generate_fake_price_data(flight_info)
-                all_prices_to_insert.extend(fake_prices)
-                
+                fake_price_entry = generate_fake_price_data(flight_info) # Now returns a single entry
+                all_prices_to_insert.append(fake_price_entry) # Append directly
+            
             logger.info(f"準備插入 {len(all_prices_to_insert)} 條票價記錄...")
             inserted_count = await insert_prices_batch(conn, all_prices_to_insert)
             logger.info(f"成功插入 {inserted_count} 條票價記錄。")
-            
             total_flights_processed += len(flights_info)
             total_prices_inserted += inserted_count
-            
-            # 如果找到的航班數少於批次大小，說明這是最後一批
             if len(flights_info) < BATCH_SIZE:
                 logger.info("已處理完所有找到的航班。")
                 break
-                
-            # 短暫休眠避免過度請求資料庫 (可選)
-            # await asyncio.sleep(0.1) 
-            
     except Exception as e:
         logger.error(f"生成票價過程中發生未預期錯誤: {e}", exc_info=True)
     finally:

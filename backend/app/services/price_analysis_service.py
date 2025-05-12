@@ -14,7 +14,7 @@ from sqlalchemy import func, desc, exc as sqlalchemy_exc
 from ..database.db import init_asyncpg_pool
 from ..models import TicketPrice, Flight, Airline, PriceHistory
 from ..models.base import db
-from .db_utils import execute_db_operation, execute_query, get_price_field_by_cabin_class, normalize_cabin_class
+from .db_utils import execute_db_operation, execute_query, get_price_field_by_cabin_class, normalize_cabin_class, get_display_name_by_cabin_field
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +23,18 @@ class PriceAnalysisService:
     
     # 從 price_service.py 移植的基本票價功能
     @staticmethod
-    async def get_price_by_flight(flight_id, cabin_class=None):
+    async def get_price_by_flight(flight_id, cabin_preference=None):
         """
         獲取航班的票價信息 (使用 asyncpg)
         
         Args:
             flight_id: 航班ID
-            cabin_class: 艙等類型（可選）
+            cabin_preference: 艙等偏好（可選，如 'economy'）
             
         Returns:
             list: 票價列表
         """
-        # 標準化艙等名稱
-        cabin_class = normalize_cabin_class(cabin_class) if cabin_class else None
+        cabin_preference = normalize_cabin_class(cabin_preference) if cabin_preference else None
         
         pool = await init_asyncpg_pool() # 獲取連接池
         try:
@@ -53,26 +52,30 @@ class PriceAnalysisService:
                 # 處理結果
                 prices = []
                 for record in results:
-                    # 如果指定了艙等，只返回該艙等的價格
-                    if cabin_class:
-                        price_field = get_price_field_by_cabin_class(cabin_class)
+                    # 如果指定了艙等偏好，只返回該艙等的價格
+                    if cabin_preference:
+                        price_field = get_price_field_by_cabin_class(cabin_preference)
                         price_value = record[price_field]
                         if price_value is not None:
+                            display_name = get_display_name_by_cabin_field(price_field)
                             prices.append({
-                                'cabin_class': cabin_class,
+                                'cabin_class': display_name, 
+                                'cabin_type': cabin_preference,
                                 'price': float(price_value),
                                 'available_seats': record['available_seats'],
                                 'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
                             })
                     else:
                         # 如果沒有指定艙等，返回所有艙等的價格
-                        cabin_classes = ['經濟', '商務', '頭等']
-                        for cabin in cabin_classes:
-                            price_field = get_price_field_by_cabin_class(cabin)
+                        cabin_types = ['economy', 'business', 'first']
+                        for cabin_type in cabin_types:
+                            price_field = get_price_field_by_cabin_class(cabin_type)
                             price_value = record[price_field]
                             if price_value is not None:
+                                display_name = get_display_name_by_cabin_field(price_field)
                                 prices.append({
-                                    'cabin_class': cabin,
+                                    'cabin_class': display_name,
+                                    'cabin_type': cabin_type,
                                     'price': float(price_value),
                                     'available_seats': record['available_seats'],
                                     'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
@@ -97,7 +100,7 @@ class PriceAnalysisService:
         Returns:
             一個字典，鍵是航班 ID (str)，值是另一個字典，
             其鍵是艙位類型 (str)，值是包含價格信息的字典。
-            例如: {'flight_id1': {'經濟': {'amount': 100.0, ...}, '商務': {...}}, ...}
+            例如: {'flight_id1': {'economy': {'amount': 100.0, ...}, 'business': {...}}, ...}
         """
         if not flight_ids:
             return {}
@@ -122,15 +125,17 @@ class PriceAnalysisService:
                         prices_map[flight_id_str] = {}
                     
                     # 處理各艙等價格
-                    cabin_classes = ['經濟', '商務', '頭等']
-                    for cabin in cabin_classes:
-                        price_field = get_price_field_by_cabin_class(cabin)
+                    cabin_types = ['economy', 'business', 'first']
+                    for cabin_type in cabin_types:
+                        price_field = get_price_field_by_cabin_class(cabin_type)
                         price_value = record[price_field]
                         if price_value is not None:
-                            prices_map[flight_id_str][cabin] = {
+                            display_name = get_display_name_by_cabin_field(price_field)
+                            prices_map[flight_id_str][cabin_type] = {
                                 'amount': float(price_value),
                                 'available_seats': record['available_seats'],
-                                'cabin_class': cabin,
+                                'cabin_class': display_name,
+                                'cabin_type': cabin_type,
                                 'updated_at': record['price_updated_at'].isoformat() if record['price_updated_at'] else None
                             }
                 
@@ -150,7 +155,7 @@ class PriceAnalysisService:
         arrival_code: str, 
         start_date: str, 
         end_date: str = None,
-        cabin_class: str = "經濟"
+        cabin_preference: str = "economy"
     ) -> Dict[str, Any]:
         """
         獲取指定日期範圍內的最低票價 (異步版本)
@@ -160,14 +165,14 @@ class PriceAnalysisService:
             arrival_code: 到達機場代碼
             start_date: 開始日期 (YYYY-MM-DD)
             end_date: 結束日期 (YYYY-MM-DD)，可選，默認為開始日期後30天
-            cabin_class: 艙等 (默認為經濟)
+            cabin_preference: 艙等偏好 (默認為 economy)
             
         Returns:
             Dict: 包含最低票價數據的字典
         """
         # 標準化艙等
-        cabin_class = normalize_cabin_class(cabin_class)
-        price_field = get_price_field_by_cabin_class(cabin_class)
+        cabin_preference = normalize_cabin_class(cabin_preference)
+        price_field = get_price_field_by_cabin_class(cabin_preference)
         
         async def fetch_lowest_prices(conn):
             # 處理日期

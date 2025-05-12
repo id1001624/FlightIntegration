@@ -68,18 +68,18 @@
 
     目前還沒有票價資料，先用腳本模擬資料
     ```bash
-    python backend/app/scripts/generate_fake_prices.py
+    python backend/app/scripts/generate_fake_prices.py --from-date 
     ```
 
     模擬航班資料
     - 生成3天的資料，每天約200個航班，從今天開始
         python app/scripts/generate_dummy_flight_data.py
 
-    - 生成7天的資料，每天約500個航班，從2023-12-01開始
-        python backend/app/scripts/generate_dummy_flight_data.py --days 7 --flights-per-day 300 --start-date 2025-05-05
+    - 生成7天的資料，每天約500個航班，從指定日期開始
+        python backend/app/scripts/generate_dummy_flight_data.py --days 7 --flights-per-day 500 --start-date 2025-xx-xx
 
     - 刪除測試的航班資料
-        python backend/app/scripts/generate_dummy_flight_data.py --start-date 2030-01-01 --clear-only
+        python backend/app/scripts/generate_dummy_flight_data.py --start-date 2025-05-12 --clear-only
 
 ### 前端設定
 

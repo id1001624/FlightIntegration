@@ -44,10 +44,10 @@ async def get_prices_by_flight(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        cabin_class = args.get('class_type')
+        cabin_preference = args.get('cabin_preference')
         
         # 使用 PriceAnalysisService 查詢票價
-        prices = await PriceAnalysisService.get_price_by_flight(flight_id, cabin_class)
+        prices = await PriceAnalysisService.get_price_by_flight(flight_id, cabin_preference)
         
         # 如果服務層返回空列表，也視為成功（只是沒有數據）
         return _success_response(prices)
@@ -72,7 +72,7 @@ async def get_lowest_prices():
         arrival = args['arrival'].upper()
         start_date = args['start_date'].strftime('%Y-%m-%d')
         end_date = args.get('end_date').strftime('%Y-%m-%d') if args.get('end_date') else None
-        cabin_class = args.get('class_type', '經濟')
+        cabin_preference = args.get('cabin_preference')
         
         # 使用 PriceAnalysisService 查詢
         prices = await PriceAnalysisService.get_lowest_prices(
@@ -80,7 +80,7 @@ async def get_lowest_prices():
             arrival_code=arrival, 
             start_date=start_date,
             end_date=end_date,
-            cabin_class=cabin_class
+            cabin_preference=cabin_preference
         )
         
         # 服務層可能返回錯誤字典
@@ -108,11 +108,11 @@ async def get_price_history(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        cabin_class = args['class_type']
+        cabin_info = args['cabin_info']
         days = args['days']
         
         # 使用 PriceAnalysisService 查詢
-        history = await PriceAnalysisService.get_price_history(flight_id, cabin_class, days)
+        history = await PriceAnalysisService.get_price_history(flight_id, cabin_info, days)
         
         # 服務層可能返回錯誤，但在當前實現中，找不到數據會返回空列表
         return _success_response(history)
@@ -132,10 +132,10 @@ async def analyze_price_trend(flight_id):
             return _error_response(f"請求參數驗證失敗: {err.messages}", 400)
         
         # 提取驗證後的參數
-        cabin_class = args.get('class_type', '經濟')
+        cabin_info = args.get('cabin_info', 'economy_price')
         
         # 使用 PriceAnalysisService 進行分析
-        analysis = await PriceAnalysisService.analyze_price_trend(flight_id, cabin_class)
+        analysis = await PriceAnalysisService.analyze_price_trend(flight_id, cabin_info)
         
         # 服務層會處理找不到數據的情況並返回特定結構
         return _success_response(analysis)

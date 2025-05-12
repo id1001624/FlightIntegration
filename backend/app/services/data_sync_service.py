@@ -637,7 +637,7 @@ class DataSyncService:
     
     async def _sync_ticket_prices(self, conn, flight_id, flight):
         """
-        同步航班票價
+        同步航班票價 (統一為每個航班一筆記錄，三個艙等價格欄位)
         
         Args:
             conn: 數據庫連接
@@ -648,51 +648,59 @@ class DataSyncService:
         if 'prices' not in flight:
             return
         
+        # 初始化三個艙等的價格
+        economy_price = None
+        business_price = None
+        first_price = None
+        available_seats = 0  # 預設可用座位數
+            
+        # 從各艙位取得價格
         for price_info in flight['prices']:
             class_type = price_info.get('class_type', '經濟')
             price = price_info.get('price')
-            available_seats = price_info.get('available_seats', 0)
+            seats = price_info.get('available_seats', 0)
             
             # 跳過無效數據
             if price is None:
                 continue
-            
-            # 檢查是否已有該艙位價格
-            existing_price = await conn.fetchrow(
-                "SELECT price_id FROM ticket_prices WHERE flight_id = $1 AND class_type = $2",
-                flight_id, class_type
-            )
-            
-            # 根據艙位類型設置對應價格欄位
-            economy_price = None
-            business_price = None
-            first_price = None
-            
-            if class_type == '經濟':
+                
+            # 設置對應的價格欄位
+            if class_type == '經濟' or class_type.lower() == 'economy':
                 economy_price = price
-            elif class_type == '商務':
+                if seats > 0:
+                    available_seats = seats
+            elif class_type == '商務' or class_type.lower() == 'business':
                 business_price = price
-            elif class_type == '頭等':
+            elif class_type == '頭等' or class_type.lower() == 'first':
                 first_price = price
-            
-            if existing_price:
-                # 更新現有價格
-                await conn.execute("""
-                    UPDATE ticket_prices SET
-                        economy_price = COALESCE($1, economy_price),
-                        business_price = COALESCE($2, business_price),
-                        first_price = COALESCE($3, first_price),
-                        available_seats = $4,
-                        price_updated_at = NOW()
-                    WHERE flight_id = $5 AND class_type = $6
-                """, economy_price, business_price, first_price, available_seats, flight_id, class_type)
-            else:
-                # 插入新價格
-                await conn.execute("""
-                    INSERT INTO ticket_prices (
-                        flight_id, class_type, economy_price, business_price, first_price, available_seats, price_updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-                """, flight_id, class_type, economy_price, business_price, first_price, available_seats)
+        
+        # 檢查是否已有票價記錄
+        existing_price = await conn.fetchrow(
+            "SELECT price_id FROM ticket_prices WHERE flight_id = $1",
+            flight_id
+        )
+        
+        if existing_price:
+            # 更新現有票價記錄
+            await conn.execute("""
+                UPDATE ticket_prices SET
+                    economy_price = COALESCE($1, economy_price),
+                    business_price = COALESCE($2, business_price),
+                    first_price = COALESCE($3, first_price),
+                    available_seats = CASE WHEN $4 > 0 THEN $4 ELSE available_seats END,
+                    price_updated_at = NOW()
+                WHERE flight_id = $5
+            """, economy_price, business_price, first_price, available_seats, flight_id)
+        else:
+            # 插入新票價記錄
+            price_id = str(uuid.uuid4())  # 生成唯一ID
+            await conn.execute("""
+                INSERT INTO ticket_prices (
+                    price_id, flight_id, economy_price, business_price, first_price, 
+                    available_seats, price_updated_at, is_test_data
+                ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
+            """, price_id, flight_id, economy_price, business_price, first_price, 
+                available_seats, flight.get('is_test_data', False))
     
     async def _fetch_airlines_from_api(self):
         """從API獲取航空公司數據"""
@@ -956,7 +964,7 @@ class DataSyncService:
                             flight['duration_minutes'])
                         
                         # 更新票價信息
-                        await self._update_ticket_prices(conn, flight_id, flight)
+                        await self._sync_ticket_prices(conn, flight_id, flight)
                         
                         imported_count += 1
                     except Exception as e:
@@ -990,59 +998,4 @@ class DataSyncService:
             for airport in airports:
                 airport_mapping[airport['iata_code']] = airport['airport_id']
         
-        return airline_mapping, airport_mapping
-    
-    async def _update_ticket_prices(self, conn, flight_id, flight):
-        """
-        更新航班票價信息
-        
-        Args:
-            conn: 數據庫連接
-            flight_id: 航班ID
-            flight: 航班數據
-        """
-        # 檢查是否有票價信息
-        if not any(key in flight for key in ['economy_price', 'business_price', 'first_price']):
-            return  # 沒有票價信息，不更新
-        
-        # 清除已有的票價記錄
-        await conn.execute(
-            "DELETE FROM ticket_prices WHERE flight_id = $1",
-            flight_id
-        )
-        
-        # 插入經濟艙票價
-        if 'economy_price' in flight:
-            await conn.execute("""
-                INSERT INTO ticket_prices (
-                    flight_id, class_type, economy_price, available_seats, price_updated_at
-                ) VALUES ($1, '經濟', $2, $3, NOW())
-            """,
-            flight_id,
-            flight['economy_price'],
-            flight.get('available_seats', 100)  # 默認100個座位
-            )
-        
-        # 插入商務艙票價
-        if 'business_price' in flight:
-            await conn.execute("""
-                INSERT INTO ticket_prices (
-                    flight_id, class_type, business_price, available_seats, price_updated_at
-                ) VALUES ($1, '商務', $2, $3, NOW())
-            """,
-            flight_id,
-            flight['business_price'],
-            flight.get('available_seats_business', 20)  # 默認20個座位
-            )
-        
-        # 插入頭等艙票價
-        if 'first_price' in flight:
-            await conn.execute("""
-                INSERT INTO ticket_prices (
-                    flight_id, class_type, first_price, available_seats, price_updated_at
-                ) VALUES ($1, '頭等', $2, $3, NOW())
-            """,
-            flight_id,
-            flight['first_price'],
-            flight.get('available_seats_first', 10)  # 默認10個座位
-            ) 
+        return airline_mapping, airport_mapping 

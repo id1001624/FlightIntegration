@@ -7,6 +7,10 @@
 import logging
 import asyncpg
 from ..database.db import init_asyncpg_pool
+from functools import wraps
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
@@ -67,50 +71,54 @@ async def execute_query(conn, query, *params, fetch_one=False, return_none_on_em
         logger.error(f"執行查詢時發生錯誤: {e}\nSQL: {query}\nParams: {params}", exc_info=True)
         raise
 
-def normalize_cabin_class(cabin_class):
+def normalize_cabin_class(cabin_class: str) -> str:
     """
     標準化艙等名稱
-    
-    Args:
-        cabin_class: 輸入的艙等名稱
-        
-    Returns:
-        標準化後的艙等名稱
     """
-    if not isinstance(cabin_class, str):
-        return '經濟艙'
-        
-    cabin_class = cabin_class.lower()
-    cabin_class_map = {
-        'economy': '經濟艙',
-        'business': '商務艙',
-        'first': '頭等艙',
-        # 處理簡化的中文
-        '經濟': '經濟艙',
-        '商務': '商務艙',
-        '頭等': '頭等艙',
-        # 如果已經是標準中文，保持不變
-        '經濟艙': '經濟艙',
-        '商務艙': '商務艙', 
-        '頭等艙': '頭等艙'
+    # 中文名稱到英文名稱的映射
+    cabin_mapping = {
+        '經濟': 'economy',
+        '經濟艙': 'economy',
+        '商務': 'business',
+        '商務艙': 'business',
+        '頭等': 'first', 
+        '頭等艙': 'first'
     }
     
-    return cabin_class_map.get(cabin_class, '經濟艙')
+    # 如果是中文名稱，轉換為英文
+    if cabin_class in cabin_mapping:
+        return cabin_mapping[cabin_class]
+    
+    # 如果已經是英文或是其他格式，直接返回 (英文格式應為 economy, business, first)
+    return cabin_class
 
-def get_price_field_by_cabin_class(cabin_class):
+def get_price_field_by_cabin_class(cabin_class: str) -> str:
     """
     根據艙等獲取對應的價格欄位名稱
-    
-    Args:
-        cabin_class: 艙等名稱
-        
-    Returns:
-        對應的價格欄位名稱
     """
-    normalized = normalize_cabin_class(cabin_class)
-    if normalized == "商務艙":
-        return "business_price"
-    elif normalized == "頭等艙":
-        return "first_price"
-    else:  # 默認經濟艙
-        return "economy_price" 
+    cabin_class = normalize_cabin_class(cabin_class)
+    
+    field_mapping = {
+        'economy': 'economy_price',
+        'business': 'business_price',
+        'first': 'first_price'
+    }
+    
+    # 如果已經是欄位名稱，則直接返回
+    if cabin_class in ['economy_price', 'business_price', 'first_price']:
+        return cabin_class
+    
+    # 否則查找映射
+    return field_mapping.get(cabin_class, 'economy_price')
+
+def get_display_name_by_cabin_field(cabin_field: str) -> str:
+    """
+    根據價格欄位名稱獲取顯示名稱
+    """
+    display_mapping = {
+        'economy_price': '經濟艙',
+        'business_price': '商務艙',
+        'first_price': '頭等艙'
+    }
+    
+    return display_mapping.get(cabin_field, '經濟艙') 

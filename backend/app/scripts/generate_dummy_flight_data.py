@@ -91,6 +91,66 @@ from app.models.flight import Flight
 from app.models.ticket_price import TicketPrice
 # --- 結束模塊導入 ---
 
+# === 新增：機場 terminal 對應表與隨機 terminal 產生函數 ===
+AIRPORT_TERMINALS = {
+    'TPE': ['T1', 'T2'],
+    'TSA': ['T1'],
+    'KHH': ['T1'],
+    'RMQ': ['T1'],
+    'TNN': ['T1'],
+    'HUN': ['T1'],
+    'TTT': ['T1'],
+    'KNH': ['T1'],
+    'MZG': ['T1'],
+    'GNI': ['T1'],
+    'KYD': ['T1'],
+    'CYI': ['T1'],
+    'MFK': ['T1'],
+    'LZN': ['T1'],
+    'WOT': ['T1'],
+    'CMJ': ['T1'],
+    'NRT': ['T1', 'T2', 'T3'],
+    'HND': ['T1', 'T2', 'T3'],
+    'KIX': ['T1', 'T2'],
+    'ITM': ['T1'],
+    'NGO': ['T1'],
+    'FUK': ['國際線T'],
+    'CTS': ['國際線T'],
+    'OKA': ['國際線T'],
+    'ICN': ['T1', 'T2'],
+    'GMP': ['國際線T'],
+    'PUS': ['國際線T'],
+    'CJU': ['國際線T'],
+    'PVG': ['T1', 'T2'],
+    'SHA': ['T1', 'T2'],
+    'CAN': ['T1', 'T2'],
+    'PEK': ['T2', 'T3'],
+    'SZX': ['T3'],
+    'HKG': ['T1'],
+    'MFM': ['T1'],
+    'SIN': ['T1', 'T2', 'T3', 'T4'],
+    'BKK': ['T1'],
+    'KUL': ['T1', 'T2'],
+    'MNL': ['T1', 'T2', 'T3', 'T4'],
+    'LAX': ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'TBIT'],
+    'SFO': ['T1', 'T2', 'T3', 'TI'],
+    'JFK': ['T1', 'T2', 'T4', 'T5', 'T7', 'T8'],
+    'YVR': ['Main', 'South'],
+    'HNL': ['T1', 'T2'],
+    'LHR': ['T2', 'T3', 'T4', 'T5'],
+    'CDG': ['T1', 'T2A', 'T2B', 'T2C', 'T2D', 'T2E', 'T2F', 'T2G', 'T3'],
+    'FRA': ['T1', 'T2'],
+    'AMS': ['Main'],
+    # ...可依需求擴充
+}
+
+def get_random_terminal(airport_code):
+    terminals = AIRPORT_TERMINALS.get(airport_code)
+    if terminals:
+        return random.choice(terminals)
+    return None  # 無資料時不顯示
+# === 結束 ===
+
 # 平均飛行時間 (小時) - 根據航線類型
 FLIGHT_DURATIONS = {
     'domestic': (0.5, 1.5),     # 國內航班 30分鐘 - 1.5小時
@@ -441,6 +501,9 @@ def generate_flights_for_day(date: datetime.date, count: int, airline_weights: D
         
         # --- 新增：生成 aircraft ---
         aircraft_type = f"DUMMY-{random.choice(['B737', 'A320', 'B777', 'A350', 'B787'])}"
+        # --- 新增：隨機產生 terminal ---
+        departure_terminal = get_random_terminal(dep)
+        arrival_terminal = get_random_terminal(arr)
         # -------------------------
 
         # 生成航班信息 (移除不再需要的欄位)
@@ -452,7 +515,9 @@ def generate_flights_for_day(date: datetime.date, count: int, airline_weights: D
             'scheduled_departure': departure_time,
             'scheduled_arrival': scheduled_arrival,
             'date': date,
-            'aircraft': aircraft_type # <-- 添加 aircraft
+            'aircraft': aircraft_type,
+            'departure_terminal': departure_terminal,
+            'arrival_terminal': arrival_terminal
         }
         
         # 生成票價信息
@@ -470,17 +535,15 @@ def prepare_flight_objects(flights_data: List[Dict]) -> List[Flight]:
         # 創建 Flight 對象
         flight = Flight(
             flight_number=flight_data['flight_number'],
-            airline_id=flight_data['airline'], # <-- 使用正確的鍵和模型欄位
-            departure_airport_id=flight_data['departure_airport'], # <-- 使用正確的鍵和模型欄位
-            arrival_airport_id=flight_data['arrival_airport'], # <-- 使用正確的鍵和模型欄位
+            airline_id=flight_data['airline'],
+            departure_airport_id=flight_data['departure_airport'],
+            arrival_airport_id=flight_data['arrival_airport'],
             scheduled_departure=flight_data['scheduled_departure'],
             scheduled_arrival=flight_data['scheduled_arrival'],
-            aircraft=flight_data['aircraft'], # <-- 使用正確的鍵和模型欄位
-            is_test_data=True      # 標記為測試數據
-            # 添加模型中存在但此處未設置的欄位 (departure_terminal, arrival_terminal) 為 None
-            # departure_terminal=None,
-            # arrival_terminal=None 
-            #  ^-- 這些欄位在模型中允許為 NULL，生成腳本可以不提供，資料庫會使用 NULL 或默認值 (如果有的話)
+            aircraft=flight_data['aircraft'],
+            departure_terminal=flight_data.get('departure_terminal'),
+            arrival_terminal=flight_data.get('arrival_terminal'),
+            is_test_data=True
         )
         
         # 只將 Flight 對象添加到列表
