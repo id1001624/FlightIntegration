@@ -51,9 +51,14 @@
             </a>
             <a href="#" class="w-10 h-10 bg-white/20 hover:bg-secondary text-white flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 p-2" aria-label="Line">
               <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5">
-                <circle cx="12" cy="10" r="8" fill="white" />
-                <polygon points="8,18 16,18 12,22" fill="white" />
-                <text x="12" y="10" fill="#005F73" font-size="7" font-weight="bold" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">LINE</text>
+                <!-- 對話泡泡圓形部分 -->
+                <circle cx="12" cy="9" r="7" fill="white" />
+                <!-- 對話泡泡尖角 -->
+                <polygon points="9,16 15,16 12,20" fill="white" />
+                <!-- LINE 文字 -->
+                <text x="12" y="9" fill="#005F73" font-size="6" font-weight="bold" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">
+                  LINE
+                </text>
               </svg>
             </a>
           </div>
