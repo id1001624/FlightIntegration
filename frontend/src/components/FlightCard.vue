@@ -13,17 +13,6 @@
       class="flight-card-link" 
       @click.prevent="selectFlight" 
     >
-    <!-- 
-      <div 
-        v-if="flight && flight.flight_id" 
-        :class="{
-          'flight-card-active': isActive
-        }"
-        class="flight-card-link" 
-        style="cursor: pointer;"
-        @click="selectFlight"
-      >
-    -->
       <div class="flight-card" >
         <div class="flight-card-inner">
           <!-- 卡片頭部：航空公司 Logo, 名稱, 航班號 -->
@@ -46,30 +35,6 @@
               <p class="cabin-type">{{ flightClassType }}</p>
             </div>
           </div>
-          
-          <!-- 行程視覺化 -->
-          <!-- REMOVE OLD VISUALIZATION START -->
-          <!-- 
-          <div class="journey-visualization">
-            <div class="departure-info">
-              <p class="time">{{ formattedDepartureTime }}</p>
-              <p class="airport-code">{{ getDepartureAirportCode }}</p>
-            </div>
-            <div class="journey-line-container">
-              <p class="flight-duration">{{ flightDurationComputed }}</p> 
-              <div class="journey-line-wrapper">
-                <div class="journey-line" ref="journeyLine"></div>
-                <div class="airplane-icon" ref="airplaneIcon"></div>
-                <div class="departure-dot"></div>
-                <div class="arrival-dot"></div>
-              </div>
-            </div>
-            <div class="arrival-info">
-              <p class="time">{{ formattedArrivalTime }}</p>
-              <p class="airport-code">{{ getArrivalAirportCode }}</p>
-            </div>
-          </div>
-          -->
           <!-- REMOVE OLD VISUALIZATION END -->
 
           <!-- ADD NEW PROGRESS BAR START -->
@@ -126,19 +91,7 @@ export default {
 
     const router = useRouter();
     const isActive = ref(props.active);
-    
-    // 定義animationFrame變數，避免引用錯誤
-    const animationFrame = ref(null);
-    
-    // --- 移除 Logo Mapping ---
-    // const airlineLogos = {
-    //   // ... 原來的硬編碼內容 ...
-    // };
-
-    // --- 移除 getAirlineCode，因為我們直接用 logo_path ---
-    // const getAirlineCode = computed(() => {
-    //     // ... 原來的邏輯 ...
-    // });
+   
 
     // --- 修改 airlineLogoUrl 以使用 logo_path ---
     const airlineLogoUrl = computed(() => {
