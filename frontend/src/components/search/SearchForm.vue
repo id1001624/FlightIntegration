@@ -435,7 +435,7 @@ export default {
       
       console.log('[SearchForm] After recent route selection (departure):', JSON.parse(JSON.stringify(formData.departureAirport)));
       console.log('[SearchForm] After recent route selection (arrival):', JSON.parse(JSON.stringify(formData.arrivalAirport)));
-
+      
       if (formData.departureAirport && formData.departureAirport.code) {
         onDepartureChange(formData.departureAirport);
       } else {
