@@ -50,19 +50,19 @@
               </svg>
             </a>
             <a href="#" class="w-10 h-10 bg-white/20 hover:bg-secondary text-white flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 p-2 line-icon-container" aria-label="Line">
-              <svg viewBox="0 0 24 24" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-                <!-- 官方對稱LINE氣泡 -->
+              <svg viewBox="0 0 40 40" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+                <!-- 對話泡泡主體 -->
                 <path
-                  d="M12,0A12,12 0 0,0 0,12C0,14.76 0.84,17.33 2.33,19.45L0,24L4.55,21.67C6.67,23.16 9.24,24 12,24A12,12 0 0,0 24,12A12,12 0 0,0 12,0Z"
+                  d="M20 3C8.5 3 1 9.05 1 17.5c0 7.11 6.3 13.18 14.62 14.24 0.53 0.12 1.25 0.35 1.44 0.81 0.16 0.42 0.11 1.07 0.05 1.5 0 0 -0.2 1.14 -0.23 1.38 -0.07 0.42 -0.33 1.64 0.7 0.89 1.03 -0.75 5.58 -3.32 7.61 -5.7 1.4 -1.54 3.81 -6.17 3.81 -10.92C29 9.05 31.5 3 20 3z"
                   fill="white"
                 />
-                <!-- LINE 文字置中 -->
+                <!-- LINE 文字 - 增加字體大小和粗細 -->
                 <text
-                  x="12"
-                  y="12"
+                  x="20"
+                  y="19"
                   text-anchor="middle"
                   font-family="Arial Black, Arial, sans-serif"
-                  font-size="6"
+                  font-size="11"
                   font-weight="900"
                   fill="currentColor"
                   class="line-text"
