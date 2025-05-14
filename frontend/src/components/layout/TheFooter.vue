@@ -50,12 +50,10 @@
               </svg>
             </a>
             <a href="#" class="w-10 h-10 bg-white/20 hover:bg-secondary text-white flex items-center justify-center rounded-full transition-all duration-200 hover:scale-110 p-2" aria-label="Line">
-              <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5">
-                <path fill="white" d="M29.73,5.93A23.79,23.79,0,0,0,5.94,29.72c0,12.83,10.08,23.34,22.75,23.71a1.84,1.84,0,0,1,1.07.35l0.76,0.59c2.85,2.2,6.43,4.09,10.33,5.11a1.83,1.83,0,0,0,2.27-1.26,25.29,25.29,0,0,0,1-5.32,1.78,1.78,0,0,0-.4-1.46c-1.7-2-3.16-4.16-4.29-6.45a1.84,1.84,0,0,1-.09-1.6A23.65,23.65,0,0,0,53.52,29.72,23.79,23.79,0,0,0,29.73,5.93Z"/>
-                <path fill="#005F73" d="M17.84,24.51h2.06v8h-2.06Z"/>
-                <path fill="#005F73" d="M22.35,24.51h2.06v8h-2.06Z"/>
-                <path fill="#005F73" d="M27.28,32.47H25.11l-1.18-3c-0.13-.32-0.25-0.65-0.36-1h0c-0.11.32-0.23.65-0.36,1l-1.18,3H19.63V24.51h2.06V29.9l1.21-3h2.11l1.21,3V24.51h2.06v7.95Z"/>
-                <path fill="#005F73" d="M35.77,28.49v4h-2.06V24.51h3.34c1.56,0,2.54.93,2.54,2.32,0,1.11-.65,1.88-1.64,2.14l1.84,2.94h-2.3L35.77,29.24Zm0-3.14h1.18c0.58,0,1-.32,1-.86s-0.38-.86-1-.86H35.77Z"/>
+              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5">
+                <circle cx="12" cy="10" r="8" fill="white" />
+                <polygon points="8,18 16,18 12,22" fill="white" />
+                <text x="12" y="10" fill="#005F73" font-size="7" font-weight="bold" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif">LINE</text>
               </svg>
             </a>
           </div>
