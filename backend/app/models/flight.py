@@ -28,7 +28,7 @@ class Flight(Base):
     updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=True)
     
     # 關聯
-    ticket_prices = db.relationship('TicketPrice', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
+    ticket_prices = db.relationship('TicketPrice', back_populates='flight', lazy='dynamic', cascade='all, delete-orphan')
     price_history = db.relationship('PriceHistory', backref='flight', lazy='dynamic', cascade='all, delete-orphan')
     
     def __repr__(self):

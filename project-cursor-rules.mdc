@@ -1,0 +1,26 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+## 4. 當前任務
+
+- ✅ ~~前端機場排序~~ (已完成)
+
+> 詳細的已完成功能和待開發項目請參考 [activeContext.md](mdc:memory-bank/activeContext.md)，任務追蹤請用 [tasks.md](mdc:memory-bank/tasks.md) 工作完成請更新檔案確保進度追蹤，以memory-bank/去記憶
+
+## 6. 關鍵學習與提醒
+
+### 後端API契約遵守原則
+
+### 前端數據映射簡化
+- 當後端提供一致且符合預期的數據時，前端映射邏輯（例如 `SearchForm.vue` 中的邏輯）會更簡單，更不容易出錯。
+
+### 前端輸入驗證
+
+### 資料流與欄位映射追蹤 (新增)
+- **問題**: 在多層次的資料傳遞 (例如 API -> Service -> Vuex Store -> Component) 中，欄位 (如 `activity_score`) 可能在某一層的物件轉換或 `map` 操作中遺失，導致最終元件收到的資料不完整。
+- **解決方案**: 當欄位未按預期出現在最終元件時，應從資料源頭 (API 回應) 開始，逐層檢查資料轉換邏輯。使用 `console.log` 打印每一層處理前後的資料結構，特別注意 `map` 操作是否使用了擴展運算符 (`...object`) 來保留所有原始欄位，或是否明確地複製了目標欄位。
+- **案例**: 本次機場排序功能開發中，`activity_score` 欄位在 `SearchForm.vue` 的 `fetchTaiwanAirports` 方法內的 `map` 操作中遺失，通過逐層日誌追蹤後定位並修復。
+
+## 7. 目前問題與關注點

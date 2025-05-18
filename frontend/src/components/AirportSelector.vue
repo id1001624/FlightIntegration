@@ -252,45 +252,15 @@ export default {
     const loadingStartTime = ref(null);
     const MIN_LOADING_DURATION = 800; // 0.8秒
 
-    // 監視外部loading屬性的變化
-    watch(() => props.loading, (newVal, oldVal) => {
-      // 如果開始加載
-      if (newVal && !oldVal) {
-        loadingStartTime.value = Date.now();
-        internalLoading.value = true;
-        
-        // 清除可能存在的計時器
-        if (loadingTimer.value) {
-          clearTimeout(loadingTimer.value);
-          loadingTimer.value = null;
-        }
-      } 
-      // 如果停止加載
-      else if (!newVal && oldVal) {
-        const elapsedTime = Date.now() - (loadingStartTime.value || 0);
-        
-        // 如果已經顯示足夠時間，直接關閉
-        if (elapsedTime >= MIN_LOADING_DURATION) {
-          internalLoading.value = false;
-        } else {
-          // 否則延遲關閉以確保最小顯示時間
-          const remainingTime = MIN_LOADING_DURATION - elapsedTime;
-          loadingTimer.value = setTimeout(() => {
-            internalLoading.value = false;
-            loadingTimer.value = null;
-          }, remainingTime);
-        }
+    // 當 props.airports 更新時，記錄到控制台
+    watch(() => props.airports, (newAirports) => {
+      // 如果 airports 更新，可能需要重新評估一些依賴它的 computed properties 或執行其他邏輯
+      // 例如，如果正在顯示特定區域的機場，而該區域的機場列表因 props.airports 更新而改變
+      if (selectedRegion.value && !searchQuery.value) {
+        // 可以觸發一次 getSelectedAirports 的更新，如果它沒有自動響應
       }
-    });
+    }, { deep: true, immediate: false }); // immediate: false 避免初始掛載時就觸發一次
 
-    // 清除計時器
-    onBeforeUnmount(() => {
-      if (loadingTimer.value) {
-        clearTimeout(loadingTimer.value);
-      }
-      document.removeEventListener('click', closeDropdownOnClickOutside);
-    });
-    
     // 選中的機場
     const selectedAirport = computed(() => {
       if (!props.modelValue) return null;
@@ -307,42 +277,40 @@ export default {
 
     // 台灣機場列表
     const taiwanAirports = computed(() => {
-      // 定義期望的排序順序
-      const desiredOrder = [
-        'TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 
-        'HUN', 'TTT', 'KNH', 'MZG', 'GNI', 
-        'KYD', 'CYI', 'MFK', 'LZN', 'WOT', 
-        'CMJ'
-      ];
+      const coreCodes = ['TPE', 'TSA', 'KHH']; // 核心機場代碼
+      const desiredOrder = ['TPE', 'TSA', 'KHH']; // 期望的核心機場順序
 
-      const filteredAirports = props.airports.filter(airport => 
-        airport.country === 'Taiwan' || 
-        // 包含所有已知台灣機場代碼以防萬一 country 資訊缺失
-        ['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF', 'WOT', 'CMJ'].includes(airport.code)
-      );
+      // 1. 過濾出台灣的機場
+      let airportsInTaiwan = props.airports.filter(airport => airport.country === 'Taiwan');
 
-      // 根據 desiredOrder 排序
-      filteredAirports.sort((a, b) => {
-        const indexA = desiredOrder.indexOf(a.code);
-        const indexB = desiredOrder.indexOf(b.code);
+      // 2. 分離核心機場和其他台灣機場
+      const coreAirports = airportsInTaiwan.filter(airport => coreCodes.includes(airport.code));
+      const otherAirports = airportsInTaiwan.filter(airport => !coreCodes.includes(airport.code));
 
-        // 如果兩個都在 desiredOrder 中，按其索引排序
-        if (indexA !== -1 && indexB !== -1) {
-          return indexA - indexB;
-        }
-        // 如果只有 a 在 desiredOrder 中，a 排前面
-        if (indexA !== -1) {
-          return -1;
-        }
-        // 如果只有 b 在 desiredOrder 中，b 排前面
-        if (indexB !== -1) {
-          return 1;
-        }
-        // 如果都不在 desiredOrder 中，按名稱排序 (備用)
-        return (a.name || '').localeCompare(b.name || '');
+      // 3. 核心機場按 desiredOrder 排序
+      const coreAirportsInDesiredOrder = coreAirports.sort((a, b) => {
+        return desiredOrder.indexOf(a.code) - desiredOrder.indexOf(b.code);
       });
 
-      return filteredAirports;
+      // 4. 其他台灣機場按 activity_score 降序，然後按中文名升序
+      const sortedOtherAirports = otherAirports.sort((a, b) => {
+        // 確保 activity_score 是數字，如果不是或未定義，則視為0
+        const scoreA = Number(a.activity_score) || 0;
+        const scoreB = Number(b.activity_score) || 0;
+
+        if (scoreB !== scoreA) {
+          return scoreB - scoreA; // activity_score 高的在前
+        }
+        // 如果 activity_score 相同，則按機場中文名稱 (name) 進行排序
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB, 'zh-Hant');
+      });
+
+      // 5. 合併核心機場和其他機場
+      const finalSortedList = [...coreAirportsInDesiredOrder, ...sortedOtherAirports];
+      
+      return finalSortedList;
     });
 
     // 熱門目的地

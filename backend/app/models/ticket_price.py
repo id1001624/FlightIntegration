@@ -22,7 +22,7 @@ class TicketPrice(Base):
     price_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_test_data = db.Column(db.Boolean, default=False)
     
-    flight = db.relationship('Flight', back_populates='ticket_prices_relationship')
+    flight = db.relationship('Flight', back_populates='ticket_prices')
     price_history = db.relationship('PriceHistory', back_populates='ticket_price_snapshot', cascade='all, delete-orphan')
     
     __table_args__ = (

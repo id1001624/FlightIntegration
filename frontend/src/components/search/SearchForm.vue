@@ -192,22 +192,18 @@ export default {
       try {
         loadingTaiwanAirports.value = true;
         const airportsData = await flightService.getTaiwanAirports();
-        console.log('SearchForm: 獲取到的台灣機場資料:', airportsData);
         
-        // 判斷 airportsData 是否為數組或對象
         let airportsArray = [];
         if (Array.isArray(airportsData)) {
-          // 直接使用數組
           airportsArray = airportsData;
         } else if (airportsData && airportsData.success && Array.isArray(airportsData.data)) {
-          // 使用 {success, data} 格式
           airportsArray = airportsData.data;
         } else {
           console.error('獲取台灣機場列表：資料格式不符合預期');
         }
         
-        // 映射數據，確保有 code 屬性
         taiwanAirports.value = airportsArray.map(airport => ({
+          ...airport,
           id: airport.id || airport.airport_id,
           code: airport.iata_code || airport.code || airport.airport_id,
           name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
@@ -215,8 +211,6 @@ export default {
           country: airport.country || 'Taiwan',
           region: airport.region || '台灣'
         }));
-        console.log('SearchForm: 映射後的台灣機場資料:', JSON.parse(JSON.stringify(taiwanAirports.value)));
-
       } catch (error) {
         console.error('獲取台灣機場列表時出錯:', error);
       } finally {

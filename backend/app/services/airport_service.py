@@ -5,7 +5,7 @@
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
 import asyncpg
@@ -17,6 +17,103 @@ logger = logging.getLogger(__name__)
 class AirportService:
     """機場服務 - 處理機場數據相關操作"""
     
+    @staticmethod
+    async def _get_taiwan_airport_activity_scores_async(conn, days_ahead: int = 7) -> Dict[str, int]:
+        """
+        (私有) 計算台灣各機場未來指定天數內的出發航班活躍度分數。
+        排除 is_test_data = True 的航班。
+        """
+        today = datetime.utcnow().date()
+        # 確保 future_start_date 和 future_end_date 的計算與 SQL 查詢邏輯一致
+        # SQL 是 >= $1 AND < $2，所以 end_date 不需要 +1
+        future_start_date = today 
+        future_end_date = today + timedelta(days=days_ahead) # 結束日期是不包含的上限
+
+        logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculating activity for dates: {future_start_date} (inclusive) to {future_end_date} (exclusive)")
+
+        sql = """
+        SELECT
+            f.departure_airport_id,
+            COUNT(f.flight_id) AS flight_count
+        FROM
+            flights f
+        JOIN
+            airports a ON f.departure_airport_id = a.airport_id
+        WHERE
+            a.country = 'Taiwan'
+            AND f.scheduled_departure >= $1
+            AND f.scheduled_departure < $2 
+            -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
+        GROUP BY
+            f.departure_airport_id;
+        """
+        try:
+            logger.debug(f"[_get_taiwan_airport_activity_scores_async] Executing SQL with params: $1={future_start_date}, $2={future_end_date}")
+            
+            rows = await conn.fetch(sql, future_start_date, future_end_date)
+            
+            logger.info(f"[_get_taiwan_airport_activity_scores_async] Raw rows from DB: {rows}")
+            
+            activity_scores = {row['departure_airport_id']: row['flight_count'] for row in rows}
+            
+            logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculated activity_scores: {activity_scores}")
+            
+            return activity_scores
+        except Exception as e:
+            logger.error(f"Error calculating Taiwan airport activity scores: {e}", exc_info=True)
+            return {}
+
+    @staticmethod
+    async def get_all_airports_with_activity(days_ahead: int = 7) -> List[Dict[str, Any]]:
+        """
+        獲取所有機場列表，並為台灣機場附加近期活躍度分數。
+        """
+        pool = await init_asyncpg_pool()
+        conn = await pool.acquire()
+        try:
+            # 1. 獲取所有機場的基本信息
+            all_airports_sql = """
+            SELECT 
+                airport_id,
+                name_zh,
+                name_en,
+                city,
+                city_en,
+                country,
+                timezone,
+                contact_info,
+                website_url
+            FROM airports
+            ORDER BY country, city, name_zh;
+            """
+            airport_rows = await conn.fetch(all_airports_sql)
+            all_airports_list = [dict(row) for row in airport_rows]
+            
+            if not all_airports_list:
+                logger.warning("未獲取到任何機場數據。")
+                return []
+
+            # 2. 獲取台灣機場的活躍度分數
+            taiwan_activity_scores = await AirportService._get_taiwan_airport_activity_scores_async(conn, days_ahead)
+
+            # 3. 將活躍度分數合併到台灣機場數據中
+            for airport_data in all_airports_list:
+                if airport_data.get('country') == 'Taiwan':
+                    airport_data['activity_score'] = taiwan_activity_scores.get(airport_data['airport_id'], 0)
+                else:
+                    # 非台灣機場可以選擇不加此欄位或設為None/0
+                    airport_data['activity_score'] = 0 
+            
+            logger.info(f"成功獲取所有機場列表，並已附加台灣機場活躍度。共 {len(all_airports_list)} 個機場。")
+            return all_airports_list
+            
+        except Exception as e:
+            logger.error(f"獲取所有機場並附加活躍度時出錯: {e}", exc_info=True)
+            return []
+        finally:
+            if conn:
+                await pool.release(conn)
+
     @staticmethod
     async def get_taiwan_airports() -> List[Dict[str, Any]]:
         """

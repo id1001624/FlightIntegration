@@ -25,15 +25,17 @@ def _error_response(message, status_code):
 airport_bp = Blueprint('airport', __name__)
 
 @airport_bp.route('/', methods=['GET'])
-@cache.cached(timeout=7200)  # 緩存2小時
+# @cache.cached(timeout=7200)  # 緩存2小時 - 暫時註解以進行調試
 async def get_airports():
-    """獲取所有機場"""
+    """獲取所有機場，並為台灣機場附加活躍度分數"""
     try:
-        # 使用新的 AirportService
-        airports = await AirportService.get_taiwan_airports()
+        # 使用新的 AirportService 方法
+        # 可以考慮從請求參數獲取 days_ahead，如果需要更靈活的配置
+        days_ahead_param = request.args.get('days_ahead', default=7, type=int)
+        airports = await AirportService.get_all_airports_with_activity(days_ahead=days_ahead_param)
         return _success_response(airports)
     except Exception as e:
-        current_app.logger.error(f"獲取機場列表失敗: {e}", exc_info=True)
+        current_app.logger.error(f"獲取所有機場列表（含活躍度）失敗: {e}", exc_info=True)
         return _error_response('獲取機場列表時發生內部錯誤', 500)
 
 @airport_bp.route('/taiwan', methods=['GET'])

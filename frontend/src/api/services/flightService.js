@@ -63,66 +63,50 @@ const flightService = {
    * @returns {Array} - 處理後的數據數組
    */
   _handleResponse(response) {
-    console.log('[flightService] _handleResponse input:', JSON.parse(JSON.stringify(response)));
-    let result = []; // 確保只在這裡宣告一次
+    let result = [];
 
     if (response === null || response === undefined) {
       console.warn('API回應為null或undefined');
-      // result 已初始化為 []
     } else if (typeof response === 'string') {
       try {
           response = JSON.parse(response);
-          // 再次檢查解析後的對象
           if (response && response.data && response.data.outbound_flights && Array.isArray(response.data.outbound_flights)) {
-              console.log('找到 response.data.outbound_flights 數組 (from string)');
-              result = response.data.outbound_flights; // 賦值，不重新宣告
+              result = response.data.outbound_flights;
           } else if (response && response.data && Array.isArray(response.data)) {
-             console.log('找到 response.data 作為數組 (from string)');
-             result = response.data; // 賦值，不重新宣告
+             result = response.data;
           } else {
              console.warn('Parsed string response format not recognized:', response);
-             // result 已初始化為 []
           }
       } catch (e) {
           console.error('無法解析JSON響應:', e);
-          // result 已初始化為 []
       }
     } else if (response && response.data && response.data.departure && Array.isArray(response.data.departure)) {
-        console.log('找到 response.data.departure 數組');
-        result = response.data.departure; // 賦值，不重新宣告
+        result = response.data.departure;
     } else if (response && response.data && response.data.outbound_flights && Array.isArray(response.data.outbound_flights)) {
-        console.log('找到 response.data.outbound_flights 數組');
-        result = response.data.outbound_flights; // 賦值，不重新宣告
+        result = response.data.outbound_flights;
     } else if (response && response.outbound && Array.isArray(response.outbound)) {
-      console.log('找到 outbound 屬性，返回航班列表');
-      result = response.outbound; // 賦值，不重新宣告
+      result = response.outbound;
     } else if (response && response.outbound_flights && Array.isArray(response.outbound_flights)) {
-      result = response.outbound_flights; // 賦值，不重新宣告
+      result = response.outbound_flights;
     } else if (Array.isArray(response)) {
-      result = response; // 賦值，不重新宣告
+      result = response;
     } else if (response && response.data && Array.isArray(response.data)) {
-       console.log('找到 response.data 作為數組');
-       result = response.data; // 賦值，不重新宣告
+       result = response.data;
     } else if (response && typeof response === 'object') {
       console.warn('API回應是對象，嘗試轉換為數組:', response);
       try {
-        result = Object.values(response); // 賦值，不重新宣告
+        result = Object.values(response);
       } catch (e) {
         console.error('無法將對象轉換為數組:', e);
-        // result 已初始化為 []
       }
     } else {
       console.warn('API回應格式不符合預期:', response);
-      // result 已初始化為 []
     }
 
-    // 標準化所有航班數據中的價格
     if (result.length > 0 && result[0] && (result[0].flight_id || result[0].price || result[0].departure)) {
-      // 如果結果看起來像航班數據，則標準化價格
       result = this._standardizePrices(result);
     }
 
-    console.log('[flightService] _handleResponse output:', JSON.parse(JSON.stringify(result)));
     return result;
   },
 
@@ -167,49 +151,37 @@ const flightService = {
    * @returns {Promise} 返回機場列表
    */
   async getTaiwanAirports() {
-    console.log(`獲取台灣機場列表`);
+    const cacheKey = `airports_all_with_activity`;
     
-    // 生成緩存鍵 (不再包含日期)
-    const cacheKey = `airports_taiwan_all`; // 修改緩存鍵以反映不區分日期
-    
-    // 檢查緩存
     if (checkCache('airports', cacheKey)) {
-      console.log(`從緩存返回台灣機場列表: ${cacheKey}`);
       return cache.airports.data[cacheKey];
     }
 
     try {
-      // 發送API請求 - 修正端點 URL (不再包含日期查詢參數)
-      const correctUrl = `/airports/taiwan`; 
-      console.log(`[flightService] Requesting Taiwan airports: ${correctUrl}`);
+      const correctUrl = `/airports/`;
       const response = await api.get(correctUrl);
-      console.log('[flightService] Raw API response for Taiwan airports:', JSON.parse(JSON.stringify(response)));
       
-      // 處理API回應
       const data = this._handleResponse(response);
-      console.log('[flightService] Processed airport data:', JSON.parse(JSON.stringify(data)));
       
-      // 如果數據為空，丟出錯誤
       if (!data || !Array.isArray(data)) {
         throw new Error('API未返回有效的機場列表數據');
       }
       
-      // 添加國家和地區信息
       const enhancedData = data.map(airport => {
+        const isTaiwan = airport.country === 'Taiwan';
         return {
           ...airport,
-          country: airport.country || 'Taiwan',
-          region: '台灣'
+          activity_score: airport.activity_score !== undefined ? airport.activity_score : 0,
+          region: isTaiwan ? '台灣' : (airport.region || this._getAirportRegion(airport.code))
         };
       });
       
-      // 設置緩存
       cache.airports.data[cacheKey] = enhancedData;
       cache.airports.timestamp[cacheKey] = Date.now();
       
       return enhancedData;
     } catch (error) {
-      console.error('獲取台灣機場列表失敗:', error);
+      console.error('獲取所有機場列表失敗 (原getTaiwanAirports):', error);
       throw error;
     }
   },
@@ -685,6 +657,41 @@ const flightService = {
     };
     
     return regionMap[code] || '其他';
+  },
+
+  async getAirports() {
+    console.log('[flightService getAirports] Fetching all airports from /api/airports/');
+    try {
+        const responseData = await api.get('/airports/'); // responseData is the direct array from API
+
+        console.log('[flightService getAirports] Data received from API call /api/airports/:', JSON.stringify(responseData, null, 2));
+
+        if (responseData && Array.isArray(responseData)) {
+            const processedAirports = responseData.map(airport => {
+                // airport 物件的結構來自 API 回應，例如：
+                // { activity_score: 132, airport_id: "TSA", city: "臺北", name_zh: "臺北松山機場", ... }
+                return {
+                    ...airport, // 保留所有原始欄位，包括 activity_score, city_en, contact_info 等
+                    id: airport.airport_id || airport.id || airport.code, // 優先使用 airport_id，然後是 id，最後是 code
+                    code: airport.code || airport.airport_id, // API 直接提供的 code (iata_code)，或者用 airport_id
+                    name: airport.name_zh || airport.name_en || airport.name, // 優先使用 name_zh (中文名)
+                    // city, country 應該會被 ...airport 帶過來
+                    // region: this._getAirportRegion(airport.code || airport.airport_id) // 這裡的 code 需要是 IATA code
+                };
+            });
+            console.log('[flightService getAirports] Processed airports for selector:', JSON.stringify(processedAirports.filter(a => a.country === 'Taiwan'), null, 2)); // 只印出台灣機場看看
+            return processedAirports;
+        }
+        
+        console.error('[flightService getAirports] Unexpected data structure from API. Expected array, got:', responseData);
+        return [];
+    } catch (error) {
+        console.error('[flightService getAirports] Error fetching all airports:', error);
+        if (error.response && error.response.data) {
+            console.error('[flightService getAirports] Backend error details:', error.response.data);
+        }
+        return [];
+    }
   }
 };
 
