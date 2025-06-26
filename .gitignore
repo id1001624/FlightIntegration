@@ -48,7 +48,6 @@ yarn-error.log*
 dev-debug.log
 # Dependency directories
 node_modules/
-# Environment variables
 # Editor directories and files
 .idea
 .vscode
@@ -61,4 +60,11 @@ node_modules/
 .DS_Store
 # Task files
 tasks.json
-tasks/ 
+tasks/
+
+# Cursor AI-related files
+# Ignore all cursor files by default
+.cursor/*
+# But DO NOT ignore these important rule and memory files
+!/.cursor/rules/
+!/.cursor/memory-bank/ 
