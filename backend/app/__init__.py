@@ -220,6 +220,7 @@ def register_blueprints(app):
     from .controllers.flight_controller import flight_bp
     from .controllers.price_controller import ticket_price_bp
     from .controllers.line_webhook_controller import line_webhook_bp
+    from .controllers.amadeus_controller import amadeus_bp
     
     # 在開發環境中導入測試藍圖
     if app.config.get('DEBUG', False):
@@ -233,6 +234,7 @@ def register_blueprints(app):
     app.register_blueprint(flight_bp, url_prefix='/api/flights')
     app.register_blueprint(ticket_price_bp, url_prefix='/api/ticket-prices')
     app.register_blueprint(line_webhook_bp)
+    app.register_blueprint(amadeus_bp)
 
 def register_error_handlers(app):
     """註冊錯誤處理器"""

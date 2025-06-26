@@ -5,12 +5,18 @@
 """
 
 import logging
+import uuid
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
-import asyncpg
+try:
+    import asyncpg
+except ImportError:
+    asyncpg = None
+
 from ..database.db import init_asyncpg_pool
 from .db_utils import execute_db_operation, execute_query
+from ..models.airport import Airport
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +75,13 @@ class AirportService:
         獲取所有機場列表，並為台灣機場附加近期活躍度分數。
         """
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return []
+            
+        conn = None
         try:
+            conn = await pool.acquire()
             # 1. 獲取所有機場的基本信息
             all_airports_sql = """
             SELECT 
@@ -111,7 +122,7 @@ class AirportService:
             logger.error(f"獲取所有機場並附加活躍度時出錯: {e}", exc_info=True)
             return []
         finally:
-            if conn:
+            if conn and pool:
                 await pool.release(conn)
 
     @staticmethod
@@ -142,20 +153,25 @@ class AirportService:
             
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return []
+            
+        conn = None
         try:
+            conn = await pool.acquire()
             return await fetch_airports(conn)
         except Exception as e:
             logger.error(f"獲取台灣機場列表時出錯: {e}", exc_info=True)
             return []
         finally:
-            if conn:
+            if conn and pool:
                 await pool.release(conn)
 
     @staticmethod
     async def get_available_destinations(
         departure_airport_param: str,
-        date: str = None, 
+        date: Optional[str] = None, 
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
@@ -163,7 +179,7 @@ class AirportService:
         
         Args:
             departure_airport_param (str): 出發機場的 ID (IATA 代碼)
-            date (str, optional): 過濾日期 (YYYY-MM-DD 格式)，若提供則只返回該日期有航班的目的地
+            date (Optional[str]): 過濾日期 (YYYY-MM-DD 格式)，若提供則返回該日期附近有航班的目的地
             limit (int, optional): 返回結果的最大數量，預設為 100
             
         Returns:
@@ -178,7 +194,7 @@ class AirportService:
             params = [dep_code_upper, limit]
             
             if date:
-                # 如果提供了日期參數，只返回該日期有航班的目的地
+                # 如果提供了日期參數，查詢該日期前後3天的航班（更寬鬆的查詢）
                 sql = """
                 SELECT DISTINCT 
                     arr.airport_id,
@@ -197,8 +213,8 @@ class AirportService:
                     ticket_prices tp ON f.flight_id = tp.flight_id
                 WHERE 
                     dep.airport_id = $1
-                    AND tp.economy_price IS NOT NULL
-                    AND DATE(f.scheduled_departure) = $3
+                    AND DATE(f.scheduled_departure) >= DATE($3) - INTERVAL '3 days'
+                    AND DATE(f.scheduled_departure) <= DATE($3) + INTERVAL '3 days'
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
@@ -213,7 +229,7 @@ class AirportService:
                     logger.error(f"無效的日期格式: {date}")
                     return []
             else:
-                # 不過濾日期，返回所有目的地
+                # 不過濾日期，返回所有目的地（只查詢未來航班）
                 sql = """
                 SELECT DISTINCT
                     arr.airport_id,
@@ -232,7 +248,7 @@ class AirportService:
                     ticket_prices tp ON f.flight_id = tp.flight_id
                 WHERE 
                     dep.airport_id = $1
-                    AND tp.economy_price IS NOT NULL
+                    AND f.scheduled_departure >= CURRENT_TIMESTAMP
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
@@ -244,21 +260,16 @@ class AirportService:
             rows = await conn.fetch(sql, *params)
             destinations = [dict(row) for row in rows]
             
-            logger.info(f"從機場ID {dep_code_upper} 查詢到的目的地數量: {len(destinations)} {' (過濾日期: ' + date + ')' if date else ''}")
+            logger.info(f"從機場ID {dep_code_upper} 查詢到的目的地數量: {len(destinations)} {' (日期範圍: ' + date + ' ±3天)' if date else ' (所有未來航班)'}")
             return destinations
-        
+
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
-        try:
-            return await fetch_destinations(conn, departure_airport_param)
-        except Exception as e:
-            logger.error(f"獲取從機場ID {departure_airport_param} 出發的目的地時出錯: {e}", exc_info=True)
+        if not pool:
             return []
-        finally:
-            if conn:
-                await pool.release(conn)
-    
+        async with pool.acquire() as conn:
+            return await fetch_destinations(conn, departure_airport_param)
+
     @staticmethod
     async def get_airport_by_id(airport_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -290,16 +301,21 @@ class AirportService:
             
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return None
+            
+        conn = None
         try:
+            conn = await pool.acquire()
             return await fetch_airport(conn)
         except Exception as e:
             logger.error(f"獲取機場ID {airport_id} 的詳細信息時出錯: {e}", exc_info=True)
             return None
         finally:
-            if conn:
+            if conn and pool:
                 await pool.release(conn)
-                
+
     @staticmethod
     async def search_airports(
         keyword: str, 
@@ -349,14 +365,19 @@ class AirportService:
             
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return []
+            
+        conn = None
         try:
+            conn = await pool.acquire()
             return await perform_search(conn)
         except Exception as e:
             logger.error(f"搜索機場時出錯: {e}", exc_info=True)
             return []
         finally:
-            if conn:
+            if conn and pool:
                 await pool.release(conn)
 
     @staticmethod
@@ -402,12 +423,135 @@ class AirportService:
                 return []
 
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return []
+            
+        conn = None
         try:
+            conn = await pool.acquire()
             return await fetch_airports_with_future_flights(conn)
         except Exception as e_service:
             logger.error(f"在 get_available_departure_airports 服務中發生錯誤: {e_service}", exc_info=True)
             return []
         finally:
-            if conn:
-                await pool.release(conn) 
+            if conn and pool:
+                await pool.release(conn)
+
+    @staticmethod
+    async def bulk_save_airports(airports_data: List[Dict[str, Any]]) -> int:
+        """
+        批量儲存或更新機場數據
+        
+        Args:
+            airports_data (List[Dict[str, Any]]): 機場數據列表
+            
+        Returns:
+            int: 成功儲存或更新的記錄數量
+        """
+        if not airports_data:
+            return 0
+
+        async def upsert_airports(conn):
+            records_to_insert = [
+                (
+                    d.get("iata_code", ''),
+                    d.get("name_zh", ''),
+                    d.get("name_en", ''),
+                    d.get("city", ''),
+                    d.get("country", '')
+                ) for d in airports_data
+            ]
+            
+            table_name = 'airports'
+            columns = ['airport_id', 'name_zh', 'name_en', 'city', 'country']
+
+            try:
+                async with conn.transaction():
+                    # 創建臨時表
+                    temp_table_name = f"temp_airports_{uuid.uuid4().hex}"
+                    await conn.execute(f"""
+                        CREATE TEMP TABLE {temp_table_name} (
+                            airport_id VARCHAR(3) PRIMARY KEY,
+                            name_zh VARCHAR(255),
+                            name_en VARCHAR(255),
+                            city VARCHAR(255),
+                            country VARCHAR(255)
+                        ) ON COMMIT DROP;
+                    """)
+
+                    # 複製數據到臨時表
+                    await conn.copy_records_to_table(
+                        table_name=temp_table_name,
+                        records=records_to_insert,
+                        columns=columns
+                    )
+
+                    # Upsert
+                    upsert_sql = f"""
+                    INSERT INTO {table_name} (airport_id, name_zh, name_en, city, country)
+                    SELECT airport_id, name_zh, name_en, city, country FROM {temp_table_name}
+                    ON CONFLICT (airport_id) DO UPDATE SET
+                        name_zh = EXCLUDED.name_zh,
+                        name_en = EXCLUDED.name_en,
+                        city = EXCLUDED.city,
+                        country = EXCLUDED.country;
+                    """
+                    await conn.execute(upsert_sql)
+                    
+                    return len(records_to_insert)
+
+            except Exception as e:
+                logger.error(f"批量儲存機場時發生數據庫錯誤: {e}", exc_info=True)
+                raise
+
+        pool = await init_asyncpg_pool()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return 0
+            
+        conn = None
+        try:
+            conn = await pool.acquire()
+            return await upsert_airports(conn)
+        except Exception:
+            return 0
+        finally:
+            if conn and pool:
+                await pool.release(conn)
+
+    @staticmethod
+    async def get_airport_by_iata(iata_code: str) -> Optional[Dict[str, Any]]:
+        """
+        根據 IATA code 獲取機場信息
+        
+        Args:
+            iata_code (str): 機場的 IATA code
+            
+        Returns:
+            Optional[Dict[str, Any]]: 機場詳情，如果不存在則返回None
+        """
+        async def fetch_airport(conn):
+            # airport_id 在我們的 schema 中就是 IATA code
+            sql = "SELECT * FROM airports WHERE airport_id = $1"
+            row = await conn.fetchrow(sql, iata_code)
+            return dict(row) if row else None
+
+        pool = await init_asyncpg_pool()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return None
+            
+        conn = None
+        try:
+            conn = await pool.acquire()
+            return await fetch_airport(conn)
+        except Exception as e:
+            logger.error(f"根據 IATA code {iata_code} 獲取機場時出錯: {e}", exc_info=True)
+            return None
+        finally:
+            if conn and pool:
+                await pool.release(conn)
+
+# 創建服務實例以供其他模塊導入
+airport_service = AirportService()

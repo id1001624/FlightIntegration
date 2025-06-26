@@ -14,6 +14,7 @@ class Airline(Base):
     contact_phone = db.Column(db.String)
     is_domestic = db.Column(db.Boolean)
     logo_path = db.Column(db.String, nullable=True)
+    needs_manual_update = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     
     # 關聯
     flights = db.relationship('Flight', backref='airline', lazy='dynamic')

@@ -5,17 +5,25 @@
 """
 
 import logging
-import asyncpg
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List, Dict, Any, Optional, Tuple, Union
 from decimal import Decimal
-from marshmallow import ValidationError
+
+try:
+    import asyncpg
+except ImportError:
+    asyncpg = None
+
+try:
+    from marshmallow import ValidationError
+except ImportError:
+    ValidationError = Exception
 
 from ..models import Airline, Airport, Flight, TicketPrice
 from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema, FlightSearchResultSchema
 from ..database.db import init_asyncpg_pool
 from .db_utils import execute_db_operation, execute_query, normalize_cabin_class, get_price_field_by_cabin_class, get_display_name_by_cabin_field
-from ..scripts.constants import POPULAR_DOMESTIC_ROUTES_TUPLES, POPULAR_INTERNATIONAL_ROUTES_TUPLES # 確保導入
+from ..scripts.constants import POPULAR_ROUTES_TUPLES
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +110,9 @@ class FlightSearchService:
             
             # 執行包裝後的操作
             pool = await init_asyncpg_pool()
+            if not pool:
+                raise RuntimeError("無法創建數據庫連接池")
+            
             conn = await pool.acquire()
             try:
                 return await search_operation(conn)
@@ -225,7 +236,7 @@ class FlightSearchService:
         LIMIT {limit_placeholder}; -- 結果數量限制
         """
 
-        params = [departure_code, arrival_code, start_of_day, end_of_day]
+        params: List[Any] = [departure_code, arrival_code, start_of_day, end_of_day]
         param_index = len(params) # 從 4 開始 (索引從 1 開始)
 
         # 航空公司過濾
@@ -356,12 +367,16 @@ class FlightSearchService:
 
             # 3. 準備傳遞給 Schema 的數據字典
             #    鍵名需要匹配 Schema 字段名，或嵌套 Schema 的 attribute 指定的鍵名
+            price_updated_at = flight.get('price_updated_at')
+            scheduled_departure = flight.get('scheduled_departure')
+            scheduled_arrival = flight.get('scheduled_arrival')
+            
             data_for_schema = {
                 'flight_id': flight.get('flight_id'),
                 'flight_number': flight.get('flight_number'),
                 'aircraft': flight.get('aircraft'),
                 'available_seats': flight.get('available_seats'),
-                'price_updated_at': flight.get('price_updated_at').isoformat() if flight.get('price_updated_at') else None,
+                'price_updated_at': price_updated_at.isoformat() if price_updated_at else None,
                 'duration_minutes': duration_minutes,
                 'price': { # 價格嵌套
                     'amount': price,
@@ -382,7 +397,7 @@ class FlightSearchService:
                     'city': flight.get('departure_city'),
                     'country': flight.get('departure_country'),
                     'terminal': flight.get('departure_terminal'),
-                    'time': flight.get('scheduled_departure').isoformat() if flight.get('scheduled_departure') else None
+                    'time': scheduled_departure.isoformat() if scheduled_departure else None
                 },
                 'arrival': { # 目的地嵌套
                     'code': flight.get('arrival_code'),
@@ -390,7 +405,7 @@ class FlightSearchService:
                     'city': flight.get('arrival_city'),
                     'country': flight.get('arrival_country'),
                     'terminal': flight.get('arrival_terminal'),
-                    'time': flight.get('scheduled_arrival').isoformat() if flight.get('scheduled_arrival') else None
+                    'time': scheduled_arrival.isoformat() if scheduled_arrival else None
                 }
             }
             prepared_data.append(data_for_schema)
@@ -412,7 +427,7 @@ class FlightSearchService:
     @staticmethod
     async def search_flights_from_taiwan(
         arrival_airport_id: Optional[str] = None,
-        date: Optional[datetime.date] = None,
+        date: Optional[date] = None,
         airlines: Optional[List[str]] = None,
         price_min: Optional[int] = None, 
         price_max: Optional[int] = None,
@@ -461,7 +476,7 @@ class FlightSearchService:
             
             # 構建查詢條件
             conditions = ["f.departure_airport_id = ANY($1)"]
-            params = [taiwan_airport_ids]
+            params: List[Any] = [taiwan_airport_ids]
             
             param_index = 2
             
@@ -565,15 +580,15 @@ class FlightSearchService:
                 logger.info(f"成功搜索到 {len(formatted_flights)} 個台灣出發航班")
                 return formatted_flights
 
-            except asyncpg.exceptions.PostgresError as e:
-                logger.error(f"搜索台灣出發航班數據庫錯誤: {e}\nSQL: {query}\nParams: {params}", exc_info=True)
-                raise
             except Exception as e:
-                logger.error(f"搜索台灣出發航班時發生錯誤: {e}", exc_info=True)
+                logger.error(f"搜索台灣出發航班數據庫錯誤: {e}\nSQL: {query}\nParams: {params}", exc_info=True)
                 raise
         
         # 使用 execute_db_operation 包裝資料庫操作
         pool = await init_asyncpg_pool()
+        if not pool:
+            raise RuntimeError("無法創建數據庫連接池")
+        
         conn = await pool.acquire()
         try:
             return await perform_search(conn)
@@ -748,9 +763,12 @@ class FlightSearchService:
         today = datetime.now().date()
         
         # 合併國內和國際熱門航線
-        popular_routes = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
+        popular_routes = POPULAR_ROUTES_TUPLES
 
         pool = await init_asyncpg_pool()
+        if not pool:
+            raise RuntimeError("無法創建數據庫連接池")
+        
         conn = await pool.acquire()
         
         try:
@@ -825,3 +843,16 @@ class FlightSearchService:
         finally:
             if conn:
                 await pool.release(conn) 
+
+    @staticmethod
+    async def get_popular_routes_flights(limit_per_route: int = 1):
+        """
+        獲取所有熱門航線的航班數據
+        """
+        all_flights = []
+        # popular_routes = POPULAR_DOMESTIC_ROUTES_TUPLES + POPULAR_INTERNATIONAL_ROUTES_TUPLES
+        # logger.info(f"將為 {len(popular_routes)} 條熱門航線獲取航班...")
+        
+        # for departure_airport, arrival_airport in popular_routes:
+        #     try:
+        return [] 

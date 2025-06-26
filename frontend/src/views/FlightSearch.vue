@@ -221,231 +221,33 @@ export default {
     };
 
     const handleSearch = async (params) => {
-      // 添加日誌：確認函數被調用
-      console.log('[FlightSearch] handleSearch called with params:', params);
-      
-      // 記錄動畫開始時間
-      const animationStartTime = Date.now();
-      // 設置最小動畫顯示時間（毫秒）
-      const minAnimationDuration = 1500;
-      
-      loading.value = true;
-      searchStore.setSearchState(true, true);
-      
-      try {
-        // 嘗試獲取機場完整信息
-        let departureAirport = null;
-        let arrivalAirport = null;
-        
-        // 獲取出發機場詳細資訊
-        if (params.departure) {
-          try {
-            // 首先嘗試在已加載的機場中查找
-            const depCode = params.departure;
-            const localDepartureAirport = searchStore.searchParams.departureAirport;
-            
-            if (localDepartureAirport && localDepartureAirport.code === depCode) {
-              // 如果 store 中有完整的機場對象且代碼匹配，直接使用
-              departureAirport = { ...localDepartureAirport };
-              console.log('[FlightSearch] 使用本地存儲的出發機場:', departureAirport);
-            } else {
-              // 否則使用簡單對象
-              departureAirport = { code: depCode };
-            }
-          } catch (error) {
-            console.error('[FlightSearch] 獲取出發機場詳情時出錯:', error);
-            departureAirport = { code: params.departure };
-          }
-        }
-        
-        // 獲取目的地機場詳細資訊
-        if (params.arrival) {
-          try {
-            // 首先嘗試在已加載的機場中查找
-            const arrCode = params.arrival;
-            const localArrivalAirport = searchStore.searchParams.arrivalAirport;
-            
-            if (localArrivalAirport && localArrivalAirport.code === arrCode) {
-              // 如果 store 中有完整的機場對象且代碼匹配，直接使用
-              arrivalAirport = { ...localArrivalAirport };
-              console.log('[FlightSearch] 使用本地存儲的目的地機場:', arrivalAirport);
-            } else {
-              // 否則使用簡單對象
-              arrivalAirport = { code: arrCode };
-            }
-          } catch (error) {
-            console.error('[FlightSearch] 獲取目的地機場詳情時出錯:', error);
-            arrivalAirport = { code: params.arrival };
-          }
-        }
-        
-        // 更新本地狀態以顯示路線摘要
-        searchStore.setSearchParams({
-          departureAirport: departureAirport,
-          arrivalAirport: arrivalAirport,
-          departureDate: params.date,
-          returnDate: params.return_date,
-          classType: params.class_type
-        });
+      console.log('[FlightSearch] handleSearch 觸發，派遣 searchStore.searchFlights action，參數:', params);
 
-        // 直接使用傳入的 params 中的代碼
-        const departureCode = params.departure;
-        const arrivalCode = params.arrival;
-        if (!departureCode || !arrivalCode) {
-          console.error('搜索參數錯誤:', params);
-          throw new Error('缺少必要的參數: 出發地或目的地代碼');
-        }
+      // 設置最小載入動畫時間，提升用戶體驗
+      const minLoadingTime = 1500;
+      const startTime = Date.now();
+  
+      loading.value = true; // 控制本地動畫的顯示
 
-        // 構建符合後端 API 要求的參數對象
-        const apiSearchParams = {
-          departure: departureCode,
-          arrival: arrivalCode,
-          date: params.date,
-          return_date: params.return_date || null,
-          class_type: params.class_type || 'economy'
-        };
+      // 派遣 store action 來執行搜索，不再在組件中直接調用 service
+      await searchStore.searchFlights(params);
 
-        console.log('發送搜索請求參數:', apiSearchParams);
-
-        // API 呼叫
-        let response;
-        try {
-          response = await flightService.searchFlights(apiSearchParams);
-          console.log('<<< DEBUGGING: Raw response from service >>>', response);
-          console.log('Raw API response received. Type:', typeof response, 'Content snippet:', String(response).substring(0, 500));
-        } catch (apiError) {
-          console.error('[FlightSearch] API call to searchFlights failed:', apiError);
-          throw apiError; 
-        }
-
-        // 數據提取
-        console.log('[FlightSearch] Starting data extraction from response.');
-        let flightsData = [];
-        try {
-            console.log('[FlightSearch] Before check: Type of response is:', typeof response);
-            console.log('[FlightSearch] Before check: Is response truly an array?', Array.isArray(response));
-            console.log('[FlightSearch] Before check: Response content snippet:', JSON.stringify(response)?.substring(0, 200));
-
-            if (Array.isArray(response)) { 
-                flightsData = response;
-                console.log('[FlightSearch] Check PASSED: response is an array. Assigning flightsData.');
-            } else {
-                console.warn('[FlightSearch] Check FAILED: response is NOT an array. Received:', response);
-                flightsData = [];
-            }
-        } catch (extractionError) {
-            console.error('[FlightSearch] Error during data extraction logic:', extractionError);
-            flightsData = [];
-        }
-
-        console.log('[FlightSearch] Extracted flightsData:', JSON.stringify(flightsData));
-
-        if (!flightsData || flightsData.length === 0) { 
-          searchStore.setFlights([]);
-          console.log('handleSearch: No flights data extracted, returning.');
-          return;
-        }
-
-        const processedFlights = flightsData.map((flight, index) => {
-          console.log(`[FlightSearch] Processing original flight ${index}:`, JSON.stringify(flight));
-
-          const priceAmount = typeof flight.price?.amount === 'number' ? flight.price.amount : null;
-
-          // 構建 FlightCard 需要的嵌套結構
-          const newFlight = {
-            flight_id: flight.flight_id,
-            flight_number: flight.flight_number,
-            duration_minutes: flight.duration_minutes,
-            aircraft: flight.aircraft,
-            airline: flight.airline || {
-              code: 'N/A',
-              name_zh: '未知航空',
-              logo_path: null
-            },
-            departure: {
-              code: flight.departure?.code || 'N/A',
-              airport_id: flight.departure?.code || null,
-              time: flight.departure?.time || null,
-              terminal: flight.departure?.terminal || null
-            },
-            arrival: {
-              code: flight.arrival?.code || 'N/A',
-              airport_id: flight.arrival?.code || null,
-              time: flight.arrival?.time || null,
-              terminal: flight.arrival?.terminal || null
-            },
-            price: {
-              amount: priceAmount,
-              available_seats: flight.price?.available_seats ?? flight.available_seats ?? null,
-              cabin_class: flight.price?.cabin_class || '洽詢',
-              currency: flight.price?.currency || 'TWD',
-              isAvailable: flight.price?.isAvailable
-            }
-          };
-
-          console.log(`Mapped flight ${index}:`, JSON.parse(JSON.stringify(newFlight)));
-          return newFlight;
-        });
-
-        // 過濾掉 flight_id 無效的航班
-        const validFlights = processedFlights.filter(f => f.flight_id && String(f.flight_id).trim() !== '');
-
-        if (validFlights.length !== processedFlights.length) {
-          console.warn('Some flights were filtered out due to missing or invalid flight_id.');
-        }
-
-        console.log('Valid flights:', JSON.parse(JSON.stringify(validFlights)));
-        
-        // 更新 store 中的航班數據
-        searchStore.setFlights(validFlights);
-
-        if (validFlights && validFlights.length > 0) {
-          validFlights.forEach(flight => {
-            console.log('航班:', flight.flight_number, 
-                        '價格數據:', flight.price,
-                        '價格可用性:', flight.price?.isAvailable,
-                        '艙等:', flight.price?.cabin_class);
-          });
-          
-          // 移除這裡的立即滾動
-          // scrollToResults();
-        }
-
-      } catch (error) {
-        console.error('[FlightSearch] Error in handleSearch:', error);
-        alert('搜索航班時發生錯誤。請檢查後端連接和伺服器日誌。');
-        searchStore.setFlights([]);
-      } finally {
-        // 計算已經過的時間
-        const elapsedTime = Date.now() - animationStartTime;
-        
-        // 如果搜索速度太快，確保動畫至少顯示最小時間
-        if (elapsedTime < minAnimationDuration) {
-          const remainingTime = minAnimationDuration - elapsedTime;
-          console.log(`[FlightSearch] 搜索在 ${elapsedTime}ms 完成，動畫將再顯示 ${remainingTime}ms`);
-          
-          // 使用延時來確保最小顯示時間
-          setTimeout(() => {
-            loading.value = false;
-            searchStore.setSearchState(false);
-            
-            // 在動畫結束後滾動到結果區域
-            if (searchStore.flights && searchStore.flights.length > 0) {
-              console.log('[FlightSearch] 動畫結束後準備滾動到結果區域');
-              nextTick(() => scrollToResults());
-            }
-          }, remainingTime);
-        } else {
-          // 搜索時間已超過最小動畫顯示時間，直接關閉
+      // 搜索完成後（無論成功或失敗），平滑滾動到結果區域
+      await nextTick();
+      if (searchStore.hasResults) {
+        scrollToResults();
+      }
+    
+      // 計算已過時間，確保載入動畫至少顯示一段時間
+      const elapsedTime = Date.now() - startTime;
+      const remainingTime = minLoadingTime - elapsedTime;
+    
+      if (remainingTime > 0) {
+        setTimeout(() => {
           loading.value = false;
-          searchStore.setSearchState(false);
-          
-          // 在動畫結束後滾動到結果區域
-          if (searchStore.flights && searchStore.flights.length > 0) {
-            console.log('[FlightSearch] 動畫結束後準備滾動到結果區域');
-            nextTick(() => scrollToResults());
-          }
-        }
+        }, remainingTime);
+      } else {
+        loading.value = false;
       }
     };
 

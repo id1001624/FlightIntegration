@@ -16,6 +16,7 @@ class Airport(Base):
     timezone = db.Column(db.String, nullable=False)
     contact_info = db.Column(db.String)
     website_url = db.Column(db.String)
+    needs_manual_update = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     
     # 關聯
     departing_flights = db.relationship('Flight', foreign_keys='Flight.departure_airport_id', backref='departure_airport', lazy='dynamic')

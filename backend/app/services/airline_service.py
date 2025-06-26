@@ -7,10 +7,11 @@
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import uuid
 
 import asyncpg
 from ..database.db import init_asyncpg_pool
-from .db_utils import execute_db_operation, execute_query
+from .db_utils import execute_db_operation
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +170,7 @@ class AirlineService:
             List[Dict[str, Any]]: 航空公司列表，包含運營該航線的航班數量
         """
         async def fetch_airlines(conn):
-            params = [departure_airport, arrival_airport]
+            params: List[Any] = [departure_airport, arrival_airport]
             date_condition = ""
             
             if date:
@@ -219,4 +220,157 @@ class AirlineService:
             return []
         finally:
             if conn:
-                await pool.release(conn) 
+                await pool.release(conn)
+
+    @staticmethod
+    async def get_airline_by_code(iata_code: str) -> Optional[Dict[str, Any]]:
+        """
+        根據 IATA code 獲取航空公司信息
+        
+        Args:
+            iata_code (str): 航空公司的 IATA code
+            
+        Returns:
+            Optional[Dict[str, Any]]: 航空公司詳情，如果不存在則返回None
+        """
+        async def fetch_airline(conn):
+            # airline_id 在我們的 schema 中就是 IATA code
+            sql = "SELECT * FROM airlines WHERE airline_id = $1"
+            row = await conn.fetchrow(sql, iata_code)
+            return dict(row) if row else None
+
+        pool = await init_asyncpg_pool()
+        conn = await pool.acquire()
+        try:
+            return await fetch_airline(conn)
+        except Exception as e:
+            logger.error(f"根據 IATA code {iata_code} 獲取航空公司時出錯: {e}", exc_info=True)
+            return None
+        finally:
+            if conn:
+                await pool.release(conn)
+
+    @staticmethod
+    async def bulk_save_airlines(airlines_data: List[Dict[str, Any]]) -> int:
+        """
+        批量儲存或更新航空公司數據
+        
+        Args:
+            airlines_data (List[Dict[str, Any]]): 從 Amadeus 適配器傳來的航空公司數據列表
+            
+        Returns:
+            int: 成功儲存或更新的記錄數量
+        """
+        if not airlines_data:
+            return 0
+
+        async def upsert_airlines(conn):
+            # 準備數據以符合 copy_records_to_table 的格式
+            records_to_insert = []
+            for airline in airlines_data:
+                records_to_insert.append(
+                    (
+                        airline.get("iataCode"),
+                        airline.get("commonName", airline.get("businessName")),
+                        airline.get("businessName"),
+                        f"static/images/logos/{airline.get('iataCode', 'default')}.png"
+                    )
+                )
+
+            # 定義表名和列名
+            table_name = 'airlines'
+            columns = ['airline_id', 'name_zh', 'name_en', 'logo_path']
+            
+            try:
+                # 使用事務確保操作的原子性
+                async with conn.transaction():
+                    # 創建一個臨時表來存放待處理的數據
+                    temp_table_name = f"temp_airlines_{uuid.uuid4().hex}"
+                    await conn.execute(f"""
+                        CREATE TEMP TABLE {temp_table_name} (
+                            airline_id VARCHAR(3) PRIMARY KEY,
+                            name_zh VARCHAR(255),
+                            name_en VARCHAR(255),
+                            logo_path VARCHAR(255)
+                        ) ON COMMIT DROP;
+                    """)
+
+                    # 將數據批量複製到臨時表
+                    await conn.copy_records_to_table(
+                        table_name=temp_table_name,
+                        records=records_to_insert,
+                        columns=columns
+                    )
+
+                    # 執行 "upsert" 操作：如果 airline_id 衝突，則更新；否則插入新記錄
+                    upsert_sql = f"""
+                    INSERT INTO {table_name} (airline_id, name_zh, name_en, logo_path)
+                    SELECT airline_id, name_zh, name_en, logo_path FROM {temp_table_name}
+                    ON CONFLICT (airline_id) DO UPDATE SET
+                        name_zh = EXCLUDED.name_zh,
+                        name_en = EXCLUDED.name_en,
+                        logo_path = EXCLUDED.logo_path;
+                    """
+                    await conn.execute(upsert_sql)
+                    
+                    logger.info(f"成功批量處理 {len(records_to_insert)} 筆航空公司數據。")
+                    return len(records_to_insert)
+
+            except Exception as e:
+                logger.error(f"批量儲存航空公司時發生數據庫錯誤: {e}", exc_info=True)
+                raise
+
+        # 獲取連接池並執行操作
+        pool = await init_asyncpg_pool()
+        conn = await pool.acquire()
+        try:
+            return await upsert_airlines(conn)
+        except Exception:
+            # 如果在 upsert_airlines 之外發生錯誤，確保返回 0
+            return 0
+        finally:
+            if conn:
+                await pool.release(conn)
+
+    @staticmethod
+    async def get_or_create_airline_from_amadeus(iata_code: str, dictionaries: Dict) -> Optional[Dict[str, Any]]:
+        """
+        根據 IATA code 查詢航空公司，如果不存在，則從 Amadeus dictionaries 中提取信息並創建。
+        """
+        # 1. 嘗試獲取航空公司
+        existing_airline = await AirlineService.get_airline_by_id(iata_code)
+        if existing_airline:
+            return existing_airline
+
+        # 2. 如果不存在，從 dictionaries 中查找並創建
+        logger.info(f"本地數據庫中未找到航空公司 {iata_code}，嘗試從 Amadeus dictionaries 創建。")
+        amadeus_airline_data = dictionaries.get('carriers', {}).get(iata_code)
+
+        if not amadeus_airline_data:
+            logger.warning(f"在 Amadeus dictionaries 中也找不到航空公司 {iata_code} 的詳細資訊。")
+            # 返回一個包含iata_code的默認字典，以避免後續操作出錯
+            return {"airline_id": iata_code, "name_zh": iata_code, "name_en": iata_code}
+
+        # 3. 準備數據並創建
+        new_airline_to_save = {
+            "iataCode": iata_code,
+            "businessName": amadeus_airline_data,
+            "commonName": amadeus_airline_data
+        }
+
+        # 使用 bulk_save (傳入單一元素的列表) 來創建
+        await AirlineService.bulk_save_airlines([new_airline_to_save])
+
+        # 4. 再次查詢以返回創建的對象
+        created_airline = await AirlineService.get_airline_by_id(iata_code)
+        if created_airline:
+            logger.info(f"成功創建並獲取了新航空公司: {iata_code}")
+        else:
+            logger.error(f"創建航空公司 {iata_code} 後無法從數據庫中將其取回。")
+            # 如果還是找不到，返回默認字典
+            return {"airline_id": iata_code, "name_zh": iata_code, "name_en": amadeus_airline_data}
+
+        return created_airline
+
+# 創建服務實例以供其他模塊導入
+airline_service = AirlineService() 

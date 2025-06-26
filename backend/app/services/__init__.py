@@ -17,6 +17,3 @@ from .db_utils import execute_db_operation, execute_query, normalize_cabin_class
 SearchService = FlightSearchService
 # 為了向後兼容，將 PriceService 設為 PriceAnalysisService 的別名
 PriceService = PriceAnalysisService
-
-# 始終導入的其他服務
-from .data_sync_service import DataSyncService

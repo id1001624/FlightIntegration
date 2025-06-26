@@ -52,13 +52,13 @@
 ## 2. 進行中功能
 
 ### 2.1 前端調適與優化
-- 🔄 實現中文名稱搜索：允許用戶在 `AirportSelector` 元件中使用中文名稱搜索機場
-- 🔄 審查UI是否符合 `frontend-guidelines` 風格要求
-- 🔄 評估 `FlightDetailCard.vue` 中的動畫效果
+- ✅ 實現中文名稱搜索：允許用戶在 `AirportSelector` 元件中使用中文名稱搜索機場
+- ✅ 審查UI是否符合 `frontend-guidelines` 風格要求
+- ✅ 評估 `FlightDetailCard.vue` 中的動畫效果
 
 ## 進行中功能（重複，待合併或釐清）
 
-- 🔄 實現中文名稱搜索功能
+- ✅ 實現中文名稱搜索功能
 
 ## 目前開發重點
 

@@ -74,7 +74,7 @@ alwaysApply: false
 - **用戶資料**：搜索歷史、偏好設定、提醒設置等
 
 ## API與整合
-- **TDX API**：獲取台灣官方航班資訊
+- **Trip-com-scrawler、TDX API**：獲取台灣官方航班資訊
 - **FlightStats API**：補充國際航班資訊
 - **LINE Messaging API**：實現LINE Bot功能
 - **氣象API**：提供目的地天氣資訊
@@ -96,7 +96,7 @@ alwaysApply: false
    - 機場選擇器元件
    - 日期選擇器元件
    - 基本搜索結果頁面
-   - TDX API整合實現
+   - Trip-com-scrawler、TDX API(輔助)整合實現
 
 3. **搜索結果優化**
    - 實現篩選功能

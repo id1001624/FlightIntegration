@@ -1,23 +1,24 @@
-# 航班整合系統 API 文檔目錄
+# 航班整合系統 API 文檔
 
-本目錄包含了航班整合系統使用的各種API相關文檔。
+本目錄存放與航班整合系統 API 相關的技術文件。
 
-## 可用文檔
+## API 參考
 
-### TDX API 文檔
+### 主要 API
 
-- [TDX 航空 API 文檔](./tdx_air_api.md) - 台灣交通部運輸資料流通服務平台(TDX)提供的航空相關API文檔
-- [TDX 範例程式](./tdx_examples/) - TDX API 使用範例程式目錄
+本專案目前主要使用 **Amadeus for Developers** API 作為即時航班數據的來源。所有與 Amadeus 相關的客戶端邏輯都封裝在後端的 `app/services/amadeus_service.py` 中。
 
-### Cirium FlightStats API 文檔
+前端通過呼叫後端的 `/api/amadeus/flights/offers` 端點來獲取航班資訊。
 
-- [Cirium FlightStats API 文檔](./cirium_flightstats_api.md) - Cirium FlightStats提供的航班相關API文檔
+### OpenAPI 規範
+
+- [openapi.json](./openapi.json) - 本專案後端 API 的 OpenAPI 3.0 規範文件。您可以使用 Swagger Editor 或其他相容工具來查看 API 的詳細端點、請求和響應結構。
 
 ## 使用說明
 
-1. API文檔提供了每個端點的詳細說明、請求和響應格式
-2. 在實際開發中，請先申請相應的API密鑰
-3. 參考範例程式來了解如何調用和處理API數據
+1.  參考 `openapi.json` 來了解後端提供的所有端點。
+2.  開發時，前端應通過 `flightService.js` 中定義的服務來與後端 API 互動。
+3.  後端與 Amadeus API 互動需要有效的 `AMADEUS_CLIENT_ID` 和 `AMADEUS_CLIENT_SECRET` 環境變數。
 
 ## 整合建議
 

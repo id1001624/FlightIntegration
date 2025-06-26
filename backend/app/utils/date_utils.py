@@ -9,7 +9,7 @@ logger = logging.getLogger('date_utils')
 
 def parse_datetime(datetime_str: str) -> Optional[datetime]:
     """
-    統一的日期時間解析函數，支持多種格式
+    統一的日期時間解析函數，主要支持 ISO 8601 格式
     
     Args:
         datetime_str: 日期時間字符串
@@ -18,56 +18,24 @@ def parse_datetime(datetime_str: str) -> Optional[datetime]:
         解析後的datetime對象，解析失敗時返回None
     """
     if not datetime_str:
-        # logger.warning("提供的日期時間字符串為空")
         return None
     
-    # 嘗試標準格式
+    # 標準化支持的格式列表
     formats = [
         '%Y-%m-%dT%H:%M:%S.%f',  # ISO格式帶毫秒
         '%Y-%m-%dT%H:%M:%S',     # ISO格式
         '%Y-%m-%dT%H:%M',        # ISO格式不帶秒
-        '%Y-%m-%d %H:%M:%S',     # 標準格式
-        '%Y-%m-%d %H:%M',        # 標準格式不帶秒
-        '%m/%d/%Y %H:%M',        # FlightStats格式
-        '%m/%d/%Y %H:%M:%S'      # FlightStats格式帶秒
+        '%Y-%m-%d %H:%M:%S',     # 標準數據庫格式
+        '%Y-%m-%d %H:%M',        # 標準數據庫格式不帶秒
     ]
     
-    # 嘗試已知格式
     for fmt in formats:
         try:
             return datetime.strptime(datetime_str, fmt)
         except ValueError:
             continue
-    
-    # 嘗試手動清理和解析
-    try:
-        # 處理ISO格式的'T'分隔符
-        clean_str = datetime_str.replace('T', ' ')
-        
-        # 處理毫秒
-        if '.' in clean_str:
-            clean_str = clean_str.split('.')[0]
             
-        # 分割日期和時間部分
-        parts = clean_str.strip().split(' ')
-        if len(parts) >= 2:
-            date_part = parts[0]
-            time_part = parts[1]
-            
-            # 處理MM/DD/YYYY格式的日期
-            if '/' in date_part:
-                month, day, year = date_part.split('/')
-                date_part = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-            
-            # 根據時間部分長度選擇格式
-            if len(time_part) <= 5:  # HH:MM
-                return datetime.strptime(f"{date_part} {time_part}", "%Y-%m-%d %H:%M")
-            else:  # HH:MM:SS
-                return datetime.strptime(f"{date_part} {time_part}", "%Y-%m-%d %H:%M:%S")
-    except Exception as e:
-        logger.warning(f"手動解析日期時間失敗: {str(e)}")
-    
-    # 如果有dateutil庫，可以嘗試使用它
+    # 如果標準格式失敗，可以嘗試使用 dateutil (如果安裝了)
     try:
         from dateutil import parser as dateutil_parser
         return dateutil_parser.parse(datetime_str)
@@ -108,7 +76,6 @@ def get_date_range(start_date: Union[str, datetime], days: int = 1) -> List[str]
         try:
             start_date = datetime.strptime(start_date, '%Y-%m-%d')
         except ValueError:
-            # 嘗試解析其他格式
             parsed_date = parse_datetime(start_date)
             if not parsed_date:
                 raise ValueError(f"無法解析日期字符串: {start_date}")

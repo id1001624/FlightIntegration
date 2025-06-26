@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import flightService from '@/api/services/flightService';
 
 /**
  * 航班搜索狀態存儲
@@ -144,6 +145,45 @@ export const useSearchStore = defineStore('search', {
       this.searchParams.classType = paramsCopy.classType || this.searchParams.classType;
     },
     
+    // 異步搜索航班的 Action
+    async searchFlights(params) {
+      console.log('[SearchStore] searchFlights action 觸發，參數:', params);
+
+      this.setSearchParams(params); // 首先更新並存儲搜索參數
+      this.setSearchState(true, true); // isSearching = true, hasSearched = true
+
+      try {
+        // 適配 SearchForm.vue 發出的參數格式
+        // SearchForm 發出: { departure: 'TPE', arrival: 'ICN', date: '2025-06-26', ... }
+        // 但 flightService.searchFlights 期望: { departureCode, arrivalCode, departureDate }
+        const searchParams = {
+          departureCode: params.departure || params.departureAirport?.code,
+          arrivalCode: params.arrival || params.arrivalAirport?.code,
+          departureDate: params.date || params.departureDate,
+        };
+        
+        console.log('[SearchStore] 轉換後的 flightService 參數:', searchParams);
+        
+        const flightResults = await flightService.searchFlights(searchParams);
+        
+        console.log('[SearchStore] 從 flightService 收到航班結果:', flightResults);
+        
+        this.setFlights(flightResults); // 將結果更新到 state
+        
+        // 搜索成功後，添加到最近搜索記錄
+        // 如果參數中沒有完整的機場物件，就不添加到最近搜索
+        if (params.departureAirport && params.arrivalAirport) {
+          this.addRecentSearch(params);
+        }
+
+      } catch (error) {
+        console.error('[SearchStore] searchFlights action 過程中發生錯誤:', error);
+        this.setFlights([]); // 出錯時清空結果
+      } finally {
+        this.setSearchState(false, true); // isSearching = false, hasSearched 保持 true
+      }
+    },
+
     // 更新搜索結果
     setFlights(flights) {
       this.flights = [...flights];

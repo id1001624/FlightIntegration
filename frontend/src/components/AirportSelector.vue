@@ -260,7 +260,7 @@ export default {
         // 可以觸發一次 getSelectedAirports 的更新，如果它沒有自動響應
       }
     }, { deep: true, immediate: false }); // immediate: false 避免初始掛載時就觸發一次
-
+    
     // 選中的機場
     const selectedAirport = computed(() => {
       if (!props.modelValue) return null;

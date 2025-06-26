@@ -1,3 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Flight Schema
+"""
 from marshmallow import Schema, fields, validate, ValidationError, validates_schema
 from decimal import Decimal # 導入 Decimal
 from .airline_schema import AirlineBasicSchema # 注意導入路徑
@@ -11,27 +16,18 @@ class PriceSchema(Schema):
     isAvailable = fields.Boolean(dump_default=False)  # 將 default 參數更新為 dump_default
 
 class FlightSearchArgsSchema(Schema):
-    """用於驗證 /search 的請求參數"""
-    departure = fields.Str(required=True, error_messages={'required': '缺少出發機場參數'})
-    arrival = fields.Str(required=True, error_messages={'required': '缺少到達機場參數'})
-    date = fields.Date(required=True, format='%Y-%m-%d', error_messages={'required': '缺少出發日期參數', 'invalid': '出發日期格式錯誤，請使用 YYYY-MM-DD'})
-    return_date = fields.Date(format='%Y-%m-%d', allow_none=True, error_messages={'invalid': '返回日期格式錯誤，請使用 YYYY-MM-DD'})
-    airlines = fields.List(fields.Str(), allow_none=True) # 允許不傳遞
-    price_min = fields.Float(validate=validate.Range(min=0), allow_none=True)
-    price_max = fields.Float(validate=validate.Range(min=0), allow_none=True)
-    cabin_class = fields.Str(load_default='Economy') # 修改: class_type -> cabin_class, 默認值改為 Economy (更通用)
-    only_target_airlines = fields.Bool(load_default=True) # 默認值
-    adults = fields.Int(validate=validate.Range(min=1), load_default=1) # 修改: passengers -> adults
-    # 如果將來需要更細致的乘客類型，可以在此添加 children, infants
-    max_results = fields.Int(validate=validate.Range(min=1), load_default=20) # 默認值
-    sort_by = fields.Str(validate=validate.OneOf(['price', 'departure_time', 'arrival_time', 'duration']), load_default='price') # 限制選項
-
-    # 價格範圍驗證
-    @validates_schema
-    def validate_prices(self, data, **kwargs):
-        if data.get('price_min') is not None and data.get('price_max') is not None:
-            if data['price_min'] > data['price_max']:
-                raise ValidationError('最低價格不能高於最高價格', ['price_min', 'price_max'])
+    """航班搜索請求的參數驗證模型"""
+    departure_code = fields.Str(required=True, validate=validate.Length(equal=3), metadata={"description": "出發機場IATA代碼"})
+    arrival_code = fields.Str(required=True, validate=validate.Length(equal=3), metadata={"description": "抵達機場IATA代碼"})
+    date = fields.Date(required=True, metadata={"description": "出發日期 (YYYY-MM-DD)"})
+    adults = fields.Int(load_default=1, validate=validate.Range(min=1), metadata={"description": "成人數量"})
+    children = fields.Int(load_default=0, validate=validate.Range(min=0), metadata={"description": "兒童數量"})
+    infants = fields.Int(load_default=0, validate=validate.Range(min=0), metadata={"description": "嬰兒數量"})
+    travel_class = fields.Str(load_default=None, metadata={"description": "艙等等級"})
+    non_stop = fields.Bool(load_default=False, metadata={"description": "是否僅限直飛"})
+    currency_code = fields.Str(load_default="TWD", metadata={"description": "貨幣代碼"})
+    max_price = fields.Int(load_default=None, metadata={"description": "最高價格"})
+    max = fields.Int(load_default=250, metadata={"description": "返回結果的最大數量"})
 
 class FlightSchema(Schema):
     """用於序列化單個航班詳細信息"""
