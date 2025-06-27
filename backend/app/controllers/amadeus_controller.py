@@ -66,6 +66,7 @@ class FlightOffers(Resource):
             adapted_data = await adapt_flight_offers(flight_offers_response)
 
             return {
+                "success": True,
                 "message": f"成功處理了 {len(adapted_data)} 筆航班。",
                 "data": adapted_data,
             }, 200
@@ -147,16 +148,34 @@ class AirportDestinations(Resource):
                     "data": []
                 }, 404
 
-            # 轉換數據格式以符合前端預期
+            # 引入 airport_service 獲取中文名稱
+            from ..services.airport_service import AirportService
+            
+            # 轉換數據格式以符合前端預期，並獲取中文名稱
             formatted_destinations = []
             for destination in destinations_data:
+                iata_code = destination.get('iataCode', '')
+                
+                # 從本地資料庫獲取機場詳細資訊（包含中文名稱）
+                local_airport_info = await AirportService.get_airport_by_iata(iata_code)
+                
+                # 優先使用本地資料庫的中文名稱，如果沒有則使用 Amadeus 的英文名稱
+                if local_airport_info:
+                    airport_name_zh = local_airport_info.get('name_zh', destination.get('name', ''))
+                    airport_city = local_airport_info.get('city', destination.get('name', ''))
+                    airport_country = local_airport_info.get('country', '')
+                else:
+                    airport_name_zh = destination.get('name', '')
+                    airport_city = destination.get('name', '')
+                    airport_country = ""
+                
                 formatted_destinations.append({
-                    "airport_id": destination.get('iataCode', ''),
+                    "airport_id": iata_code,
                     "name": destination.get('name', ''),
-                    "name_zh": destination.get('name', ''),  # Amadeus 不提供中文名稱，暫用英文
-                    "city": destination.get('name', ''),
-                    "country": "",  # Airport Routes API 不提供國家資訊
-                    "region": "國際"  # 預設為國際
+                    "name_zh": airport_name_zh,
+                    "city": airport_city,
+                    "country": airport_country,
+                    "region": airport_country if airport_country else "國際"
                 })
 
             current_app.logger.info(f"Successfully fetched {len(formatted_destinations)} destinations for {departure_airport_code}")

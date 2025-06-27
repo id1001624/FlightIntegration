@@ -13,7 +13,7 @@ export const useSearchStore = defineStore('search', {
       arrivalAirport: null,
       departureDate: null,
       returnDate: null,
-      classType: 'economy'
+      classType: 'Economy'
     },
     
     // 搜索結果
@@ -249,7 +249,7 @@ export const useSearchStore = defineStore('search', {
         arrivalAirport: null,
         departureDate: null,
         returnDate: null,
-        classType: 'economy'
+        classType: 'Economy'
       };
       this.flights = [];
       this.filteredFlights = [];

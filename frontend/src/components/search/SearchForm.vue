@@ -165,7 +165,7 @@ export default {
 
     const cabinClassesMap = {
       'Economy': '經濟艙',
-      'PremiumEconomy': '豪華經濟艙',
+      'Premium Economy': '優質經濟艙',
       'Business': '商務艙',
       'First': '頭等艙'
     };

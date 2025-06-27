@@ -118,13 +118,13 @@ const flightService = {
       const response = await api.get(url);
       
       // 處理新的 API 響應格式
-      const responseData = response.data;
+      // const responseData = response.data; // Axios攔截器已處理，response即為data
       
-      if (!responseData.success) {
-        throw new Error(responseData.message || 'API 返回失敗狀態');
+      if (!response.success) {
+        throw new Error(response.message || 'API 返回失敗狀態');
       }
       
-      const data = responseData.data;
+      const data = response.data;
       
       if (!data || !Array.isArray(data)) {
         throw new Error('API未返回有效的機場列表數據');
@@ -226,10 +226,19 @@ const flightService = {
         }
       });
       
-      const flights = response.data.data || [];
+      // 檢查是否為統一的API回應格式
+      if (response.success !== undefined) {
+        // 新的統一格式：{success: true, message: '...', data: [...]}
+        if (!response.success) {
+          throw new Error(response.message || 'API 返回失敗狀態');
+        }
+      }
+      
+      // 統一處理航班數據
+      const flights = response.data || [];
 
       if (!Array.isArray(flights)) {
-        console.error("API回傳的數據格式不正確，預期 'data' 是一個陣列:", response.data);
+        console.error("API回傳的數據格式不正確，預期 'data' 是一個陣列:", response);
         return [];
       }
       

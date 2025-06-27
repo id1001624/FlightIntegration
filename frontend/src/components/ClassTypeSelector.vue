@@ -36,7 +36,7 @@ export default {
     },
     modelValue: {
       type: String,
-      default: 'economy'
+      default: 'Economy'
     },
     disabled: {
       type: Boolean,
@@ -50,9 +50,10 @@ export default {
   emits: ['update:modelValue', 'change'],
   setup(props, { emit }) {
     const classOptions = ref([
-      { value: 'economy', label: '經濟艙' },
-      { value: 'business', label: '商務艙' },
-      { value: 'first', label: '頭等艙' }
+      { value: 'Economy', label: '經濟艙' },
+      { value: 'Premium Economy', label: '優質經濟艙' },
+      { value: 'Business', label: '商務艙' },
+      { value: 'First', label: '頭等艙' }
     ]);
 
     const selectClass = (classType) => {
