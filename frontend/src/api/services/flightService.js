@@ -95,81 +95,177 @@ const flightService = {
   },
 
   /**
-   * 獲取指定出發機場的目的地列表 (使用 Amadeus Airport Routes API)
-   * 現在使用 Amadeus Airport Routes API 獲取即時目的地資訊，
-   * 確保目的地資料與航班搜索使用相同的數據源。
-   * 
+   * 獲取指定出發機場的目的地列表（優先使用快速緩存）
    * @param {string} departureCode 出發機場代碼
-   * @param {string} [date] 日期參數 (暫時忽略，因為 Airport Routes API 不支持日期過濾)
-   * @returns {Promise} 返回目的地機場列表
+   * @param {string} date 日期（可選）
+   * @param {boolean} useCache 是否優先使用緩存（默認 true）
+   * @returns {Promise<Array>} 目的地機場列表
    */
-  async getDestinations(departureCode, date) {
-    // 使用新的 Airport Routes API，不考慮 date 參數因為 API 不支持
-    const cacheKey = `amadeus_routes_${departureCode}`;
-    
-    if (checkCache('destinations', cacheKey)) {
-      console.log(`使用緩存的 Amadeus 目的地機場數據 (${cacheKey})`);
-      return cache.destinations.data[cacheKey];
-    }
-    
+  async getDestinations(departureCode, date, useCache = true) {
     try {
-      // 使用新的 Amadeus Airport Routes API
-      const url = `/amadeus/flights/airport-destinations/${departureCode}`;
-      const response = await api.get(url);
+      console.log(`正在獲取從 ${departureCode} 出發的目的地...`);
       
-      // 處理新的 API 響應格式
-      // const responseData = response.data; // Axios攔截器已處理，response即為data
+      // 優先使用快速緩存端點
+      if (useCache) {
+        try {
+          const cacheResponse = await api.get(`/airports/${departureCode}/destinations-cached`);
+          
+          if (cacheResponse.success && cacheResponse.data && cacheResponse.data.length > 0) {
+            console.log(`從緩存成功獲取 ${cacheResponse.data.length} 個目的地機場`);
+            
+            // 轉換數據格式以保持兼容性
+            const formattedDestinations = cacheResponse.data.map(dest => ({
+              code: dest.airport_id,
+              airport_id: dest.airport_id,
+              name: dest.name_zh || dest.name || dest.airport_id,
+              name_zh: dest.name_zh || '',
+              name_en: dest.name || '',
+              city: dest.city || '',
+              country: dest.country || '',
+              region: this._getAirportRegion(dest.airport_id)
+            }));
+            
+            return formattedDestinations;
+          }
+        } catch (cacheError) {
+          console.warn('緩存端點失敗，回退到 Amadeus API:', cacheError.message);
+        }
+      }
+      
+      // 回退到 Amadeus API
+      const response = await api.get(`/amadeus/flights/airport-destinations/${departureCode}`);
       
       if (!response.success) {
-        throw new Error(response.message || 'API 返回失敗狀態');
+        throw new Error(response.message || '獲取目的地失敗');
       }
       
-      const data = response.data;
+      const destinations = response.data || [];
+      console.log(`從 Amadeus API 成功獲取 ${destinations.length} 個目的地機場`);
       
-      if (!data || !Array.isArray(data)) {
-        throw new Error('API未返回有效的機場列表數據');
-      }
-      
-      // 數據已經在後端格式化，直接使用
-      const enhancedData = data.map(airport => ({
-        ...airport,
-        // 如果沒有 region，使用輔助函數設置
-        region: airport.region || this._getAirportRegion(airport.airport_id)
-      }));
-      
-      cache.destinations.data[cacheKey] = enhancedData;
-      cache.destinations.timestamp[cacheKey] = Date.now();
-      
-      console.log(`成功獲取 ${enhancedData.length} 個 Amadeus 目的地機場`);
-      return enhancedData;
+      // 後端已經處理了中文名稱，直接返回數據
+      return destinations;
       
     } catch (error) {
-      console.error('獲取 Amadeus 目的地機場列表失敗:', error);
+      console.error('獲取目的地時發生錯誤:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * 獲取指定出發機場的熱門目的地列表（僅使用緩存，極快響應）
+   * @param {string} departureCode 出發機場代碼
+   * @param {number} limit 限制返回數量
+   * @returns {Promise<Array>} 熱門目的地機場列表
+   */
+  async getPopularDestinations(departureCode, limit = 10) {
+    try {
+      console.log(`正在獲取從 ${departureCode} 出發的熱門目的地...`);
       
-      // 如果 Amadeus API 失敗，回退到本地數據庫
-      console.log('嘗試回退到本地數據庫API...');
-      try {
-        const fallbackUrl = date 
-          ? `/airports/${departureCode}/destinations?date=${date}` 
-          : `/airports/${departureCode}/destinations`;
-        const fallbackResponse = await api.get(fallbackUrl);
-        
-        const fallbackData = fallbackResponse.data;
-        
-        if (fallbackData && Array.isArray(fallbackData)) {
-          const enhancedFallbackData = fallbackData.map(airport => ({
-            ...airport,
-            region: this._getAirportRegion(airport.code || airport.airport_id)
-          }));
-          
-          console.log(`回退成功：獲取 ${enhancedFallbackData.length} 個本地目的地機場`);
-          return enhancedFallbackData;
-        }
-      } catch (fallbackError) {
-        console.error('回退到本地數據庫也失敗:', fallbackError);
+      const response = await api.get(`/airports/${departureCode}/destinations-popular?limit=${limit}`);
+      
+      if (!response.success) {
+        throw new Error(response.message || '獲取熱門目的地失敗');
       }
       
+      const destinations = response.data || [];
+      console.log(`成功獲取 ${destinations.length} 個熱門目的地機場`);
+      
+      // 轉換數據格式以保持兼容性
+      const formattedDestinations = destinations.map(dest => ({
+        code: dest.airport_id,
+        airport_id: dest.airport_id,
+        name: dest.name_zh || dest.name || dest.airport_id,
+        name_zh: dest.name_zh || '',
+        name_en: dest.name || '',
+        city: dest.city || '',
+        country: dest.country || '',
+        region: this._getAirportRegion(dest.airport_id),
+        flight_count_30days: dest.flight_count_30days || 0,
+        popularity_rank: dest.popularity_rank || 0
+      }));
+      
+      return formattedDestinations;
+      
+    } catch (error) {
+      console.error('獲取熱門目的地時發生錯誤:', error);
       throw error;
+    }
+  },
+
+  /**
+   * 為 Amadeus 目的地資料添加中文名稱
+   * @param {Array} destinations Amadeus 目的地資料
+   * @returns {Promise<Array>} 包含中文名稱的目的地資料
+   */
+  async _enrichDestinationsWithChineseNames(destinations) {
+    try {
+      // 提取所有機場代碼 - 修正屬性名稱
+      const airportCodes = destinations
+        .map(dest => dest.airport_id || dest.iataCode || dest.code)
+        .filter(code => code && code.trim()) // 過濾空值
+        .join(',');
+      
+      // 如果沒有有效的機場代碼，直接返回原數據
+      if (!airportCodes) {
+        console.warn('沒有找到有效的機場代碼');
+        return destinations.map(dest => ({
+          code: dest.airport_id || dest.iataCode || dest.code,
+          airport_id: dest.airport_id || dest.iataCode || dest.code,
+          name: dest.name_zh || dest.name || dest.airport_id || dest.iataCode || dest.code,
+          name_zh: dest.name_zh || '',
+          name_en: dest.name_en || dest.name || '',
+          city: dest.city || '',
+          country: dest.country || '',
+          region: dest.region || this._getAirportRegion(dest.airport_id || dest.iataCode || dest.code)
+        }));
+      }
+      
+      // 批量獲取機場資訊
+      const airportsResponse = await api.get(`/airports/batch?codes=${airportCodes}`);
+      const airportsData = airportsResponse.data || [];
+      
+      // 創建機場代碼到資料的映射
+      const airportMap = {};
+      airportsData.forEach(airport => {
+        airportMap[airport.code] = airport;
+      });
+      
+      // 合併 Amadeus 資料和本地中文名稱
+      const enrichedDestinations = destinations.map(dest => {
+        const airportCode = dest.airport_id || dest.iataCode || dest.code;
+        const localAirport = airportMap[airportCode];
+        
+        return {
+          code: airportCode,
+          airport_id: airportCode,
+          name: localAirport?.name_zh || dest.name_zh || localAirport?.name_en || dest.name || airportCode,
+          name_zh: localAirport?.name_zh || dest.name_zh || '',
+          name_en: localAirport?.name_en || dest.name_en || dest.name || '',
+          city: localAirport?.city || dest.city || '',
+          country: localAirport?.country || dest.country || '',
+          region: localAirport?.region || dest.region || this._getAirportRegion(airportCode)
+        };
+      });
+      
+      return enrichedDestinations;
+      
+    } catch (error) {
+      console.warn('批量獲取機場中文名稱失敗，使用原始資料:', error);
+      
+      // 如果批量請求失敗，返回基本格式的資料
+      return destinations.map(dest => {
+        const airportCode = dest.airport_id || dest.iataCode || dest.code;
+        return {
+          code: airportCode,
+          airport_id: airportCode,
+          name: dest.name_zh || dest.name || airportCode,
+          name_zh: dest.name_zh || '',
+          name_en: dest.name_en || dest.name || '',
+          city: dest.city || '',
+          country: dest.country || '',
+          region: dest.region || this._getAirportRegion(airportCode)
+        };
+      });
     }
   },
 

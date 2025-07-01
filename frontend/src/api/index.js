@@ -8,7 +8,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api'
 // 創建axios實例
 const api = axios.create({
   baseURL: baseURL,
-  timeout: 30000,
+  timeout: 60000, // 增加到 60 秒以處理 Amadeus API 的慢響應
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'

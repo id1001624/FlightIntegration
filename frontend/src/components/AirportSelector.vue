@@ -17,7 +17,7 @@
           </div>
         </div>
         <div :class="{ 'pl-8': internalLoading && !selectedAirport }">
-          <span v-if="selectedAirport && !isOpen">{{ selectedAirport.code }} - {{ selectedAirport.name }}</span>
+          <span v-if="selectedAirport && !isOpen">{{ selectedAirport.code }} - {{ selectedAirport.name_zh || selectedAirport.name }}</span>
           <input
             v-else-if="isOpen || !selectedAirport"
             type="text"
@@ -94,7 +94,7 @@
           >
             <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
             <span class="mx-1">-</span>
-            <span class="text-text-secondary">{{ airport.name }}</span>
+            <span class="text-text-secondary">{{ airport.name_zh || airport.name }}</span>
           </div>
         </div>
         
@@ -153,7 +153,7 @@
           >
             <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
             <span class="mx-1">-</span>
-            <span class="text-text-secondary">{{ airport.name }}</span>
+            <span class="text-text-secondary">{{ airport.name_zh || airport.name }}</span>
           </div>
         </div>
 
@@ -169,7 +169,7 @@
           >
             <span class="font-medium text-text-primary w-14">{{ airport.code }}</span>
             <span class="mx-1">-</span>
-            <span class="text-text-secondary">{{ airport.name }}</span>
+            <span class="text-text-secondary">{{ airport.name_zh || airport.name }}</span>
           </div>
           
           <!-- 無匹配結果 -->
@@ -320,7 +320,11 @@ export default {
       
       return props.airports.filter(airport => 
         popularAirports.includes(airport.code) || 
-        popularCities.some(city => airport.name.includes(city) || (airport.city && airport.city.includes(city)))
+        popularCities.some(city => 
+          (airport.name && airport.name.includes(city)) || 
+          (airport.name_zh && airport.name_zh.includes(city)) ||
+          (airport.city && airport.city.includes(city))
+        )
       );
     });
 
@@ -335,9 +339,11 @@ export default {
         const codeMatch = airport.code && typeof airport.code === 'string' && 
                           airport.code.toLowerCase().includes(lowerCaseQuery);
         const nameMatch = airport.name && typeof airport.name === 'string' && 
-                          airport.name.toLowerCase().includes(lowerCaseQuery); // 檢查中文名稱
+                          airport.name.toLowerCase().includes(lowerCaseQuery);
+        const nameZhMatch = airport.name_zh && typeof airport.name_zh === 'string' && 
+                           airport.name_zh.toLowerCase().includes(lowerCaseQuery);
                           
-        return codeMatch || nameMatch;
+        return codeMatch || nameMatch || nameZhMatch;
       });
     });
 

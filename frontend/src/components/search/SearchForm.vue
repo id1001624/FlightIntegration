@@ -337,7 +337,7 @@ export default {
         if (destinationsArray && destinationsArray.length > 0) {
           const mappedDestinations = destinationsArray.map(airport => {
             const code = airport.code || airport.airport_id || 'N/A';
-            const name = airport.name || airport.name_zh || '未知名稱';
+            const name = airport.name_zh || airport.name || '未知名稱';
             const country = airport.country || '';
 
             let region = '其他';
@@ -365,6 +365,8 @@ export default {
               id: airport.id || airport.airport_id,
               code: code,
               name: name,
+              name_zh: airport.name_zh || '',
+              name_en: airport.name || '',
               city: airport.city || '',
               country: country,
               region: region

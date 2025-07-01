@@ -155,24 +155,29 @@ class AirportDestinations(Resource):
             formatted_destinations = []
             for destination in destinations_data:
                 iata_code = destination.get('iataCode', '')
+                amadeus_name = destination.get('name', '')
                 
                 # 從本地資料庫獲取機場詳細資訊（包含中文名稱）
                 local_airport_info = await AirportService.get_airport_by_iata(iata_code)
                 
-                # 優先使用本地資料庫的中文名稱，如果沒有則使用 Amadeus 的英文名稱
+                # 優先使用本地資料庫的資訊，如果沒有則使用 Amadeus 的資訊
                 if local_airport_info:
-                    airport_name_zh = local_airport_info.get('name_zh', destination.get('name', ''))
-                    airport_city = local_airport_info.get('city', destination.get('name', ''))
+                    # 有本地資料庫資訊，使用中文名稱
+                    airport_name_zh = local_airport_info.get('name_zh', amadeus_name)
+                    airport_name_en = local_airport_info.get('name_en', amadeus_name)
+                    airport_city = local_airport_info.get('city', amadeus_name)
                     airport_country = local_airport_info.get('country', '')
                 else:
-                    airport_name_zh = destination.get('name', '')
-                    airport_city = destination.get('name', '')
+                    # 沒有本地資料庫資訊，保持 Amadeus 的英文名稱
+                    airport_name_zh = amadeus_name  # 顯示英文名稱，因為沒有中文翻譯
+                    airport_name_en = amadeus_name
+                    airport_city = amadeus_name
                     airport_country = ""
                 
                 formatted_destinations.append({
                     "airport_id": iata_code,
-                    "name": destination.get('name', ''),
-                    "name_zh": airport_name_zh,
+                    "name": airport_name_en,  # 英文名稱
+                    "name_zh": airport_name_zh,  # 中文名稱（如果有的話）
                     "city": airport_city,
                     "country": airport_country,
                     "region": airport_country if airport_country else "國際"
@@ -196,4 +201,35 @@ class AirportDestinations(Resource):
                 "success": False,
                 "message": "伺服器內部發生錯誤",
                 "error": str(e)
-            }, 500 
+            }, 500
+
+@amadeus_bp.route('/destinations/<string:origin>', methods=['GET'])
+async def get_amadeus_destinations(origin):
+    """
+    獲取指定出發地的 Amadeus 支援目的地，並結合本地資料庫的中文名稱
+    """
+    try:
+        origin_code = origin.upper()
+        
+        # 從 Amadeus 獲取支援的目的地
+        destinations = await amadeus_service.get_supported_destinations(origin_code)
+        
+        if not destinations:
+            return jsonify({
+                'success': True,
+                'message': f'未找到從 {origin_code} 出發的目的地',
+                'data': []
+            })
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功獲取從 {origin_code} 出發的目的地',
+            'data': destinations
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"獲取 Amadeus 目的地失敗: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': '獲取目的地時發生錯誤'
+        }), 500 

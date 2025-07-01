@@ -4,7 +4,7 @@
 此模塊導入所有數據模型，確保它們在應用啟動時被加載
 """
 from .base import db
-from .airport import Airport
+from .airport import Airport, AirportDestination
 from .airline import Airline
 from .flight import Flight
 from .user import User

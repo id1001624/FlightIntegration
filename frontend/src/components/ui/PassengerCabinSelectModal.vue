@@ -122,7 +122,7 @@ watch(() => props.initialCabinClass, (newVal) => {
 // 艙等選項
 const cabinClasses = ref([
   { value: 'Economy', text: '經濟艙' },
-  // { value: 'PremiumEconomy', text: '豪華經濟艙' }, // 暫時移除，後端未完全支持
+  { value: 'Premium Economy', text: '優質經濟艙' },
   { value: 'Business', text: '商務艙' },
   { value: 'First', text: '頭等艙' },
 ]);

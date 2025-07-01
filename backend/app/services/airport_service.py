@@ -1,78 +1,81 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-機場服務模組 - 處理機場信息相關的業務邏輯
+機場服務模組
+提供機場相關的業務邏輯處理
 """
-
 import logging
 import uuid
-from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-
-try:
-    import asyncpg
-except ImportError:
-    asyncpg = None
+from flask import current_app
+from datetime import datetime, timedelta
 
 from ..database.db import init_asyncpg_pool
-from .db_utils import execute_db_operation, execute_query
-from ..models.airport import Airport
+from app.models.airport import Airport, AirportDestination
+from ..models.base import db
 
 logger = logging.getLogger(__name__)
 
 class AirportService:
-    """機場服務 - 處理機場數據相關操作"""
-    
+    """機場服務類，提供機場相關的業務邏輯處理"""
+
     @staticmethod
     async def _get_taiwan_airport_activity_scores_async(conn, days_ahead: int = 7) -> Dict[str, int]:
         """
-        (私有) 計算台灣各機場未來指定天數內的出發航班活躍度分數。
-        排除 is_test_data = True 的航班。
+        異步獲取台灣機場活躍度分數（基於未來航班數量）
+        
+        Args:
+            conn: 資料庫連接
+            days_ahead (int): 查詢未來幾天的航班，預設為 7 天
+            
+        Returns:
+            Dict[str, int]: 機場代碼到活躍度分數的映射
         """
         today = datetime.utcnow().date()
-        # 確保 future_start_date 和 future_end_date 的計算與 SQL 查詢邏輯一致
-        # SQL 是 >= $1 AND < $2，所以 end_date 不需要 +1
         future_start_date = today 
-        future_end_date = today + timedelta(days=days_ahead) # 結束日期是不包含的上限
-
+        future_end_date = today + timedelta(days=days_ahead)
+        
         logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculating activity for dates: {future_start_date} (inclusive) to {future_end_date} (exclusive)")
 
-        sql = """
-        SELECT
-            f.departure_airport_id,
-            COUNT(f.flight_id) AS flight_count
-        FROM
-            flights f
-        JOIN
-            airports a ON f.departure_airport_id = a.airport_id
-        WHERE
-            a.country = 'Taiwan'
-            AND f.scheduled_departure >= $1
-            AND f.scheduled_departure < $2 
-            -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
-        GROUP BY
-            f.departure_airport_id;
-        """
         try:
-            logger.debug(f"[_get_taiwan_airport_activity_scores_async] Executing SQL with params: $1={future_start_date}, $2={future_end_date}")
+            sql = """
+            SELECT 
+                f.departure_airport_id,
+                COUNT(f.flight_id) as flight_count
+            FROM 
+                flights f
+            JOIN 
+                airports a ON f.departure_airport_id = a.airport_id
+            WHERE 
+                a.country = 'Taiwan'
+                AND f.scheduled_departure >= $1
+                AND f.scheduled_departure < $2 
+                -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
+            GROUP BY
+                f.departure_airport_id;
+            """
             
             rows = await conn.fetch(sql, future_start_date, future_end_date)
+            activity_scores = {}
             
-            logger.info(f"[_get_taiwan_airport_activity_scores_async] Raw rows from DB: {rows}")
-            
-            activity_scores = {row['departure_airport_id']: row['flight_count'] for row in rows}
-            
-            logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculated activity_scores: {activity_scores}")
-            
+            if rows:
+                max_flights = max(row['flight_count'] for row in rows)
+                for row in rows:
+                    airport_id = row['departure_airport_id']
+                    flight_count = row['flight_count']
+                    score = int((flight_count / max_flights) * 100) if max_flights > 0 else 0
+                    activity_scores[airport_id] = score
+                    
+            logger.info(f"計算了 {len(activity_scores)} 個台灣機場的活躍度分數")
             return activity_scores
+            
         except Exception as e:
-            logger.error(f"Error calculating Taiwan airport activity scores: {e}", exc_info=True)
+            logger.error(f"獲取台灣機場活躍度分數時出錯: {e}", exc_info=True)
             return {}
 
     @staticmethod
     async def get_all_airports_with_activity(days_ahead: int = 7) -> List[Dict[str, Any]]:
         """
-        獲取所有機場列表，並為台灣機場附加近期活躍度分數。
+        獲取所有機場列表，並為台灣機場附加近期活躍度分數
         """
         pool = await init_asyncpg_pool()
         if not pool:
@@ -82,6 +85,7 @@ class AirportService:
         conn = None
         try:
             conn = await pool.acquire()
+            
             # 1. 獲取所有機場的基本信息
             all_airports_sql = """
             SELECT 
@@ -89,19 +93,17 @@ class AirportService:
                 name_zh,
                 name_en,
                 city,
-                city_en,
                 country,
-                timezone,
-                contact_info,
-                website_url
+                timezone
             FROM airports
-            ORDER BY country, city, name_zh;
+            ORDER BY country, city, name_zh
             """
-            airport_rows = await conn.fetch(all_airports_sql)
-            all_airports_list = [dict(row) for row in airport_rows]
+            
+            all_airports_rows = await conn.fetch(all_airports_sql)
+            all_airports_list = [dict(row) for row in all_airports_rows]
             
             if not all_airports_list:
-                logger.warning("未獲取到任何機場數據。")
+                logger.warning("未獲取到任何機場數據")
                 return []
 
             # 2. 獲取台灣機場的活躍度分數
@@ -112,10 +114,9 @@ class AirportService:
                 if airport_data.get('country') == 'Taiwan':
                     airport_data['activity_score'] = taiwan_activity_scores.get(airport_data['airport_id'], 0)
                 else:
-                    # 非台灣機場可以選擇不加此欄位或設為None/0
                     airport_data['activity_score'] = 0 
             
-            logger.info(f"成功獲取所有機場列表，並已附加台灣機場活躍度。共 {len(all_airports_list)} 個機場。")
+            logger.info(f"成功獲取所有機場列表，並已附加台灣機場活躍度。共 {len(all_airports_list)} 個機場")
             return all_airports_list
             
         except Exception as e:
@@ -142,13 +143,45 @@ class AirportService:
                 country
             FROM airports
             WHERE country = 'Taiwan'
-            ORDER BY city, name_zh;
+            ORDER BY 
+                CASE airport_id
+                    WHEN 'TPE' THEN 1
+                    WHEN 'TSA' THEN 2
+                    WHEN 'KHH' THEN 3
+                    WHEN 'RMQ' THEN 4
+                    WHEN 'TXG' THEN 5
+                    WHEN 'TNN' THEN 6
+                    WHEN 'CYI' THEN 7
+                    WHEN 'HUN' THEN 8
+                    WHEN 'TTT' THEN 9
+                    WHEN 'KNH' THEN 10
+                    WHEN 'MZG' THEN 11
+                    WHEN 'LZN' THEN 12
+                    WHEN 'GNI' THEN 13
+                    WHEN 'WOT' THEN 14
+                    WHEN 'PIF' THEN 15
+                    WHEN 'MFK' THEN 16
+                    WHEN 'CMJ' THEN 17
+                    WHEN 'TEN' THEN 18
+                    WHEN 'KYD' THEN 19
+                    WHEN 'NKM' THEN 20
+                    WHEN 'FUN' THEN 21
+                    WHEN 'TCN' THEN 22
+                    WHEN 'YMI' THEN 23
+                    WHEN 'LGK' THEN 24
+                    WHEN 'WON' THEN 25
+                    WHEN 'SWO' THEN 26
+                    WHEN 'QPN' THEN 27
+                    WHEN 'LYU' THEN 28
+                    WHEN 'NNK' THEN 29
+                    WHEN 'VRE' THEN 30
+                    ELSE 999
+                END
             """
             
             rows = await conn.fetch(sql)
-            logger.debug(f"[AirportService.get_taiwan_airports] 原始查詢結果 (rows): {rows}")
             airports = [dict(row) for row in rows]
-            logger.info(f"成功獲取台灣機場列表, 共 {len(airports)} 個機場.")
+            logger.info(f"成功獲取台灣機場列表, 共 {len(airports)} 個機場")
             return airports
             
         # 使用通用資料庫操作模式
@@ -213,8 +246,7 @@ class AirportService:
                     ticket_prices tp ON f.flight_id = tp.flight_id
                 WHERE 
                     dep.airport_id = $1
-                    AND DATE(f.scheduled_departure) >= DATE($3) - INTERVAL '3 days'
-                    AND DATE(f.scheduled_departure) <= DATE($3) + INTERVAL '3 days'
+                    AND f.scheduled_departure::date BETWEEN ($3::date - INTERVAL '3 days') AND ($3::date + INTERVAL '3 days')
                 GROUP BY 
                     arr.airport_id, arr.name_zh, arr.city, arr.country
                 ORDER BY 
@@ -344,23 +376,23 @@ class AirportService:
                 country
             FROM airports
             WHERE 
-                airport_id ILIKE $1 OR
-                name_zh ILIKE $1 OR
-                name_en ILIKE $1 OR
-                city ILIKE $1 OR
-                country ILIKE $1
+                name_zh ILIKE $1 OR 
+                name_en ILIKE $1 OR 
+                city ILIKE $1 OR 
+                country ILIKE $1 OR
+                airport_id ILIKE $1
             ORDER BY 
                 CASE 
-                    WHEN airport_id = $2 THEN 1
-                    WHEN name_zh = $2 THEN 2
-                    WHEN name_en = $2 THEN 3
-                    WHEN city = $2 THEN 4
-                    ELSE 5
-                END
-            LIMIT $3
+                    WHEN name_zh ILIKE $1 THEN 1
+                    WHEN name_en ILIKE $1 THEN 2
+                    WHEN airport_id ILIKE $1 THEN 3
+                    ELSE 4
+                END,
+                name_zh
+            LIMIT $2
             """
             
-            rows = await conn.fetch(sql, search_term, keyword, limit)
+            rows = await conn.fetch(sql, search_term, limit)
             return [dict(row) for row in rows]
             
         # 使用通用資料庫操作模式
@@ -383,14 +415,14 @@ class AirportService:
     @staticmethod
     async def get_available_departure_airports(limit: int = 200) -> List[Dict[str, Any]]:
         """
-        獲取所有有有效未來出發航班的機場列表。
-        結果按機場的航班數量降序排序，然後按城市、機場名稱排序。
-
+        獲取所有有有效未來出發航班的機場列表
+        結果按機場的航班數量降序排序，然後按城市、機場名稱排序
+        
         Args:
-            limit (int, optional): 返回結果的最大數量。預設為 200。
-
+            limit (int, optional): 返回結果的最大數量。預設為 200
+            
         Returns:
-            List[Dict[str, Any]]: 機場列表，每個機場包含代碼、名稱、城市、國家和未來航班數量。
+            List[Dict[str, Any]]: 機場列表，每個機場包含代碼、名稱、城市、國家和未來航班數量
         """
         async def fetch_airports_with_future_flights(conn):
             sql = """
@@ -416,7 +448,7 @@ class AirportService:
             """
             try:
                 rows = await conn.fetch(sql, limit)
-                logger.info(f"查詢到 {len(rows)} 個有未來出發航班的機場。")
+                logger.info(f"查詢到 {len(rows)} 個有未來出發航班的機場")
                 return [dict(row) for row in rows]
             except Exception as e_query:
                 logger.error(f"查詢有未來出發航班的機場時出錯: {e_query}", exc_info=True)
@@ -552,6 +584,245 @@ class AirportService:
         finally:
             if conn and pool:
                 await pool.release(conn)
+
+    @staticmethod
+    async def get_airports_by_codes(airport_codes: List[str]) -> List[Dict[str, Any]]:
+        """
+        批量獲取機場資訊，用於前端中文名稱轉換
+        
+        Args:
+            airport_codes (List[str]): 機場代碼列表
+            
+        Returns:
+            List[Dict[str, Any]]: 機場資訊列表
+        """
+        if not airport_codes:
+            return []
+            
+        async def fetch_airports_batch(conn):
+            # 構建 IN 條件的佔位符
+            placeholders = ','.join(f'${i+1}' for i in range(len(airport_codes)))
+            
+            sql = f"""
+            SELECT 
+                airport_id as code,
+                name_zh,
+                name_en,
+                city,
+                country,
+                timezone
+            FROM airports
+            WHERE airport_id IN ({placeholders})
+            """
+            
+            rows = await conn.fetch(sql, *airport_codes)
+            return [dict(row) for row in rows]
+            
+        # 使用通用資料庫操作模式
+        pool = await init_asyncpg_pool()
+        if not pool:
+            logger.error("無法初始化資料庫連接池")
+            return []
+            
+        conn = None
+        try:
+            conn = await pool.acquire()
+            return await fetch_airports_batch(conn)
+        except Exception as e:
+            logger.error(f"批量獲取機場資訊時出錯: {e}", exc_info=True)
+            return []
+        finally:
+            if conn and pool:
+                await pool.release(conn)
+
+    async def get_destinations_cached(self, departure_airport_id: str, fallback_to_amadeus: bool = True) -> List[Dict[str, Any]]:
+        """
+        從本地緩存獲取機場目的地，如果緩存為空且允許回退，則調用 Amadeus API
+        
+        Args:
+            departure_airport_id: 出發機場 IATA 代碼
+            fallback_to_amadeus: 是否在本地無數據時回退到 Amadeus API
+            
+        Returns:
+            List[Dict]: 目的地機場列表
+        """
+        try:
+            # 首先嘗試從本地緩存獲取
+            cached_destinations = AirportDestination.get_destinations_for_departure(
+                departure_airport_id, active_only=True
+            )
+            
+            if cached_destinations:
+                # 構建返回格式，包含目的地機場的詳細信息
+                result = []
+                for route in cached_destinations:
+                    dest_airport = route.destination_airport
+                    result.append({
+                        'airport_id': dest_airport.airport_id,
+                        'name': dest_airport.name_en,
+                        'name_zh': dest_airport.name_zh,
+                        'city': dest_airport.city,
+                        'country': dest_airport.country,
+                        'flight_count_30days': route.flight_count_30days,
+                        'last_synced_at': route.last_synced_at.isoformat() if route.last_synced_at else None
+                    })
+                
+                logger.info(f"Retrieved {len(result)} cached destinations for {departure_airport_id}")
+                return result
+            
+            # 如果本地沒有數據且允許回退到 Amadeus
+            if fallback_to_amadeus:
+                logger.info(f"No cached destinations found for {departure_airport_id}, falling back to Amadeus API")
+                # 使用 AmadeusService 直接獲取
+                from ..services.amadeus_service import AmadeusService
+                amadeus_service = AmadeusService()
+                amadeus_response = await amadeus_service.get_airport_destinations(departure_airport_id)
+                await amadeus_service.close_session()
+                
+                if amadeus_response and 'data' in amadeus_response:
+                    return amadeus_response['data']
+                else:
+                    return []
+            else:
+                logger.info(f"No cached destinations found for {departure_airport_id}, not using Amadeus fallback")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error getting cached destinations for {departure_airport_id}: {str(e)}")
+            
+            # 如果出錯且允許回退，嘗試使用 Amadeus
+            if fallback_to_amadeus:
+                try:
+                    from ..services.amadeus_service import AmadeusService
+                    amadeus_service = AmadeusService()
+                    amadeus_response = await amadeus_service.get_airport_destinations(departure_airport_id)
+                    await amadeus_service.close_session()
+                    
+                    if amadeus_response and 'data' in amadeus_response:
+                        return amadeus_response['data']
+                    else:
+                        return []
+                except Exception as amadeus_e:
+                    logger.error(f"Amadeus fallback also failed: {str(amadeus_e)}")
+            
+            return []
+    
+    def get_popular_destinations_cached(self, departure_airport_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        從本地緩存獲取熱門目的地（按航班數量排序）
+        
+        Args:
+            departure_airport_id: 出發機場 IATA 代碼
+            limit: 返回數量限制
+            
+        Returns:
+            List[Dict]: 熱門目的地列表
+        """
+        try:
+            popular_routes = AirportDestination.get_popular_destinations(departure_airport_id, limit)
+            
+            result = []
+            for route in popular_routes:
+                dest_airport = route.destination_airport
+                result.append({
+                    'airport_id': dest_airport.airport_id,
+                    'name': dest_airport.name_en,
+                    'name_zh': dest_airport.name_zh,
+                    'city': dest_airport.city,
+                    'country': dest_airport.country,
+                    'flight_count_30days': route.flight_count_30days,
+                    'flight_count_7days': route.flight_count_7days,
+                    'popularity_rank': len(result) + 1
+                })
+            
+            logger.info(f"Retrieved {len(result)} popular destinations for {departure_airport_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting popular cached destinations for {departure_airport_id}: {str(e)}")
+            return []
+
+    @staticmethod
+    async def sync_destination_cache_for_airport(departure_airport_id: str) -> bool:
+        """
+        為指定機場同步目的地緩存
+        
+        Args:
+            departure_airport_id: 出發機場 IATA 代碼
+            
+        Returns:
+            bool: 同步是否成功
+        """
+        from flask import current_app
+        
+        try:
+            # 調用 AmadeusService 獲取最新目的地
+            from ..services.amadeus_service import AmadeusService
+            amadeus_service = AmadeusService()
+            
+            destinations_response = await amadeus_service.get_airport_destinations(departure_airport_id)
+            
+            if not destinations_response or 'data' not in destinations_response:
+                logger.warning(f"No destinations returned for {departure_airport_id}")
+                return False
+            
+            destinations = destinations_response['data']
+            synced_count = 0
+            
+            # 在 Flask app context 中操作資料庫
+            with current_app.app_context():
+                for dest_data in destinations:
+                    try:
+                        destination_airport_id = dest_data.get('iataCode')
+                        if not destination_airport_id:
+                            continue
+                        
+                        # 確保目的地機場存在
+                        dest_airport = Airport.query.filter_by(airport_id=destination_airport_id).first()
+                        if not dest_airport:
+                            # 可以選擇創建基本記錄或跳過
+                            continue
+                        
+                        # 創建或更新 AirportDestination 記錄
+                        route = AirportDestination.query.filter_by(
+                            departure_airport_id=departure_airport_id,
+                            destination_airport_id=destination_airport_id
+                        ).first()
+                        
+                        if route:
+                            route.updated_at = datetime.utcnow()
+                            route.last_synced_at = datetime.utcnow()
+                            route.is_active = True
+                        else:
+                            route = AirportDestination(
+                                departure_airport_id=departure_airport_id,
+                                destination_airport_id=destination_airport_id,
+                                is_active=True,
+                                last_synced_at=datetime.utcnow()
+                            )
+                            db.session.add(route)
+                        
+                        synced_count += 1
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing destination {dest_data}: {str(e)}")
+                        continue
+                
+                db.session.commit()
+                logger.info(f"Successfully synced {synced_count} destinations for {departure_airport_id}")
+            
+            # 關閉 Amadeus session
+            await amadeus_service.close_session()
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error syncing destination cache for {departure_airport_id}: {str(e)}")
+            try:
+                db.session.rollback()
+            except:
+                pass
+            return False
 
 # 創建服務實例以供其他模塊導入
 airport_service = AirportService()

@@ -30,6 +30,10 @@ class AmadeusService:
 
     async def _get_access_token(self):
         """異步獲取或刷新 Amadeus API 的 access token。"""
+        # 如果已經有 token，直接返回（Amadeus token 通常有效期 30 分鐘）
+        if self._access_token:
+            return self._access_token
+            
         url = f"{self.base_url}/v1/security/oauth2/token"
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         body = {
@@ -163,6 +167,66 @@ class AmadeusService:
             except Exception:
                 pass
             return {"error": str(e), "details": "No additional error details available"}
+
+    async def get_supported_destinations(self, origin_code: str) -> List[Dict[str, Any]]:
+        """
+        獲取指定出發地的 Amadeus 支援目的地，並結合本地資料庫的中文名稱
+        
+        Args:
+            origin_code: 出發機場的 IATA 代碼
+            
+        Returns:
+            List[Dict]: 包含機場代碼、中文名稱和英文名稱的目的地列表
+        """
+        # 首先從 Amadeus 獲取直達目的地
+        amadeus_response = await self.get_airport_destinations(origin_code)
+        
+        if "error" in amadeus_response:
+            logger.error(f"Failed to get destinations from Amadeus: {amadeus_response['error']}")
+            return []
+        
+        amadeus_destinations = amadeus_response.get('data', [])
+        if not amadeus_destinations:
+            return []
+        
+        # 提取機場代碼
+        airport_codes = [dest['iataCode'] for dest in amadeus_destinations if 'iataCode' in dest]
+        
+        if not airport_codes:
+            return []
+        
+        # 從本地資料庫獲取中文名稱
+        from ..services.airport_service import airport_service
+        
+        enriched_destinations = []
+        for code in airport_codes:
+            # 查詢本地資料庫中的機場資訊
+            local_airport = await airport_service.get_airport_by_iata(code)
+            
+            if local_airport:
+                # 使用本地資料庫的中文名稱
+                enriched_destinations.append({
+                    'code': code,
+                    'name': local_airport.get('name_zh') or local_airport.get('name_en', code),
+                    'name_en': local_airport.get('name_en', ''),
+                    'name_zh': local_airport.get('name_zh', ''),
+                    'city': local_airport.get('city', ''),
+                    'country': local_airport.get('country', '')
+                })
+            else:
+                # 如果本地資料庫沒有，使用機場代碼作為顯示名稱
+                enriched_destinations.append({
+                    'code': code,
+                    'name': code,
+                    'name_en': '',
+                    'name_zh': '',
+                    'city': '',
+                    'country': '',
+                    'needs_manual_update': True  # 標記需要手動更新
+                })
+        
+        logger.info(f"Successfully enriched {len(enriched_destinations)} destinations for {origin_code}")
+        return enriched_destinations
 
 # 創建一個單例實例
 amadeus_service = AmadeusService() 

@@ -91,6 +91,7 @@ export default {
 
     const router = useRouter();
     const isActive = ref(props.active);
+    const animationFrame = ref(null);
    
 
     // --- 修改 airlineLogoUrl 以使用 logo_path ---
