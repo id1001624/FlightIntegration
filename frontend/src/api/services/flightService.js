@@ -354,11 +354,14 @@ const flightService = {
     }
     
     try {
-      const response = await api.get('/amadeus/flights/offers', {
+      // 使用實時價格服務端點 (有緩存機制)
+      const response = await api.get('/flights/search', {
         params: {
-          origin: departureCode,
-          destination: arrivalCode,
-          date: departureDate,
+          departure_code: departureCode,  // 注意：後端期望的參數名
+          arrival_code: arrivalCode,      // 注意：後端期望的參數名  
+          date_str: departureDate,        // 注意：後端期望的參數名
+          passengers: 1,                  // 默認1位乘客
+          max_results: 50                 // 增加結果數量
         }
       });
       
@@ -378,7 +381,8 @@ const flightService = {
         return [];
       }
       
-      console.log('從 API 獲取並處理後的航班數據:', flights);
+      console.log('從實時價格API獲取並處理後的航班數據:', flights);
+      console.log(`成功獲取 ${flights.length} 個航班，數據來源: ${response.source || '未知'}`);
       
       cache.flights.data[cacheKey] = flights;
       cache.flights.timestamp[cacheKey] = Date.now();

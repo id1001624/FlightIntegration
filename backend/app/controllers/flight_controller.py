@@ -97,8 +97,19 @@ async def search_flights():
         # 2. 如果實時 API 沒有數據，回退到原有的靜態數據庫查詢
         logger.info(f"實時 API 無數據，回退到靜態數據庫查詢：{args['departure_code']}->{args['arrival_code']}")
         
-        # 使用原有的 FlightSearchService
-        result = await FlightSearchService.search_flights(**args)
+        # 映射參數以匹配 FlightSearchService 期望的格式
+        search_args = {
+            'departure_code': args['departure_code'],
+            'arrival_code': args['arrival_code'],
+            'date_str': args['date'].strftime('%Y-%m-%d') if hasattr(args['date'], 'strftime') else str(args['date']),
+            'passengers': args.get('adults', 1),  # 使用 adults 值但傳遞給 passengers 參數
+            'max_results': args.get('max', 20),   # 使用 max 值但傳遞給 max_results 參數
+            'cabin_class': args.get('travel_class', '經濟艙'),
+            'sort_by': 'price'
+        }
+        
+        # 使用映射後的參數調用 FlightSearchService
+        result = await FlightSearchService.search_flights(**search_args)
         
         return api_response(
             success=True,

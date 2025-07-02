@@ -19,15 +19,57 @@ class FlightSearchArgsSchema(Schema):
     """航班搜索請求的參數驗證模型"""
     departure_code = fields.Str(required=True, validate=validate.Length(equal=3), metadata={"description": "出發機場IATA代碼"})
     arrival_code = fields.Str(required=True, validate=validate.Length(equal=3), metadata={"description": "抵達機場IATA代碼"})
-    date = fields.Date(required=True, metadata={"description": "出發日期 (YYYY-MM-DD)"})
-    adults = fields.Int(load_default=1, validate=validate.Range(min=1), metadata={"description": "成人數量"})
-    children = fields.Int(load_default=0, validate=validate.Range(min=0), metadata={"description": "兒童數量"})
-    infants = fields.Int(load_default=0, validate=validate.Range(min=0), metadata={"description": "嬰兒數量"})
-    travel_class = fields.Str(load_default=None, metadata={"description": "艙等等級"})
-    non_stop = fields.Bool(load_default=False, metadata={"description": "是否僅限直飛"})
-    currency_code = fields.Str(load_default="TWD", metadata={"description": "貨幣代碼"})
-    max_price = fields.Int(load_default=None, metadata={"description": "最高價格"})
-    max = fields.Int(load_default=250, metadata={"description": "返回結果的最大數量"})
+    
+    # 支持兩種日期參數格式 - 都設為非必需，在validates_schema中處理
+    date = fields.Date(required=False, allow_none=True, metadata={"description": "出發日期 (YYYY-MM-DD)"})
+    date_str = fields.Str(required=False, allow_none=True, metadata={"description": "出發日期字符串 (YYYY-MM-DD) - 前端格式"})
+    
+    # 支持兩種乘客數量參數格式 - 都設為非必需，在validates_schema中處理
+    adults = fields.Int(required=False, load_default=1, validate=validate.Range(min=1), metadata={"description": "成人數量"})
+    passengers = fields.Int(required=False, allow_none=True, validate=validate.Range(min=1), metadata={"description": "乘客數量 - 前端格式"})
+    
+    children = fields.Int(required=False, load_default=0, validate=validate.Range(min=0), metadata={"description": "兒童數量"})
+    infants = fields.Int(required=False, load_default=0, validate=validate.Range(min=0), metadata={"description": "嬰兒數量"})
+    travel_class = fields.Str(required=False, load_default=None, allow_none=True, metadata={"description": "艙等等級"})
+    non_stop = fields.Bool(required=False, load_default=False, metadata={"description": "是否僅限直飛"})
+    currency_code = fields.Str(required=False, load_default="TWD", metadata={"description": "貨幣代碼"})
+    max_price = fields.Int(required=False, load_default=None, allow_none=True, metadata={"description": "最高價格"})
+    
+    # 支持兩種最大結果數量參數格式 - 都設為非必需，在validates_schema中處理
+    max = fields.Int(required=False, load_default=250, metadata={"description": "返回結果的最大數量"})
+    max_results = fields.Int(required=False, allow_none=True, validate=validate.Range(min=1), metadata={"description": "最大結果數量 - 前端格式"})
+
+    @validates_schema
+    def resolve_parameter_aliases(self, data, **kwargs):
+        """解析參數別名，優先使用前端格式"""
+        from datetime import datetime
+        
+        # 處理日期參數 - 優先使用 date_str，並轉換為 date 對象
+        if 'date_str' in data and data['date_str']:
+            try:
+                # 將字符串轉換為 date 對象
+                if isinstance(data['date_str'], str):
+                    data['date'] = datetime.strptime(data['date_str'], '%Y-%m-%d').date()
+                else:
+                    data['date'] = data['date_str']
+            except ValueError:
+                raise ValidationError('日期格式錯誤，請使用 YYYY-MM-DD 格式', ['date_str'])
+        elif 'date' not in data or not data['date']:
+            raise ValidationError('必須提供出發日期 (date 或 date_str)', ['date', 'date_str'])
+        
+        # 處理乘客數量參數 - 優先使用 passengers
+        if 'passengers' in data and data['passengers']:
+            data['adults'] = data['passengers']
+        elif 'adults' not in data or not data['adults']:
+            data['adults'] = 1  # 預設值
+        
+        # 處理最大結果數量參數 - 優先使用 max_results  
+        if 'max_results' in data and data['max_results']:
+            data['max'] = data['max_results']
+        elif 'max' not in data or not data['max']:
+            data['max'] = 250  # 預設值
+        
+        return data
 
 class FlightSchema(Schema):
     """用於序列化單個航班詳細信息"""

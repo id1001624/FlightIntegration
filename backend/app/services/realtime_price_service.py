@@ -24,7 +24,7 @@ class RealtimePriceService:
         self.max_api_calls_per_search = 4  # 每次搜索最多調用 4 個艙等的 API
     
     async def search_flight_prices(self, origin: str, destination: str, 
-                                 departure_date: str, cabin_preference: Optional[str] = None,
+                                 departure_date, cabin_preference: Optional[str] = None,
                                  use_cache: bool = True) -> Dict:
         """
         搜索航班價格 - 主要入口方法
@@ -32,7 +32,7 @@ class RealtimePriceService:
         Args:
             origin: 出發機場 IATA 代碼
             destination: 到達機場 IATA 代碼  
-            departure_date: 出發日期 (YYYY-MM-DD)
+            departure_date: 出發日期 (YYYY-MM-DD 字符串或 datetime.date 對象)
             cabin_preference: 艙等偏好 (ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST)
             use_cache: 是否使用緩存
             
@@ -40,11 +40,19 @@ class RealtimePriceService:
             Dict: 包含航班和價格信息的字典
         """
         try:
+            # 統一處理日期格式
+            if hasattr(departure_date, 'strftime'):
+                # datetime.date 或 datetime.datetime 對象
+                departure_date_str = departure_date.strftime('%Y-%m-%d')
+            else:
+                # 假設是字符串
+                departure_date_str = str(departure_date)
+            
             # 1. 檢查緩存
             if use_cache:
-                cached_result = await self._get_cached_prices(origin, destination, departure_date)
+                cached_result = await self._get_cached_prices(origin, destination, departure_date_str)
                 if cached_result:
-                    logger.info(f"使用緩存數據：{origin}->{destination} on {departure_date}")
+                    logger.info(f"使用緩存數據：{origin}->{destination} on {departure_date_str}")
                     return {
                         "success": True,
                         "data": cached_result,
@@ -53,14 +61,14 @@ class RealtimePriceService:
                     }
             
             # 2. 調用 Amadeus API 獲取實時數據
-            api_result = await self._fetch_realtime_prices(origin, destination, departure_date, cabin_preference)
+            api_result = await self._fetch_realtime_prices(origin, destination, departure_date_str, cabin_preference)
             
             if not api_result["success"]:
                 return api_result
             
             # 3. 保存到緩存（異步，不阻塞響應）
             if use_cache and api_result["data"]:
-                asyncio.create_task(self._save_to_cache(origin, destination, departure_date, api_result["data"]))
+                asyncio.create_task(self._save_to_cache(origin, destination, departure_date_str, api_result["data"]))
             
             return api_result
             
