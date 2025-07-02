@@ -104,7 +104,7 @@ const flightService = {
     if (checkCache('airports', cacheKey)) {
       return cache.airports.data[cacheKey];
     }
-
+    
     try {
       const response = await api.get('/airports/taiwan-international');
       

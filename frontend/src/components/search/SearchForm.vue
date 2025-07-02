@@ -188,7 +188,7 @@ export default {
 
     const fetchTaiwanAirports = async () => {
       if (taiwanAirports.value.length > 0) return;
-
+      
       try {
         loadingTaiwanAirports.value = true;
         const airportsData = await flightService.getTaiwanInternationalAirports();

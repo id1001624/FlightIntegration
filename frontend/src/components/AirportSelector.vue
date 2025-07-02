@@ -299,7 +299,7 @@ export default {
         // 如果都不在期望順序中，按 activity_score 排序
         const scoreA = Number(a.activity_score) || 0;
         const scoreB = Number(b.activity_score) || 0;
-        
+
         if (scoreB !== scoreA) {
           return scoreB - scoreA; // activity_score 高的在前
         }
@@ -309,7 +309,7 @@ export default {
         const nameB = b.name || '';
         return nameA.localeCompare(nameB, 'zh-Hant');
       });
-      
+
       return sortedAirports;
     });
 

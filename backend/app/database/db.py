@@ -34,9 +34,9 @@ async def init_asyncpg_pool():
 
     db_connection_url = get_db_url()
     if not db_connection_url:
-        error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
-        logger.error(error_msg)
-        raise RuntimeError(error_msg)
+         error_msg = "無法創建 asyncpg 連接池：環境變數 SQLALCHEMY_DATABASE_URI 或 DATABASE_URL 未設置。"
+         logger.error(error_msg)
+         raise RuntimeError(error_msg)
          
     try:
         _pool = await asyncpg.create_pool(

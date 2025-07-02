@@ -37,11 +37,15 @@ class PriceAnalysisService:
         cabin_preference = normalize_cabin_class(cabin_preference) if cabin_preference else None
         
         pool = await init_asyncpg_pool() # 獲取連接池
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return []
+            
         try:
             async with pool.acquire() as conn: # 從連接池獲取連接
                 # 構建基礎查詢字符串
                 base_query = """
-                    SELECT economy_price, business_price, first_price, available_seats, price_updated_at
+                    SELECT economy_price, premium_economy_price, business_price, first_price, available_seats, price_updated_at
                     FROM ticket_prices
                     WHERE flight_id = $1
                 """ # 修正: SQL 內容移到下一行並正確縮排
@@ -67,7 +71,7 @@ class PriceAnalysisService:
                             })
                     else:
                         # 如果沒有指定艙等，返回所有艙等的價格
-                        cabin_types = ['economy', 'business', 'first']
+                        cabin_types = ['economy', 'premium_economy', 'business', 'first']
                         for cabin_type in cabin_types:
                             price_field = get_price_field_by_cabin_class(cabin_type)
                             price_value = record[price_field]
@@ -107,11 +111,15 @@ class PriceAnalysisService:
 
         prices_map = {}
         pool = await init_asyncpg_pool() # 獲取連接池
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {}
+            
         try:
             async with pool.acquire() as conn: # 從連接池獲取連接
                 # SQL 查詢字符串
                 price_query_str = """
-                SELECT flight_id, economy_price, business_price, first_price, available_seats, price_updated_at
+                SELECT flight_id, economy_price, premium_economy_price, business_price, first_price, available_seats, price_updated_at
                 FROM ticket_prices
                 WHERE flight_id = ANY($1::uuid[])
                 """ # 修正: SQL 內容移到下一行並正確縮排
@@ -125,7 +133,7 @@ class PriceAnalysisService:
                         prices_map[flight_id_str] = {}
                     
                     # 處理各艙等價格
-                    cabin_types = ['economy', 'business', 'first']
+                    cabin_types = ['economy', 'premium_economy', 'business', 'first']
                     for cabin_type in cabin_types:
                         price_field = get_price_field_by_cabin_class(cabin_type)
                         price_value = record[price_field]
@@ -154,7 +162,7 @@ class PriceAnalysisService:
         departure_code: str, 
         arrival_code: str, 
         start_date: str, 
-        end_date: str = None,
+        end_date: Optional[str] = None,
         cabin_preference: str = "economy"
     ) -> Dict[str, Any]:
         """
@@ -230,9 +238,17 @@ class PriceAnalysisService:
             
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {
+                "error": "資料庫連接失敗",
+                "departure": departure_code,
+                "arrival": arrival_code
+            }
+            
         try:
-            return await fetch_lowest_prices(conn)
+            async with pool.acquire() as conn:
+                return await fetch_lowest_prices(conn)
         except Exception as e:
             logger.error(f"獲取最低票價時發生錯誤: {e}", exc_info=True)
             return {
@@ -240,9 +256,6 @@ class PriceAnalysisService:
                 "departure": departure_code,
                 "arrival": arrival_code
             }
-        finally:
-            if conn:
-                await pool.release(conn)
     
     @staticmethod
     async def get_price_history(
@@ -302,15 +315,16 @@ class PriceAnalysisService:
             
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return []
+            
         try:
-            return await fetch_price_history(conn)
+            async with pool.acquire() as conn:
+                return await fetch_price_history(conn)
         except Exception as e:
             logger.error(f"獲取航班 {flight_id} 歷史票價時發生錯誤: {e}", exc_info=True)
             return []
-        finally:
-            if conn:
-                await pool.release(conn)
     
     @staticmethod
     async def analyze_price_trend(
@@ -457,9 +471,17 @@ class PriceAnalysisService:
         
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {
+                "error": "資料庫連接失敗",
+                "flight_id": flight_id,
+                "cabin_class": cabin_class
+            }
+            
         try:
-            return await analyze_trend(conn)
+            async with pool.acquire() as conn:
+                return await analyze_trend(conn)
         except Exception as e:
             logger.error(f"分析航班 {flight_id} 票價趨勢時發生錯誤: {e}", exc_info=True)
             return {
@@ -467,9 +489,6 @@ class PriceAnalysisService:
                 "flight_id": flight_id,
                 "cabin_class": cabin_class
             }
-        finally:
-            if conn:
-                await pool.release(conn)
     
     @staticmethod
     async def get_low_fare_calendar(
@@ -570,9 +589,17 @@ class PriceAnalysisService:
         
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {
+                "error": "資料庫連接失敗",
+                "departure": departure_code,
+                "arrival": arrival_code
+            }
+            
         try:
-            return await fetch_calendar_data(conn)
+            async with pool.acquire() as conn:
+                return await fetch_calendar_data(conn)
         except Exception as e:
             logger.error(f"獲取低價日曆時發生錯誤: {e}", exc_info=True)
             return {
@@ -580,9 +607,6 @@ class PriceAnalysisService:
                 "departure": departure_code,
                 "arrival": arrival_code
             }
-        finally:
-            if conn:
-                await pool.release(conn)
 
     @staticmethod
     async def get_fare_trends(
@@ -688,9 +712,17 @@ class PriceAnalysisService:
         
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {
+                "error": "資料庫連接失敗",
+                "departure": departure_code,
+                "arrival": arrival_code
+            }
+            
         try:
-            return await fetch_trend_data(conn)
+            async with pool.acquire() as conn:
+                return await fetch_trend_data(conn)
         except Exception as e:
             logger.error(f"獲取票價趨勢時發生錯誤: {e}", exc_info=True)
             return {
@@ -698,9 +730,6 @@ class PriceAnalysisService:
                 "departure": departure_code,
                 "arrival": arrival_code
             }
-        finally:
-            if conn:
-                await pool.release(conn)
 
     @staticmethod
     async def get_route_stats(departure_code: str, arrival_code: str) -> Dict[str, Any]:
@@ -838,9 +867,17 @@ class PriceAnalysisService:
         
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
-        conn = await pool.acquire()
+        if pool is None:
+            logger.error("無法獲取資料庫連接池")
+            return {
+                "error": "資料庫連接失敗",
+                "departure": departure_code,
+                "arrival": arrival_code
+            }
+            
         try:
-            return await fetch_stats(conn)
+            async with pool.acquire() as conn:
+                return await fetch_stats(conn)
         except Exception as e:
             logger.error(f"獲取航線統計數據時發生錯誤: {e}", exc_info=True)
             return {
@@ -848,9 +885,6 @@ class PriceAnalysisService:
                 "departure": departure_code,
                 "arrival": arrival_code
             }
-        finally:
-            if conn:
-                await pool.release(conn)
                 
     # 為了兼容性，提供同名方法作為別名
     @staticmethod
@@ -858,8 +892,8 @@ class PriceAnalysisService:
         departure_code: str, 
         arrival_code: str, 
         start_date: str, 
-        end_date: str = None,
-        cabin_class: str = "經濟"
+        end_date: Optional[str] = None,
+        cabin_preference: str = "經濟"
     ):
         """
         同步方法，用於兼容舊的代碼。建議遷移至異步版本的 PriceAnalysisService.get_lowest_prices
@@ -874,5 +908,5 @@ class PriceAnalysisService:
             arrival_code=arrival_code,
             start_date=start_date,
             end_date=end_date,
-            cabin_class=cabin_class
+            cabin_preference=cabin_preference
         )) 

@@ -94,7 +94,7 @@ class FlightDestinations(Resource):
         try:
             # 現在可以直接 await
             raw_destinations = await amadeus_service.search_flight_destinations(origin_iata_code)
-            
+        
             if not raw_destinations or raw_destinations.get("errors"):
                 # 如果沒有數據或 Amadeus 返回錯誤，直接回傳
                 error_message = raw_destinations or {'message': 'No destinations found for the given origin.'}
@@ -103,7 +103,7 @@ class FlightDestinations(Resource):
 
             # 使用適配器轉換數據
             adapted_data = await adapt_flight_destinations(raw_destinations)
-            
+        
             return jsonify(adapted_data)
             
         except Exception as e:

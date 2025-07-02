@@ -166,11 +166,11 @@ export default {
           return '頭等艙';
         default:
           // 向下相容舊的字串匹配邏輯
-          const lowerCaseType = classType.toLowerCase();
-          if (lowerCaseType.includes('business') || lowerCaseType.includes('商務')) return '商務艙';
-          if (lowerCaseType.includes('first') || lowerCaseType.includes('頭等')) return '頭等艙';
+      const lowerCaseType = classType.toLowerCase();
+      if (lowerCaseType.includes('business') || lowerCaseType.includes('商務')) return '商務艙';
+      if (lowerCaseType.includes('first') || lowerCaseType.includes('頭等')) return '頭等艙';
           if (lowerCaseType.includes('premium')) return '優質經濟艙';
-          return '經濟艙';
+      return '經濟艙';
       }
     };
 

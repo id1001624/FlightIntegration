@@ -182,7 +182,7 @@ async def adapt_flight_offers(raw_offers_response):
                 # 保留完整的行程信息供詳細頁面使用
                 "itineraries": []
             }
-            
+
             # 收集所有航空公司信息
             airlines_in_offer = set()
             
@@ -241,7 +241,7 @@ async def adapt_flight_offers(raw_offers_response):
             logger.error(f"處理航班 offer 時出錯: {e}. Offer ID: {offer.get('id')}")
             continue
 
-    return processed_offers
+    return processed_offers 
 
 def _parse_duration_to_minutes(iso_duration):
     """將 ISO 8601 持續時間格式 (PT2H30M) 轉換為分鐘數"""

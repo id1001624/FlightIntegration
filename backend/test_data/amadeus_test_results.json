@@ -1,0 +1,1299 @@
+[
+  {
+    "class": "ECONOMY",
+    "count": 10,
+    "min_price": 3423.0,
+    "max_price": 7395.0,
+    "avg_price": 5930.1,
+    "offers": [
+      {
+        "type": "flight-offer",
+        "id": "1",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT9H45M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "1",
+                  "at": "2025-07-03T02:00:00"
+                },
+                "arrival": {
+                  "iataCode": "TAE",
+                  "at": "2025-07-03T05:25:00"
+                },
+                "carrierCode": "TW",
+                "number": "664",
+                "aircraft": {
+                  "code": "738"
+                },
+                "operating": {
+                  "carrierCode": "TW"
+                },
+                "duration": "PT2H25M",
+                "id": "12",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "TAE",
+                  "at": "2025-07-03T10:40:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "2",
+                  "at": "2025-07-03T12:45:00"
+                },
+                "carrierCode": "TW",
+                "number": "251",
+                "aircraft": {
+                  "code": "738"
+                },
+                "operating": {
+                  "carrierCode": "TW"
+                },
+                "duration": "PT2H5M",
+                "id": "13",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "3423.00",
+          "base": "1600.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "3423.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": false
+        },
+        "validatingAirlineCodes": [
+          "TW"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "3423.00",
+              "base": "1600.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "12",
+                "cabin": "ECONOMY",
+                "fareBasis": "BTTJ",
+                "class": "B",
+                "includedCheckedBags": {
+                  "weight": 0,
+                  "weightUnit": "KG"
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                }
+              },
+              {
+                "segmentId": "13",
+                "cabin": "ECONOMY",
+                "fareBasis": "BTTJ",
+                "class": "B",
+                "includedCheckedBags": {
+                  "weight": 0,
+                  "weightUnit": "KG"
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "2",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT15H55M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TSA",
+                  "terminal": "1",
+                  "at": "2025-07-03T20:45:00"
+                },
+                "arrival": {
+                  "iataCode": "FOC",
+                  "at": "2025-07-03T22:15:00"
+                },
+                "carrierCode": "MF",
+                "number": "884",
+                "aircraft": {
+                  "code": "738"
+                },
+                "operating": {
+                  "carrierCode": "MF"
+                },
+                "duration": "PT1H30M",
+                "id": "16",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "FOC",
+                  "at": "2025-07-04T09:10:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-04T13:40:00"
+                },
+                "carrierCode": "MF",
+                "number": "809",
+                "aircraft": {
+                  "code": "788"
+                },
+                "operating": {
+                  "carrierCode": "MF"
+                },
+                "duration": "PT3H30M",
+                "id": "17",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "4886.00",
+          "base": "2680.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "4886.00",
+          "additionalServices": [
+            {
+              "amount": "4887",
+              "type": "CHECKED_BAGS"
+            }
+          ]
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "MF"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "4886.00",
+              "base": "2680.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "16",
+                "cabin": "ECONOMY",
+                "fareBasis": "SOW6DASS",
+                "brandedFare": "YSTANDARD",
+                "brandedFareLabel": "ECONOMY STANDARD",
+                "class": "S",
+                "includedCheckedBags": {
+                  "quantity": 1
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                },
+                "amenities": [
+                  {
+                    "description": "CHECKED BAG 1PC OF 23KG 158CM",
+                    "isChargeable": false,
+                    "amenityType": "BAGGAGE",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRE RESERVED SEAT ASSIGNMENT",
+                    "isChargeable": true,
+                    "amenityType": "PRE_RESERVED_SEAT",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "REFUNDABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "CHANGEABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  }
+                ]
+              },
+              {
+                "segmentId": "17",
+                "cabin": "ECONOMY",
+                "fareBasis": "SOW6DASS",
+                "brandedFare": "YSTANDARD",
+                "brandedFareLabel": "ECONOMY STANDARD",
+                "class": "S",
+                "includedCheckedBags": {
+                  "quantity": 1
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                },
+                "amenities": [
+                  {
+                    "description": "CHECKED BAG 1PC OF 23KG 158CM",
+                    "isChargeable": false,
+                    "amenityType": "BAGGAGE",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRE RESERVED SEAT ASSIGNMENT",
+                    "isChargeable": true,
+                    "amenityType": "PRE_RESERVED_SEAT",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "REFUNDABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "CHANGEABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "3",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT25H15M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "2",
+                  "at": "2025-07-03T11:25:00"
+                },
+                "arrival": {
+                  "iataCode": "FOC",
+                  "at": "2025-07-03T13:05:00"
+                },
+                "carrierCode": "MF",
+                "number": "880",
+                "aircraft": {
+                  "code": "738"
+                },
+                "operating": {
+                  "carrierCode": "MF"
+                },
+                "duration": "PT1H40M",
+                "id": "5",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "FOC",
+                  "at": "2025-07-04T09:10:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-04T13:40:00"
+                },
+                "carrierCode": "MF",
+                "number": "809",
+                "aircraft": {
+                  "code": "788"
+                },
+                "operating": {
+                  "carrierCode": "MF"
+                },
+                "duration": "PT3H30M",
+                "id": "6",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "4886.00",
+          "base": "2680.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "4886.00",
+          "additionalServices": [
+            {
+              "amount": "4887",
+              "type": "CHECKED_BAGS"
+            }
+          ]
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "MF"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "4886.00",
+              "base": "2680.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "5",
+                "cabin": "ECONOMY",
+                "fareBasis": "SOW6DASS",
+                "brandedFare": "YSTANDARD",
+                "brandedFareLabel": "ECONOMY STANDARD",
+                "class": "S",
+                "includedCheckedBags": {
+                  "quantity": 1
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                },
+                "amenities": [
+                  {
+                    "description": "CHECKED BAG 1PC OF 23KG 158CM",
+                    "isChargeable": false,
+                    "amenityType": "BAGGAGE",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRE RESERVED SEAT ASSIGNMENT",
+                    "isChargeable": true,
+                    "amenityType": "PRE_RESERVED_SEAT",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "REFUNDABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "CHANGEABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  }
+                ]
+              },
+              {
+                "segmentId": "6",
+                "cabin": "ECONOMY",
+                "fareBasis": "SOW6DASS",
+                "brandedFare": "YSTANDARD",
+                "brandedFareLabel": "ECONOMY STANDARD",
+                "class": "S",
+                "includedCheckedBags": {
+                  "quantity": 1
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                },
+                "amenities": [
+                  {
+                    "description": "CHECKED BAG 1PC OF 23KG 158CM",
+                    "isChargeable": false,
+                    "amenityType": "BAGGAGE",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRE RESERVED SEAT ASSIGNMENT",
+                    "isChargeable": true,
+                    "amenityType": "PRE_RESERVED_SEAT",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "REFUNDABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "CHANGEABLE  TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "class": "PREMIUM_ECONOMY",
+    "count": 10,
+    "min_price": 7050.0,
+    "max_price": 33141.0,
+    "avg_price": 20202.9,
+    "offers": [
+      {
+        "type": "flight-offer",
+        "id": "1",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-02",
+        "lastTicketingDateTime": "2025-07-02",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT3H25M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "1",
+                  "at": "2025-07-03T15:00:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-03T19:25:00"
+                },
+                "carrierCode": "TR",
+                "number": "874",
+                "aircraft": {
+                  "code": "789"
+                },
+                "operating": {
+                  "carrierCode": "TR"
+                },
+                "duration": "PT3H25M",
+                "id": "8",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "7050.00",
+          "base": "6199.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "7050.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "SQ"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "7050.00",
+              "base": "6199.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "8",
+                "cabin": "PREMIUM_ECONOMY",
+                "fareBasis": "D0TR24",
+                "class": "D",
+                "includedCheckedBags": {
+                  "weight": 30,
+                  "weightUnit": "KG"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "2",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-02",
+        "lastTicketingDateTime": "2025-07-02",
+        "numberOfBookableSeats": 6,
+        "itineraries": [
+          {
+            "duration": "PT3H25M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "1",
+                  "at": "2025-07-03T06:45:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-03T11:10:00"
+                },
+                "carrierCode": "TR",
+                "number": "898",
+                "aircraft": {
+                  "code": "788"
+                },
+                "operating": {
+                  "carrierCode": "TR"
+                },
+                "duration": "PT3H25M",
+                "id": "7",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "9050.00",
+          "base": "8199.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "9050.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "SQ"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "9050.00",
+              "base": "8199.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "7",
+                "cabin": "PREMIUM_ECONOMY",
+                "fareBasis": "J0TR24",
+                "class": "J",
+                "includedCheckedBags": {
+                  "weight": 30,
+                  "weightUnit": "KG"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "3",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-02",
+        "lastTicketingDateTime": "2025-07-02",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT27H45M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "1",
+                  "at": "2025-07-03T01:30:00"
+                },
+                "arrival": {
+                  "iataCode": "SIN",
+                  "terminal": "1",
+                  "at": "2025-07-03T06:00:00"
+                },
+                "carrierCode": "TR",
+                "number": "897",
+                "aircraft": {
+                  "code": "788"
+                },
+                "operating": {
+                  "carrierCode": "TR"
+                },
+                "duration": "PT4H30M",
+                "id": "15",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "SIN",
+                  "terminal": "1",
+                  "at": "2025-07-03T22:15:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-04T06:15:00"
+                },
+                "carrierCode": "TR",
+                "number": "808",
+                "aircraft": {
+                  "code": "788"
+                },
+                "operating": {
+                  "carrierCode": "TR"
+                },
+                "duration": "PT7H",
+                "id": "16",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "19563.00",
+          "base": "16947.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "19563.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "HR"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "19563.00",
+              "base": "16947.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "15",
+                "cabin": "PREMIUM_ECONOMY",
+                "fareBasis": "D0TR24",
+                "class": "D",
+                "includedCheckedBags": {
+                  "weight": 30,
+                  "weightUnit": "KG"
+                }
+              },
+              {
+                "segmentId": "16",
+                "cabin": "PREMIUM_ECONOMY",
+                "fareBasis": "D0TR24",
+                "class": "D",
+                "includedCheckedBags": {
+                  "weight": 30,
+                  "weightUnit": "KG"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "class": "BUSINESS",
+    "count": 10,
+    "min_price": 21608.0,
+    "max_price": 27220.0,
+    "avg_price": 24619.6,
+    "offers": [
+      {
+        "type": "flight-offer",
+        "id": "1",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 8,
+        "itineraries": [
+          {
+            "duration": "PT6H10M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "2",
+                  "at": "2025-07-03T13:50:00"
+                },
+                "arrival": {
+                  "iataCode": "ICN",
+                  "terminal": "1",
+                  "at": "2025-07-03T17:25:00"
+                },
+                "carrierCode": "OZ",
+                "number": "712",
+                "aircraft": {
+                  "code": "388"
+                },
+                "operating": {
+                  "carrierCode": "OZ"
+                },
+                "duration": "PT2H35M",
+                "id": "1",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "ICN",
+                  "terminal": "1",
+                  "at": "2025-07-03T18:30:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-03T21:00:00"
+                },
+                "carrierCode": "OZ",
+                "number": "108",
+                "aircraft": {
+                  "code": "333"
+                },
+                "operating": {
+                  "carrierCode": "OZ"
+                },
+                "duration": "PT2H30M",
+                "id": "2",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "21608.00",
+          "base": "20400.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "21608.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "OZ"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "21608.00",
+              "base": "20400.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "1",
+                "cabin": "BUSINESS",
+                "fareBasis": "UHOSJ",
+                "class": "U",
+                "includedCheckedBags": {
+                  "quantity": 2
+                },
+                "includedCabinBags": {
+                  "quantity": 2
+                }
+              },
+              {
+                "segmentId": "2",
+                "cabin": "BUSINESS",
+                "fareBasis": "UHOSJ",
+                "class": "U",
+                "includedCheckedBags": {
+                  "quantity": 2
+                },
+                "includedCabinBags": {
+                  "quantity": 2
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "2",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT20H30M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "2",
+                  "at": "2025-07-03T13:50:00"
+                },
+                "arrival": {
+                  "iataCode": "ICN",
+                  "terminal": "1",
+                  "at": "2025-07-03T17:25:00"
+                },
+                "carrierCode": "OZ",
+                "number": "712",
+                "aircraft": {
+                  "code": "388"
+                },
+                "operating": {
+                  "carrierCode": "OZ"
+                },
+                "duration": "PT2H35M",
+                "id": "11",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              },
+              {
+                "departure": {
+                  "iataCode": "ICN",
+                  "terminal": "1",
+                  "at": "2025-07-04T09:00:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "1",
+                  "at": "2025-07-04T11:20:00"
+                },
+                "carrierCode": "OZ",
+                "number": "102",
+                "aircraft": {
+                  "code": "388"
+                },
+                "operating": {
+                  "carrierCode": "OZ"
+                },
+                "duration": "PT2H20M",
+                "id": "12",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "21608.00",
+          "base": "20400.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "21608.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "OZ"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "21608.00",
+              "base": "20400.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "11",
+                "cabin": "BUSINESS",
+                "fareBasis": "UHOSJ",
+                "class": "U",
+                "includedCheckedBags": {
+                  "quantity": 2
+                },
+                "includedCabinBags": {
+                  "quantity": 2
+                }
+              },
+              {
+                "segmentId": "12",
+                "cabin": "BUSINESS",
+                "fareBasis": "UHOSJ",
+                "class": "U",
+                "includedCheckedBags": {
+                  "quantity": 2
+                },
+                "includedCabinBags": {
+                  "quantity": 2
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "flight-offer",
+        "id": "3",
+        "source": "GDS",
+        "instantTicketingRequired": false,
+        "nonHomogeneous": false,
+        "oneWay": false,
+        "isUpsellOffer": false,
+        "lastTicketingDate": "2025-07-03",
+        "lastTicketingDateTime": "2025-07-03",
+        "numberOfBookableSeats": 9,
+        "itineraries": [
+          {
+            "duration": "PT3H15M",
+            "segments": [
+              {
+                "departure": {
+                  "iataCode": "TPE",
+                  "terminal": "1",
+                  "at": "2025-07-03T13:00:00"
+                },
+                "arrival": {
+                  "iataCode": "NRT",
+                  "terminal": "2",
+                  "at": "2025-07-03T17:15:00"
+                },
+                "carrierCode": "CX",
+                "number": "450",
+                "aircraft": {
+                  "code": "333"
+                },
+                "operating": {
+                  "carrierCode": "CX"
+                },
+                "duration": "PT3H15M",
+                "id": "5",
+                "numberOfStops": 0,
+                "blacklistedInEU": false
+              }
+            ]
+          }
+        ],
+        "price": {
+          "currency": "TWD",
+          "total": "22127.00",
+          "base": "21060.00",
+          "fees": [
+            {
+              "amount": "0.00",
+              "type": "SUPPLIER"
+            },
+            {
+              "amount": "0.00",
+              "type": "TICKETING"
+            }
+          ],
+          "grandTotal": "22127.00"
+        },
+        "pricingOptions": {
+          "fareType": [
+            "PUBLISHED"
+          ],
+          "includedCheckedBagsOnly": true
+        },
+        "validatingAirlineCodes": [
+          "CX"
+        ],
+        "travelerPricings": [
+          {
+            "travelerId": "1",
+            "fareOption": "STANDARD",
+            "travelerType": "ADULT",
+            "price": {
+              "currency": "TWD",
+              "total": "22127.00",
+              "base": "21060.00"
+            },
+            "fareDetailsBySegment": [
+              {
+                "segmentId": "5",
+                "cabin": "BUSINESS",
+                "fareBasis": "PT99PCTO",
+                "brandedFare": "BIZESSENT",
+                "brandedFareLabel": "BUSINESS ESSENTIAL",
+                "class": "P",
+                "includedCheckedBags": {
+                  "quantity": 2
+                },
+                "includedCabinBags": {
+                  "quantity": 1
+                },
+                "amenities": [
+                  {
+                    "description": "SEAT ASSIGNMENT",
+                    "isChargeable": false,
+                    "amenityType": "PRE_RESERVED_SEAT",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRIORITY CHKIN AT CERTAIN PORT",
+                    "isChargeable": false,
+                    "amenityType": "TRAVEL_SERVICES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "PRIORITY BOARDING",
+                    "isChargeable": false,
+                    "amenityType": "TRAVEL_SERVICES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "REFUNDABLE TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "MILEAGE ACCRUAL",
+                    "isChargeable": false,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "UPGRADE ELIGIBILITY",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  },
+                  {
+                    "description": "CHANGEABLE TICKET",
+                    "isChargeable": true,
+                    "amenityType": "BRANDED_FARES",
+                    "amenityProvider": {
+                      "name": "BrandedFare"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "class": "FIRST",
+    "count": 0
+  }
+]

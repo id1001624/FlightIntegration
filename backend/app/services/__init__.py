@@ -11,6 +11,7 @@ from .airport_service import AirportService
 from .airline_service import AirlineService
 from .flight_details_service import FlightDetailsService
 from .price_analysis_service import PriceAnalysisService
+from .realtime_price_service import RealtimePriceService, realtime_price_service
 from .db_utils import execute_db_operation, execute_query, normalize_cabin_class, get_price_field_by_cabin_class
 
 # 設置服務別名 (向後兼容)

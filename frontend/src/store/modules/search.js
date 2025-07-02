@@ -173,7 +173,7 @@ export const useSearchStore = defineStore('search', {
         // 搜索成功後，添加到最近搜索記錄
         // 如果參數中沒有完整的機場物件，就不添加到最近搜索
         if (params.departureAirport && params.arrivalAirport) {
-          this.addRecentSearch(params);
+        this.addRecentSearch(params);
         }
 
       } catch (error) {

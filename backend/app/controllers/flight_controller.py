@@ -14,6 +14,8 @@ from ..services.flight_search_service import FlightSearchService
 from ..services.flight_details_service import FlightDetailsService
 from ..utils.api_helper import api_response
 from ..schemas.flight_schema import FlightSchema, FlightSearchArgsSchema
+from ..services.realtime_price_service import realtime_price_service
+from asgiref.sync import async_to_sync
 
 # 創建藍圖
 flight_bp = Blueprint('flights', __name__)
@@ -75,6 +77,27 @@ async def search_flights():
         return api_response(success=False, message=err.messages, status_code=400)
 
     try:
+        # 1. 首先嘗試從實時價格服務獲取數據
+        realtime_result = await realtime_price_service.search_flight_prices(
+            origin=args['departure_code'],
+            destination=args['arrival_code'],
+            departure_date=args['date_str'],
+            cabin_preference=args.get('cabin_class'),
+            use_cache=True
+        )
+        
+        if realtime_result["success"] and realtime_result["data"]:
+            # 有實時數據，直接返回
+            return api_response(
+                success=True,
+                message=realtime_result["message"],
+                data=realtime_result["data"]
+            )
+        
+        # 2. 如果實時 API 沒有數據，回退到原有的靜態數據庫查詢
+        logger.info(f"實時 API 無數據，回退到靜態數據庫查詢：{args['departure_code']}->{args['arrival_code']}")
+        
+        # 使用原有的 FlightSearchService
         result = await FlightSearchService.search_flights(**args)
         
         return api_response(

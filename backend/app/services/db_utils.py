@@ -79,6 +79,8 @@ def normalize_cabin_class(cabin_class: str) -> str:
     cabin_mapping = {
         '經濟': 'economy',
         '經濟艙': 'economy',
+        '豪華經濟': 'premium_economy',
+        '豪華經濟艙': 'premium_economy',
         '商務': 'business',
         '商務艙': 'business',
         '頭等': 'first', 
@@ -100,12 +102,13 @@ def get_price_field_by_cabin_class(cabin_class: str) -> str:
     
     field_mapping = {
         'economy': 'economy_price',
+        'premium_economy': 'premium_economy_price',
         'business': 'business_price',
         'first': 'first_price'
     }
     
     # 如果已經是欄位名稱，則直接返回
-    if cabin_class in ['economy_price', 'business_price', 'first_price']:
+    if cabin_class in ['economy_price', 'premium_economy_price', 'business_price', 'first_price']:
         return cabin_class
     
     # 否則查找映射
@@ -117,6 +120,7 @@ def get_display_name_by_cabin_field(cabin_field: str) -> str:
     """
     display_mapping = {
         'economy_price': '經濟艙',
+        'premium_economy_price': '豪華經濟艙',
         'business_price': '商務艙',
         'first_price': '頭等艙'
     }

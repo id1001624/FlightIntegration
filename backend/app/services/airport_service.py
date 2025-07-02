@@ -37,22 +37,22 @@ class AirportService:
         logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculating activity for dates: {future_start_date} (inclusive) to {future_end_date} (exclusive)")
 
         try:
-        sql = """
-        SELECT
-            f.departure_airport_id,
-                COUNT(f.flight_id) as flight_count
-        FROM
-            flights f
-        JOIN
-            airports a ON f.departure_airport_id = a.airport_id
-        WHERE
-            a.country = 'Taiwan'
-            AND f.scheduled_departure >= $1
-            AND f.scheduled_departure < $2 
-            -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
-        GROUP BY
-            f.departure_airport_id;
-        """
+            sql = """
+            SELECT
+                f.departure_airport_id,
+                    COUNT(f.flight_id) as flight_count
+            FROM
+                flights f
+            JOIN
+                airports a ON f.departure_airport_id = a.airport_id
+            WHERE
+                a.country = 'Taiwan'
+                AND f.scheduled_departure >= $1
+                AND f.scheduled_departure < $2 
+                -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
+            GROUP BY
+                f.departure_airport_id;
+            """
             
             rows = await conn.fetch(sql, future_start_date, future_end_date)
             activity_scores = {}

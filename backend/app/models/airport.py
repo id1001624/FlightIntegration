@@ -44,7 +44,7 @@ class Airport(Base):
     @classmethod
     def get_by_country(cls, country):
         """獲取指定國家的所有機場"""
-        return cls.query.filter_by(country=country).all()
+        return cls.query.filter_by(country=country).all() 
 
 class AirportDestination(Base):
     """機場目的地緩存表 - 用於快速查詢可用目的地，避免 API 延遲"""
