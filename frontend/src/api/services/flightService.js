@@ -95,6 +95,46 @@ const flightService = {
   },
 
   /**
+   * 獲取台灣國際機場（僅有國際航班的機場）
+   * @returns {Promise} 返回台灣國際機場列表
+   */
+  async getTaiwanInternationalAirports() {
+    const cacheKey = `taiwan_international_airports`;
+    
+    if (checkCache('airports', cacheKey)) {
+      return cache.airports.data[cacheKey];
+    }
+
+    try {
+      const response = await api.get('/airports/taiwan-international');
+      
+      const data = this._handleResponse(response);
+      
+      if (!data || !Array.isArray(data)) {
+        throw new Error('API未返回有效的台灣國際機場列表數據');
+      }
+      
+      // 為台灣機場添加活躍度分數和地區信息
+      const enhancedData = data.map(airport => ({
+        ...airport,
+        activity_score: airport.activity_score !== undefined ? airport.activity_score : 0,
+        region: '台灣'
+      }));
+      
+      // 按活躍度分數排序（如果有的話）
+      enhancedData.sort((a, b) => (b.activity_score || 0) - (a.activity_score || 0));
+      
+      cache.airports.data[cacheKey] = enhancedData;
+      cache.airports.timestamp[cacheKey] = Date.now();
+      
+      return enhancedData;
+    } catch (error) {
+      console.error('獲取台灣國際機場列表失敗:', error);
+      throw error;
+    }
+  },
+
+  /**
    * 獲取指定出發機場的目的地列表（優先使用快速緩存）
    * @param {string} departureCode 出發機場代碼
    * @param {string} date 日期（可選）

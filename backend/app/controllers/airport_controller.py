@@ -45,6 +45,19 @@ async def get_taiwan_airports():
         current_app.logger.error(f"獲取台灣機場列表失敗: {e}", exc_info=True)
         return _error_response('獲取台灣機場列表失敗', 500)
 
+@airport_bp.route('/taiwan-international', methods=['GET'], endpoint='get_taiwan_international_airports')
+@cache.cached(timeout=7200)
+async def get_taiwan_international_airports():
+    """獲取台灣國際機場（僅有國際航班的機場）"""
+    try:
+        # 直接指定台灣的國際機場代碼
+        international_airport_codes = ['TPE', 'TSA', 'KHH', 'RMQ', 'HUN']
+        airports = await airport_service.get_airports_by_codes(international_airport_codes)
+        return _success_response(airports)
+    except Exception as e:
+        current_app.logger.error(f"獲取台灣國際機場列表失敗: {e}", exc_info=True)
+        return _error_response('獲取台灣國際機場列表失敗', 500)
+
 @airport_bp.route('/<string:airport_id>', methods=['GET'], endpoint='get_airport_by_id')
 @cache.cached(timeout=7200)
 async def get_airport_by_id(airport_id):
@@ -83,7 +96,7 @@ async def get_available_destinations(departure_code):
         return _success_response(airports)
     except Exception as e:
         current_app.logger.error(f"獲取從 {departure_id} 出發的可用目的地失敗: {e}", exc_info=True)
-        return _error_response('獲取可用目的地失敗', 500)
+        return _error_response('獲取可用目的地失敗', 500) 
 
 @airport_bp.route('/batch', methods=['GET'], endpoint='get_airports_batch')
 @cache.cached(timeout=7200, query_string=True)

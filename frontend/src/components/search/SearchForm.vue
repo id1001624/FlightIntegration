@@ -188,31 +188,33 @@ export default {
 
     const fetchTaiwanAirports = async () => {
       if (taiwanAirports.value.length > 0) return;
-      
+
       try {
         loadingTaiwanAirports.value = true;
-        const airportsData = await flightService.getTaiwanAirports();
+        const airportsData = await flightService.getTaiwanInternationalAirports();
         
         let airportsArray = [];
         if (Array.isArray(airportsData)) {
           airportsArray = airportsData;
-        } else if (airportsData && airportsData.success && Array.isArray(airportsData.data)) {
+        } else if (airportsData && airportsData.data && Array.isArray(airportsData.data)) {
           airportsArray = airportsData.data;
+        } else if (airportsData && typeof airportsData === 'object') {
+          airportsArray = [airportsData];
         } else {
-          console.error('獲取台灣機場列表：資料格式不符合預期');
+          throw new Error('無效的機場數據格式');
         }
         
         taiwanAirports.value = airportsArray.map(airport => ({
-          ...airport,
-          id: airport.id || airport.airport_id,
-          code: airport.iata_code || airport.code || airport.airport_id,
-          name: airport.name || airport.name_zh || airport.name_en || '未知名稱',
-          city: airport.city || '',
-          country: airport.country || 'Taiwan',
-          region: airport.region || '台灣'
+          code: airport.airport_id || airport.code,
+          name: airport.name_zh || airport.name || airport.name_en,
+          name_zh: airport.name_zh || airport.name,
+          country: airport.country,
+          region: airport.region || '台灣',
+          activity_score: airport.activity_score || 0
         }));
+
       } catch (error) {
-        console.error('獲取台灣機場列表時出錯:', error);
+        console.error('獲取台灣國際機場失敗:', error);
       } finally {
         loadingTaiwanAirports.value = false;
       }

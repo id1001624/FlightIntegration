@@ -275,42 +275,42 @@ export default {
       return props.isDeparture && props.airports.some(airport => airport.country === 'Taiwan');
     });
 
-    // 台灣機場列表
+    // 台灣機場列表 - 只包含國際機場
     const taiwanAirports = computed(() => {
-      const coreCodes = ['TPE', 'TSA', 'KHH']; // 核心機場代碼
-      const desiredOrder = ['TPE', 'TSA', 'KHH']; // 期望的核心機場順序
+      // 台灣國際機場代碼
+      const taiwanInternationalCodes = ['TPE', 'TSA', 'KHH', 'RMQ', 'HUN'];
+      const desiredOrder = ['TPE', 'TSA', 'KHH', 'RMQ', 'HUN']; // 期望的排序
 
-      // 1. 過濾出台灣的機場
-      let airportsInTaiwan = props.airports.filter(airport => airport.country === 'Taiwan');
+      // 1. 過濾出台灣的國際機場
+      let internationalAirports = props.airports.filter(airport => 
+        taiwanInternationalCodes.includes(airport.code) && airport.country === 'Taiwan'
+      );
 
-      // 2. 分離核心機場和其他台灣機場
-      const coreAirports = airportsInTaiwan.filter(airport => coreCodes.includes(airport.code));
-      const otherAirports = airportsInTaiwan.filter(airport => !coreCodes.includes(airport.code));
-
-      // 3. 核心機場按 desiredOrder 排序
-      const coreAirportsInDesiredOrder = coreAirports.sort((a, b) => {
-        return desiredOrder.indexOf(a.code) - desiredOrder.indexOf(b.code);
-      });
-
-      // 4. 其他台灣機場按 activity_score 降序，然後按中文名升序
-      const sortedOtherAirports = otherAirports.sort((a, b) => {
-        // 確保 activity_score 是數字，如果不是或未定義，則視為0
+      // 2. 按期望順序排序
+      const sortedAirports = internationalAirports.sort((a, b) => {
+        const indexA = desiredOrder.indexOf(a.code);
+        const indexB = desiredOrder.indexOf(b.code);
+        
+        // 如果在期望順序中，按順序排列
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        
+        // 如果都不在期望順序中，按 activity_score 排序
         const scoreA = Number(a.activity_score) || 0;
         const scoreB = Number(b.activity_score) || 0;
-
+        
         if (scoreB !== scoreA) {
           return scoreB - scoreA; // activity_score 高的在前
         }
-        // 如果 activity_score 相同，則按機場中文名稱 (name) 進行排序
+        
+        // 最後按中文名稱排序
         const nameA = a.name || '';
         const nameB = b.name || '';
         return nameA.localeCompare(nameB, 'zh-Hant');
       });
-
-      // 5. 合併核心機場和其他機場
-      const finalSortedList = [...coreAirportsInDesiredOrder, ...sortedOtherAirports];
       
-      return finalSortedList;
+      return sortedAirports;
     });
 
     // 熱門目的地

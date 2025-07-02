@@ -26,7 +26,6 @@ TAIWAN_AIRPORTS = [
     'TSA',  # 台北松山機場
     'KHH',  # 高雄國際機場
     'RMQ',  # 台中清泉崗機場
-    'HUN',  # 花蓮機場 (主要為包機)
 ]
 
 # 台北機場IATA代碼
@@ -132,10 +131,7 @@ POPULAR_ROUTES_TUPLES = [
     
     # 台中清泉崗機場 (RMQ) 熱門航線
     ('RMQ', 'HKG'), ('RMQ', 'MFM'), ('RMQ', 'SGN'), ('RMQ', 'KIX'), ('RMQ', 'NRT'),
-    ('RMQ', 'OKA'), ('RMQ', 'ICN'),
-    
-    # 花蓮機場 (HUN) 熱門航線
-    ('HUN', 'HKG')
+    ('RMQ', 'OKA'), ('RMQ', 'ICN')
 ]
 
 # 2. 所有國際航線目的地
@@ -148,7 +144,6 @@ TPE_INTERNATIONAL_DESTINATIONS = [
 TSA_INTERNATIONAL_DESTINATIONS = ['HND', 'HKG', 'GMP', 'PVG', 'SHA', 'ITM', 'OKA', 'CTS', 'ICN']
 KHH_INTERNATIONAL_DESTINATIONS = ['HKG', 'BKK', 'NRT', 'KIX', 'ICN', 'MNL', 'SIN', 'MFM']
 RMQ_INTERNATIONAL_DESTINATIONS = ['HKG', 'MFM', 'SGN', 'KIX', 'NRT', 'OKA', 'ICN']
-HUN_INTERNATIONAL_DESTINATIONS = ['HKG']
 
 # 3. 創建所有國際航線元組
 ALL_ROUTES_TUPLES = []
@@ -156,12 +151,12 @@ ALL_ROUTES_TUPLES.extend([('TPE', dest) for dest in TPE_INTERNATIONAL_DESTINATIO
 ALL_ROUTES_TUPLES.extend([('TSA', dest) for dest in TSA_INTERNATIONAL_DESTINATIONS])
 ALL_ROUTES_TUPLES.extend([('KHH', dest) for dest in KHH_INTERNATIONAL_DESTINATIONS])
 ALL_ROUTES_TUPLES.extend([('RMQ', dest) for dest in RMQ_INTERNATIONAL_DESTINATIONS])
-ALL_ROUTES_TUPLES.extend([('HUN', dest) for dest in HUN_INTERNATIONAL_DESTINATIONS])
+
 
 
 # 4. 確保熱門航線包含在內 (作為安全檢查)
 def ensure_routes_included(routes_to_check, all_routes):
-    """確保指定的航線集合是所有航線的子集，若不是則添加"""
+    """確保指定的航線集合是所有航線的子集，若不是則添加"""  
     for route in routes_to_check:
         if route not in all_routes:
             logger.warning(f"警告：熱門航線 {route} 未包含在 ALL_ROUTES_TUPLES 中，已自動添加。請檢查定義。")

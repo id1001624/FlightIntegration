@@ -56,7 +56,7 @@ async def search_flights():
         description: 成人乘客數量
       - name: max_results
         in: query
-        type: integer
+          type: integer
         default: 10
         description: 最大返回結果數量
     responses:

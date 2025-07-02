@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class AirportService:
     """機場服務類，提供機場相關的業務邏輯處理"""
-
+    
     @staticmethod
     async def _get_taiwan_airport_activity_scores_async(conn, days_ahead: int = 7) -> Dict[str, int]:
         """
@@ -33,26 +33,26 @@ class AirportService:
         today = datetime.utcnow().date()
         future_start_date = today 
         future_end_date = today + timedelta(days=days_ahead)
-        
+
         logger.info(f"[_get_taiwan_airport_activity_scores_async] Calculating activity for dates: {future_start_date} (inclusive) to {future_end_date} (exclusive)")
 
         try:
-            sql = """
-            SELECT 
-                f.departure_airport_id,
+        sql = """
+        SELECT
+            f.departure_airport_id,
                 COUNT(f.flight_id) as flight_count
-            FROM 
-                flights f
-            JOIN 
-                airports a ON f.departure_airport_id = a.airport_id
-            WHERE 
-                a.country = 'Taiwan'
-                AND f.scheduled_departure >= $1
-                AND f.scheduled_departure < $2 
-                -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
-            GROUP BY
-                f.departure_airport_id;
-            """
+        FROM
+            flights f
+        JOIN
+            airports a ON f.departure_airport_id = a.airport_id
+        WHERE
+            a.country = 'Taiwan'
+            AND f.scheduled_departure >= $1
+            AND f.scheduled_departure < $2 
+            -- AND f.is_test_data = FALSE  -- 確保這行仍然是註解狀態
+        GROUP BY
+            f.departure_airport_id;
+        """
             
             rows = await conn.fetch(sql, future_start_date, future_end_date)
             activity_scores = {}
@@ -294,14 +294,14 @@ class AirportService:
             
             logger.info(f"從機場ID {dep_code_upper} 查詢到的目的地數量: {len(destinations)} {' (日期範圍: ' + date + ' ±3天)' if date else ' (所有未來航班)'}")
             return destinations
-
+        
         # 使用通用資料庫操作模式
         pool = await init_asyncpg_pool()
         if not pool:
             return []
         async with pool.acquire() as conn:
             return await fetch_destinations(conn, departure_airport_param)
-
+    
     @staticmethod
     async def get_airport_by_id(airport_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -347,7 +347,7 @@ class AirportService:
         finally:
             if conn and pool:
                 await pool.release(conn)
-
+                
     @staticmethod
     async def search_airports(
         keyword: str, 
@@ -376,9 +376,9 @@ class AirportService:
                 country
             FROM airports
             WHERE 
-                name_zh ILIKE $1 OR 
-                name_en ILIKE $1 OR 
-                city ILIKE $1 OR 
+                name_zh ILIKE $1 OR
+                name_en ILIKE $1 OR
+                city ILIKE $1 OR
                 country ILIKE $1 OR
                 airport_id ILIKE $1
             ORDER BY 
@@ -417,10 +417,10 @@ class AirportService:
         """
         獲取所有有有效未來出發航班的機場列表
         結果按機場的航班數量降序排序，然後按城市、機場名稱排序
-        
+
         Args:
             limit (int, optional): 返回結果的最大數量。預設為 200
-            
+
         Returns:
             List[Dict[str, Any]]: 機場列表，每個機場包含代碼、名稱、城市、國家和未來航班數量
         """
@@ -633,7 +633,7 @@ class AirportService:
             return []
         finally:
             if conn and pool:
-                await pool.release(conn)
+                await pool.release(conn) 
 
     async def get_destinations_cached(self, departure_airport_id: str, fallback_to_amadeus: bool = True) -> List[Dict[str, Any]]:
         """
