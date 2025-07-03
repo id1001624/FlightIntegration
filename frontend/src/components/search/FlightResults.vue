@@ -121,12 +121,15 @@ export default {
             case 'price-desc':
               const priceA = a.price?.amount;
               const priceB = b.price?.amount;
-              // 更安全的比較，處理 null/undefined
-              const valA = (typeof priceA === 'number') ? priceA : Infinity; 
-              const valB = (typeof priceB === 'number') ? priceB : Infinity;
-              comparison = valA - valB;
+              // 確保價格正確轉換為數字進行比較（處理字串和數字）
+              const valA = (priceA !== null && priceA !== undefined) ? parseFloat(priceA) : Infinity; 
+              const valB = (priceB !== null && priceB !== undefined) ? parseFloat(priceB) : Infinity;
+              // 檢查轉換後是否為有效數字
+              const finalA = isNaN(valA) ? Infinity : valA;
+              const finalB = isNaN(valB) ? Infinity : valB;
+              comparison = finalA - finalB;
               if (option === 'price-desc') comparison = -comparison;
-              // console.log(`[Sort Price] A: ${priceA}, B: ${priceB}, Comp: ${comparison}`);
+              console.log(`[Sort Price] A: ${priceA} (${finalA}), B: ${priceB} (${finalB}), Comparison: ${comparison}`);
               break;
             case 'departure-asc':
             case 'departure-desc':

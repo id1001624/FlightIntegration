@@ -302,14 +302,28 @@ class AirlineService:
                         columns=columns
                     )
 
-                    # 執行 "upsert" 操作：如果 airline_id 衝突，則更新；否則插入新記錄
+                    # 智能 "upsert" 操作：只更新未完善的欄位，保護手動維護的資料
                     upsert_sql = f"""
                     INSERT INTO {table_name} (airline_id, name_zh, name_en, logo_path)
                     SELECT airline_id, name_zh, name_en, logo_path FROM {temp_table_name}
                     ON CONFLICT (airline_id) DO UPDATE SET
-                        name_zh = EXCLUDED.name_zh,
-                        name_en = EXCLUDED.name_en,
-                        logo_path = EXCLUDED.logo_path;
+                        name_zh = CASE 
+                            WHEN {table_name}.name_zh IS NULL 
+                              OR {table_name}.name_zh = '' 
+                              OR {table_name}.name_zh = {table_name}.name_en 
+                            THEN EXCLUDED.name_zh 
+                            ELSE {table_name}.name_zh 
+                        END,
+                        name_en = CASE 
+                            WHEN {table_name}.name_en IS NULL OR {table_name}.name_en = '' 
+                            THEN EXCLUDED.name_en 
+                            ELSE {table_name}.name_en 
+                        END,
+                        logo_path = CASE 
+                            WHEN {table_name}.logo_path IS NULL OR {table_name}.logo_path = '' 
+                            THEN EXCLUDED.logo_path 
+                            ELSE {table_name}.logo_path 
+                        END;
                     """
                     await conn.execute(upsert_sql)
                     

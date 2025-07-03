@@ -13,7 +13,8 @@ export const useSearchStore = defineStore('search', {
       arrivalAirport: null,
       departureDate: null,
       returnDate: null,
-      classType: 'Economy'
+      cabinClass: 'Economy',
+      passengers: { adults: 1, children: 0, infants: 0 }
     },
     
     // 搜索結果
@@ -142,7 +143,7 @@ export const useSearchStore = defineStore('search', {
       // 更新其他參數
       this.searchParams.departureDate = paramsCopy.departureDate || this.searchParams.departureDate;
       this.searchParams.returnDate = paramsCopy.returnDate || this.searchParams.returnDate;
-      this.searchParams.classType = paramsCopy.classType || this.searchParams.classType;
+      this.searchParams.cabinClass = paramsCopy.cabinClass || this.searchParams.cabinClass;
     },
     
     // 異步搜索航班的 Action
@@ -154,12 +155,13 @@ export const useSearchStore = defineStore('search', {
 
       try {
         // 適配 SearchForm.vue 發出的參數格式
-        // SearchForm 發出: { departure: 'TPE', arrival: 'ICN', date: '2025-06-26', ... }
-        // 但 flightService.searchFlights 期望: { departureCode, arrivalCode, departureDate }
+        // SearchForm 發出: { departure: 'TPE', arrival: 'ICN', date: '2025-06-26', cabinClass: 'Economy', ... }
+        // 但 flightService.searchFlights 期望: { departureCode, arrivalCode, departureDate, cabinClass }
         const searchParams = {
           departureCode: params.departure || params.departureAirport?.code,
           arrivalCode: params.arrival || params.arrivalAirport?.code,
           departureDate: params.date || params.departureDate,
+          cabinClass: params.cabinClass || 'Economy' // 修復：統一使用cabinClass
         };
         
         console.log('[SearchStore] 轉換後的 flightService 參數:', searchParams);
@@ -249,7 +251,8 @@ export const useSearchStore = defineStore('search', {
         arrivalAirport: null,
         departureDate: null,
         returnDate: null,
-        classType: 'Economy'
+        cabinClass: 'Economy',
+        passengers: { adults: 1, children: 0, infants: 0 }
       };
       this.flights = [];
       this.filteredFlights = [];

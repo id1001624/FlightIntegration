@@ -101,10 +101,10 @@ async def search_flights():
         search_args = {
             'departure_code': args['departure_code'],
             'arrival_code': args['arrival_code'],
-            'date_str': args['date'].strftime('%Y-%m-%d') if hasattr(args['date'], 'strftime') else str(args['date']),
-            'passengers': args.get('adults', 1),  # 使用 adults 值但傳遞給 passengers 參數
-            'max_results': args.get('max', 20),   # 使用 max 值但傳遞給 max_results 參數
-            'cabin_class': args.get('travel_class', '經濟艙'),
+            'date_str': args['date_str'] if 'date_str' in args else (args['date'].strftime('%Y-%m-%d') if hasattr(args.get('date'), 'strftime') else str(args.get('date', args['date_str']))),
+            'passengers': args.get('passengers', 1),
+            'max_results': args.get('max_results', 50),
+            'cabin_class': args.get('cabin_class', 'Economy'),  # 修復參數映射
             'sort_by': 'price'
         }
         

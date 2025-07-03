@@ -17,7 +17,6 @@ class Airport(Base):
     timezone = db.Column(db.String, nullable=False)
     contact_info = db.Column(db.String)
     website_url = db.Column(db.String)
-    needs_manual_update = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     
     # 時間戳欄位
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

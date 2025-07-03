@@ -17,9 +17,30 @@ class AmadeusService:
         self._session = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """獲取或創建一個 aiohttp ClientSession。"""
+        """獲取或創建一個 aiohttp ClientSession，配置適當的連接參數。"""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            # 配置連接器以優化連接管理
+            connector = aiohttp.TCPConnector(
+                limit=30,  # 總連接池大小
+                limit_per_host=10,  # 每個主機的連接數限制
+                ttl_dns_cache=300,  # DNS 緩存 5 分鐘
+                use_dns_cache=True,
+                keepalive_timeout=60,  # 保持連接 60 秒
+                enable_cleanup_closed=True
+            )
+            
+            # 配置超時設置
+            timeout = aiohttp.ClientTimeout(
+                total=120,  # 總超時 2 分鐘
+                connect=30,  # 連接超時 30 秒
+                sock_read=60  # 讀取超時 60 秒
+            )
+            
+            self._session = aiohttp.ClientSession(
+                connector=connector,
+                timeout=timeout,
+                raise_for_status=False  # 手動處理 HTTP 錯誤
+            )
         return self._session
 
     async def close_session(self):

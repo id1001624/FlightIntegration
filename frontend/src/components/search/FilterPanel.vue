@@ -6,7 +6,8 @@
     </div>
     
     <AirlineFilter 
-      :airlines="flights" 
+      :airlines="allAirlines"
+      :flights="flights"
       v-model="selectedAirlines"
     />
     
@@ -25,7 +26,8 @@
 <script>
 import AirlineFilter from '../AirlineFilter.vue';
 import PriceRangeSelector from './PriceRangeSelector.vue';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
+import flightService from '../../api/services/flightService';
 
 export default {
   name: 'FilterPanel',
@@ -42,6 +44,7 @@ export default {
   emits: ['filter-change'],
   setup(props, { emit }) {
     const selectedAirlines = ref([]);
+    const allAirlines = ref([]);
     const priceRange = ref({
       min: 0,
       max: 50000
@@ -49,6 +52,34 @@ export default {
     const defaultPriceRange = ref({
       min: 0,
       max: 50000
+    });
+
+    // 獲取所有航空公司列表
+    const loadAllAirlines = async () => {
+      try {
+        const airlines = await flightService.getAirlines();
+        console.log('獲取到的所有航空公司:', airlines);
+        
+        // 轉換數據格式以符合AirlineFilter的期望
+        allAirlines.value = airlines.map(airline => ({
+          code: airline.airline_id,
+          name: airline.name_zh || airline.name_en || airline.airline_id,
+          name_zh: airline.name_zh,
+          name_en: airline.name_en,
+          logo_path: airline.logo_path,
+          is_domestic: airline.is_domestic
+        }));
+        
+        console.log('轉換後的航空公司數據:', allAirlines.value);
+      } catch (error) {
+        console.error('獲取航空公司列表失敗:', error);
+        allAirlines.value = [];
+      }
+    };
+
+    // 組件掛載時獲取航空公司列表
+    onMounted(() => {
+      loadAllAirlines();
     });
 
     // 計算所有航班中的最低和最高價格
@@ -187,7 +218,8 @@ export default {
       resetFilters,
       updatePriceRange,
       priceHistogramData,
-      averageFlightPrice
+      averageFlightPrice,
+      allAirlines
     };
   }
 };

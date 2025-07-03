@@ -206,8 +206,8 @@ export default {
         
         taiwanAirports.value = airportsArray.map(airport => ({
           code: airport.airport_id || airport.code,
-          name: airport.name_zh || airport.name || airport.name_en,
-          name_zh: airport.name_zh || airport.name,
+                      name: airport.name_zh || airport.name_en || airport.name || '未知機場',
+            name_zh: airport.name_zh || airport.name || '',
           country: airport.country,
           region: airport.region || '台灣',
           activity_score: airport.activity_score || 0
@@ -339,7 +339,7 @@ export default {
         if (destinationsArray && destinationsArray.length > 0) {
           const mappedDestinations = destinationsArray.map(airport => {
             const code = airport.code || airport.airport_id || 'N/A';
-            const name = airport.name_zh || airport.name || '未知名稱';
+            const name = airport.name_zh || airport.name_en || airport.name || '未知名稱';
             const country = airport.country || '';
 
             let region = '其他';
@@ -367,8 +367,8 @@ export default {
               id: airport.id || airport.airport_id,
               code: code,
               name: name,
-              name_zh: airport.name_zh || '',
-              name_en: airport.name || '',
+                          name_zh: airport.name_zh || '',
+            name_en: airport.name_en || airport.name || '',
               city: airport.city || '',
               country: country,
               region: region
@@ -504,7 +504,7 @@ export default {
         arrival: formData.arrivalAirport.code,
         date: formData.departureDate,
         return_date: formData.returnDate || null,
-        class_type: formData.cabinClass,
+        cabinClass: formData.cabinClass,
       };
       
       emit('search', searchData);

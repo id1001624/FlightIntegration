@@ -337,17 +337,17 @@ const flightService = {
 
   /**
    * 根據指定參數搜索航班
-   * @param {object} params - 搜索參數 { departureCode, arrivalCode, departureDate }
+   * @param {object} params - 搜索參數 { departureCode, arrivalCode, departureDate, cabinClass }
    * @returns {Promise<Array>} 返回航班結果數組
    */
   async searchFlights(params) {
-    const { departureCode, arrivalCode, departureDate } = params;
+    const { departureCode, arrivalCode, departureDate, cabinClass } = params;
     if (!departureCode || !arrivalCode || !departureDate) {
       console.error('搜索航班缺少必要參數:', params);
       return Promise.reject(new Error('出發地、目的地和日期為必填項。'));
     }
 
-    const cacheKey = `${departureCode}-${arrivalCode}-${departureDate}`;
+    const cacheKey = `${departureCode}-${arrivalCode}-${departureDate}-${cabinClass || 'Economy'}`;
     if (checkCache('flights', cacheKey)) {
       console.log('從快取返回航班數據');
       return cache.flights.data[cacheKey];
@@ -355,14 +355,23 @@ const flightService = {
     
     try {
       // 使用實時價格服務端點 (有緩存機制)
+      const apiParams = {
+        departure_code: departureCode,  // 注意：後端期望的參數名
+        arrival_code: arrivalCode,      // 注意：後端期望的參數名  
+        date_str: departureDate,        // 注意：後端期望的參數名
+        passengers: 1,                  // 默認1位乘客
+        max_results: 50                 // 增加結果數量
+      };
+
+      // 如果提供了艙等參數，添加到請求中
+      if (cabinClass) {
+        apiParams.cabin_class = cabinClass;
+      }
+
+      console.log('[FlightService] 發送API請求參數:', apiParams);
+      
       const response = await api.get('/flights/search', {
-        params: {
-          departure_code: departureCode,  // 注意：後端期望的參數名
-          arrival_code: arrivalCode,      // 注意：後端期望的參數名  
-          date_str: departureDate,        // 注意：後端期望的參數名
-          passengers: 1,                  // 默認1位乘客
-          max_results: 50                 // 增加結果數量
-        }
+        params: apiParams
       });
       
       // 檢查是否為統一的API回應格式

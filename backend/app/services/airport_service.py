@@ -519,15 +519,33 @@ class AirportService:
                         columns=columns
                     )
 
-                    # Upsert
+                    # 智能 Upsert：只更新未完善的欄位，保護手動維護的資料
                     upsert_sql = f"""
                     INSERT INTO {table_name} (airport_id, name_zh, name_en, city, country)
                     SELECT airport_id, name_zh, name_en, city, country FROM {temp_table_name}
                     ON CONFLICT (airport_id) DO UPDATE SET
-                        name_zh = EXCLUDED.name_zh,
-                        name_en = EXCLUDED.name_en,
-                        city = EXCLUDED.city,
-                        country = EXCLUDED.country;
+                        name_zh = CASE 
+                            WHEN {table_name}.name_zh IS NULL 
+                              OR {table_name}.name_zh = '' 
+                              OR {table_name}.name_zh = {table_name}.name_en 
+                            THEN EXCLUDED.name_zh 
+                            ELSE {table_name}.name_zh 
+                        END,
+                        name_en = CASE 
+                            WHEN {table_name}.name_en IS NULL OR {table_name}.name_en = '' 
+                            THEN EXCLUDED.name_en 
+                            ELSE {table_name}.name_en 
+                        END,
+                        city = CASE 
+                            WHEN {table_name}.city = 'Unknown City' OR {table_name}.city IS NULL OR {table_name}.city = '' 
+                            THEN EXCLUDED.city 
+                            ELSE {table_name}.city 
+                        END,
+                        country = CASE 
+                            WHEN {table_name}.country = 'Unknown Country' OR {table_name}.country IS NULL OR {table_name}.country = '' 
+                            THEN EXCLUDED.country 
+                            ELSE {table_name}.country 
+                        END;
                     """
                     await conn.execute(upsert_sql)
                     

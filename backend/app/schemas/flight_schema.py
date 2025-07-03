@@ -31,6 +31,7 @@ class FlightSearchArgsSchema(Schema):
     children = fields.Int(required=False, load_default=0, validate=validate.Range(min=0), metadata={"description": "兒童數量"})
     infants = fields.Int(required=False, load_default=0, validate=validate.Range(min=0), metadata={"description": "嬰兒數量"})
     travel_class = fields.Str(required=False, load_default=None, allow_none=True, metadata={"description": "艙等等級"})
+    cabin_class = fields.Str(required=False, load_default='Economy', validate=validate.OneOf(['Economy', 'Premium_Economy', 'Business', 'First']), metadata={"description": "艙位等級 (Economy, Premium_Economy, Business, First)"})
     non_stop = fields.Bool(required=False, load_default=False, metadata={"description": "是否僅限直飛"})
     currency_code = fields.Str(required=False, load_default="TWD", metadata={"description": "貨幣代碼"})
     max_price = fields.Int(required=False, load_default=None, allow_none=True, metadata={"description": "最高價格"})

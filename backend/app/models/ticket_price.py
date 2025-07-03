@@ -32,6 +32,17 @@ class TicketPrice(Base):
     search_key = db.Column(db.String, nullable=True)                  # 新增：搜索鍵值（用於快速查找）
     cabin_class = db.Column(db.String, nullable=True, default='ECONOMY') # 新增：艙等
     
+    # === 航班詳細信息（緩存用） ===
+    airline_code = db.Column(db.String(10), nullable=True)            # 新增：航空公司代碼
+    airline_name = db.Column(db.String(255), nullable=True)           # 新增：航空公司名稱
+    airline_name_zh = db.Column(db.String(255), nullable=True)        # 新增：航空公司中文名稱
+    flight_number = db.Column(db.String(20), nullable=True)           # 新增：航班號
+    departure_time = db.Column(db.DateTime, nullable=True)            # 新增：出發時間
+    arrival_time = db.Column(db.DateTime, nullable=True)              # 新增：到達時間
+    duration = db.Column(db.String(20), nullable=True)                # 新增：飛行時間
+    cache_priority = db.Column(db.Integer, default=0)                 # 新增：緩存優先級
+    search_rank = db.Column(db.Integer, default=1)                    # 新增：搜索排名
+    
     # === 艙等價格 ===
     economy_price = db.Column(db.Float, nullable=True)
     premium_economy_price = db.Column(db.Float, nullable=True)  # 新增：豪華經濟艙
@@ -66,6 +77,9 @@ class TicketPrice(Base):
     price_updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_test_data = db.Column(db.Boolean, default=False)               # 保留：用於區分測試數據
     data_source = db.Column(db.String, nullable=True, default='amadeus') # 新增：數據來源標識
+    expires_at = db.Column(db.DateTime, nullable=True)                # 新增：記錄過期時間
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)      # 新增：記錄創建時間
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) # 新增：記錄更新時間
     
     # === 關聯 ===
     flight = db.relationship('Flight', back_populates='ticket_prices')
@@ -86,6 +100,21 @@ class TicketPrice(Base):
             'price_id': self.price_id,
             'flight_id': self.flight_id,
             'currency': self.currency,
+            
+            # 航班信息
+            'flight_info': {
+                'airline_code': self.airline_code,
+                'airline_name': self.airline_name,
+                'airline_name_zh': self.airline_name_zh,
+                'flight_number': self.flight_number,
+                'departure_time': self.departure_time.isoformat() if self.departure_time else None,
+                'arrival_time': self.arrival_time.isoformat() if self.arrival_time else None,
+                'duration': self.duration,
+                'origin_airport_code': self.origin_airport_code,
+                'destination_airport_code': self.destination_airport_code,
+                'departure_date': self.departure_date.isoformat() if self.departure_date else None
+            },
+            
             'prices': {
                 'economy': self.economy_price,
                 'premium_economy': self.premium_economy_price,
@@ -116,7 +145,9 @@ class TicketPrice(Base):
             'cache_info': {
                 'is_cached': self.is_cached,
                 'cache_expires_at': self.cache_expires_at.isoformat() if self.cache_expires_at else None,
-                'cabin_class': self.cabin_class
+                'cabin_class': self.cabin_class,
+                'cache_priority': self.cache_priority,
+                'search_rank': self.search_rank
             },
             'metadata': {
                 'updated_at': self.price_updated_at.isoformat() if self.price_updated_at else None,

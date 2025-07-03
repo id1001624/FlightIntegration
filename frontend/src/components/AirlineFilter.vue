@@ -3,15 +3,15 @@
     <h4 class="text-base font-medium text-text-primary mb-3">航空公司</h4>
     
     <!-- 全選選項 -->
-    <div class="mb-2 border-b pb-2" v-if="availableAirlines.length > 0">
+    <div class="mb-2 border-b pb-2" v-if="availableAirlines.filter(a => a.flightCount > 0).length > 0">
       <label class="flex items-center cursor-pointer text-sm py-1">
         <input
           type="checkbox"
-          :checked="modelValue.length === availableAirlines.length && availableAirlines.length > 0"
+          :checked="modelValue.length === availableAirlines.filter(a => a.flightCount > 0).length && availableAirlines.filter(a => a.flightCount > 0).length > 0"
           @change="toggleAllAirlines"
           class="h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
         />
-        <span class="text-text-primary font-medium ml-3">所有航空公司</span>
+        <span class="text-text-primary font-medium ml-3">所有有航班的航空公司</span>
       </label>
     </div>
     
@@ -56,7 +56,11 @@ const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');
 export default {
   name: 'AirlineFilter',
   props: {
-    airlines: { // 原始傳入的航班列表，現在應為 flight 對象列表
+    airlines: { // 所有可用的航空公司列表（從API獲取）
+      type: Array,
+      default: () => []
+    },
+    flights: { // 當前搜索結果的航班列表
       type: Array,
       default: () => []
     },
@@ -88,53 +92,44 @@ export default {
         return null;
     };
     
-    // 從航班列表中提取不重複的航空公司資訊，包含 logo_path
+    // 計算可用的航空公司列表，並添加航班數量信息
     const availableAirlines = computed(() => {
       if (!props.airlines || props.airlines.length === 0) {
         return [];
       }
       
-      const seenCodes = new Set();
-      const uniqueAirlines = [];
+      // 計算每個航空公司在當前搜索結果中的航班數量
       const flightCounts = {};
-      
-      props.airlines.forEach(flight => {
-        const airlineData = flight.airline; // 直接從 flight.airline 取數據
-        
-        if (airlineData && airlineData.code) {
-          const airlineCode = airlineData.code;
-          const airlineName = airlineData.name || airlineData.name_zh || '未知航空';
-          const airlineLogoPath = airlineData.logo_path || null; // 獲取 logo_path
-
-          // 計算航班數量
-          if (!flightCounts[airlineCode]) {
-            flightCounts[airlineCode] = 0;
+      if (props.flights && props.flights.length > 0) {
+        props.flights.forEach(flight => {
+          const airlineData = flight.airline;
+          if (airlineData && airlineData.code) {
+            const airlineCode = airlineData.code;
+            if (!flightCounts[airlineCode]) {
+              flightCounts[airlineCode] = 0;
+            }
+            flightCounts[airlineCode]++;
           }
-          flightCounts[airlineCode]++;
-          
-          // 添加唯一的航空公司
-          if (!seenCodes.has(airlineCode)) {
-            seenCodes.add(airlineCode);
-            uniqueAirlines.push({ 
-              code: airlineCode, 
-              name: airlineName,
-              logo: airlineLogoPath // 存儲 logo_path
-              // flightCount 將在後面添加
-            });
-          }
-        } else {
-          // 可以記錄或處理缺少 airline data 的情況
-          console.warn('Flight data missing airline information:', flight);
-        }
-      });
+        });
+      }
       
-      // 添加航班數量信息
-      uniqueAirlines.forEach(airline => {
-        airline.flightCount = flightCounts[airline.code] || 0;
-      });
+      // 處理所有航空公司，添加航班數量信息
+      const airlinesWithCounts = props.airlines.map(airline => ({
+        code: airline.code,
+        name: airline.name || airline.name_zh || airline.name_en || airline.code,
+        logo: airline.logo_path,
+        flightCount: flightCounts[airline.code] || 0,
+        is_domestic: airline.is_domestic
+      }));
       
-      // 按航班數量降序排序
-      return uniqueAirlines.sort((a, b) => b.flightCount - a.flightCount);
+      // 顯示所有航空公司，有航班的排在前面，然後按航班數量排序
+      return airlinesWithCounts.sort((a, b) => {
+        // 有航班的排在前面
+        if (a.flightCount > 0 && b.flightCount === 0) return -1;
+        if (a.flightCount === 0 && b.flightCount > 0) return 1;
+        // 都有航班或都沒有航班時，按數量排序
+        return b.flightCount - a.flightCount;
+      });
     });
 
     const isSelected = (airlineCode) => {
@@ -146,9 +141,17 @@ export default {
       const index = selected.indexOf(airlineCode);
 
       if (index === -1) {
+        // 添加航空公司
         selected.push(airlineCode);
       } else {
-        selected.splice(index, 1);
+        // 移除航空公司，但至少要保留一個
+        if (selected.length > 1) {
+          selected.splice(index, 1);
+        } else {
+          // 如果只有一個選中的航空公司，不允許取消選擇
+          console.log('至少需要選擇一個航空公司');
+          return;
+        }
       }
 
       emit('update:modelValue', selected);
@@ -156,10 +159,24 @@ export default {
     
     const toggleAllAirlines = (event) => {
       if (event.target.checked) {
-        const allCodes = availableAirlines.value.map(a => a.code);
-        emit('update:modelValue', allCodes);
+        // 選中所有有航班的航空公司
+        const availableCodesWithFlights = availableAirlines.value
+          .filter(a => a.flightCount > 0)
+          .map(a => a.code);
+        emit('update:modelValue', availableCodesWithFlights);
       } else {
-        emit('update:modelValue', []);
+        // 取消全選時，不能完全清空，至少要保留一個有航班的航空公司
+        const availableCodesWithFlights = availableAirlines.value
+          .filter(a => a.flightCount > 0)
+          .map(a => a.code);
+        
+        if (availableCodesWithFlights.length > 0) {
+          // 保留第一個有航班的航空公司
+          emit('update:modelValue', [availableCodesWithFlights[0]]);
+        } else {
+          // 如果沒有任何有航班的航空公司，保持當前狀態
+          console.log('沒有可用的航空公司航班');
+        }
       }
     };
 

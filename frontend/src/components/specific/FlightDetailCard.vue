@@ -4,8 +4,8 @@
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-gray-200">
       <div class="mb-3 sm:mb-0">
         <div class="flex items-center space-x-3 mb-2">
-          <img :src="airlineLogoUrl" :alt="flightData.airline?.name" class="h-8 w-8 object-contain rounded-full border border-gray-100" />
-          <span class="text-xl font-semibold text-text-primary">{{ flightData.airline?.name }} {{ flightData.flight_number }}</span>
+                  <img :src="airlineLogoUrl" :alt="flightData.airline?.name_zh || flightData.airline?.name || '未知航空'" class="h-8 w-8 object-contain rounded-full border border-gray-100" />
+        <span class="text-xl font-semibold text-text-primary">{{ flightData.airline?.name_zh || flightData.airline?.name || '未知航空' }} {{ flightData.flight_number }}</span>
         </div>
         <span :class="statusClass" class="text-sm font-medium px-2.5 py-1 rounded-full inline-block">
           {{ currentStatus || '未知' }}
