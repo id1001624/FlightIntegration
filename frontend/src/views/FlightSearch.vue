@@ -1,600 +1,529 @@
 <template>
   <div class="flight-search-page">
-    <!-- 載入指示器 -->
-    <div v-if="loading" class="loading-overlay">
-      <div class="flight-search-loader">
-        <div class="loader-track">
-          <div class="loader-progress">
-            <div class="loader-dot"></div>
+    <!-- 搜尋區域 -->
+    <section class="search-section">
+      <div class="search-container">
+        <SearchForm
+          @search="handleSearch"
+          :isSearching="isSearching"
+        />
+      </div>
+    </section>
+
+    <!-- 搜尋結果區域 -->
+    <section class="results-section" v-if="showResults" ref="resultsSection">
+      <div class="results-container">
+        <!-- 搜尋摘要 -->
+        <div class="search-summary" v-if="searchResults.length > 0">
+          <div class="summary-content">
+            <h2 class="summary-title">
+              <span class="result-count">{{ searchResults.length }}</span>
+              個航班符合您的需求
+            </h2>
+            <p class="summary-details">
+              {{ formatSearchSummary() }}
+            </p>
+          </div>
+
+          <!-- 排序與篩選 -->
+          <div class="search-controls">
+            <select v-model="sortBy" @change="sortResults" class="sort-select">
+              <option value="price">價格排序</option>
+              <option value="time">時間排序</option>
+              <option value="duration">飛行時間</option>
+              <option value="airline">航空公司</option>
+            </select>
+            
+            <button @click="toggleFilters" class="filter-toggle">
+              <span class="filter-icon">⚙️</span>
+              篩選條件
+            </button>
           </div>
         </div>
-        <p class="loader-text">搜尋航班中...</p>
-      </div>
-    </div>
 
-    <!-- 搜索表單區域 - 添加雲層背景 -->
-    <div class="search-background">
-      <div class="page-container">
-        <div class="page-header">
-          <h1 class="page-title">航班搜尋</h1>
-          <p class="page-description">搜尋國內、離島及國際直飛航班</p>
-        </div>
-
-        <section class="search-panel">
-          <SearchForm
-            :is-searching="isSearching"
-            @search="handleSearch"
+        <!-- 航班列表 -->
+        <div class="flight-list" v-if="searchResults.length > 0">
+          <FlightCard
+            v-for="flight in sortedResults"
+            :key="flight.id || `${flight.flight_number}-${flight.scheduled_departure}`"
+            :flight="flight"
+            @select-flight="handleFlightSelection"
+            @view-details="handleViewDetails"
           />
-        </section>
-      </div>
-    </div>
-
-    <!-- 結果區域 -->
-    <div class="page-container">
-      <div v-if="hasSearched" class="results-container" ref="resultsContainer">
-        <!-- 搜索路線顯示 -->
-        <div class="route-summary" v-if="searchParams.departureAirport && searchParams.arrivalAirport">
-          <div class="route-info">
-            <div class="airports-display">
-              <span class="airport-code">{{ searchParams.departureAirport.code }}</span>
-              <div class="route-line">
-                <div class="route-arrow"></div>
-              </div>
-              <span class="airport-code">{{ searchParams.arrivalAirport.code }}</span>
-            </div>
-            <div class="date-display">{{ formattedDepartureDate }}</div>
-          </div>
         </div>
 
-        <div class="search-results-layout">
-          <!-- 篩選面板 -->
-          <aside class="filters-panel">
-            <div class="filters-header">
-              <h2 class="filters-title">篩選條件</h2>
-            </div>
-            <FilterPanel
-              :flights="flights"
-              :initial-filters="filters"
-              @filter-change="handleFilterChange"
-            />
-          </aside>
-
-          <!-- 航班結果列表 -->
-          <div class="flights-panel">
-            <FlightResults
-              :flights="filteredFlights"
-              :searched="hasSearched"
-            />
+        <!-- 空結果狀態 -->
+        <div v-if="showResults && searchResults.length === 0 && !isSearching" class="empty-results">
+          <div class="empty-content">
+            <div class="empty-icon">✈️</div>
+            <h3 class="empty-title">找不到符合條件的航班</h3>
+            <p class="empty-description">
+              請嘗試調整搜尋條件，或選擇其他日期進行搜尋
+            </p>
+            <button @click="resetSearch" class="reset-search-btn">
+              重新搜尋
+            </button>
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- 首次載入提示 -->
-      <div v-else class="empty-state-container">
-        <EmptySearchState />
-      </div>
+    <!-- 預設畫面 -->
+    <section class="default-state-section" v-if="!showResults && !isSearching">
+      <EmptySearchState />
+    </section>
 
-      <!-- <MinimalParent /> -->
+    <!-- 專業級搜尋加載動畫 -->
+    <FlightSearchLoader
+      v-if="isSearching"
+      :departureCode="currentSearch?.departure"
+      :arrivalCode="currentSearch?.arrival"
+      @cancel="cancelSearch"
+    />
 
-    </div>
+    <!-- 航班詳情彈窗 -->
+    <FlightDetailCard
+      v-if="selectedFlight"
+      :flight="selectedFlight"
+      @close="closeFlightDetails"
+      @select-flight="handleFlightSelection"
+    />
   </div>
 </template>
 
 <script>
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { useSearchStore } from '@/store/modules/search';
 import SearchForm from '@/components/search/SearchForm.vue';
-import FilterPanel from '@/components/search/FilterPanel.vue';
-import FlightResults from '@/components/search/FlightResults.vue';
+import FlightCard from '@/components/FlightCard.vue';
+import FlightDetailCard from '@/components/specific/FlightDetailCard.vue';
+import FlightSearchLoader from '@/components/ui/FlightSearchLoader.vue';
 import EmptySearchState from '@/components/search/EmptySearchState.vue';
-import flightService from '@/api/services/flightService';
-import { ref, reactive, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
-import { useSearchStore } from '@/store/modules/search'; // 引入 search store
-import { useRoute, useRouter } from 'vue-router'; // 確保 useRouter 被引入
+import { searchFlights } from '@/api/services/flightService';
 
 export default {
   name: 'FlightSearch',
   components: {
     SearchForm,
-    FilterPanel,
-    FlightResults,
+    FlightCard,
+    FlightDetailCard,
+    FlightSearchLoader,
     EmptySearchState
   },
   setup() {
-    // 使用 search store
     const searchStore = useSearchStore();
-    const route = useRoute();
-    const router = useRouter(); // 獲取 router 實例
     
-    // 添加結果容器參考，用於自動滾動功能
-    const resultsContainer = ref(null);
+    // 響應式數據
+    const isSearching = ref(false);
+    const showResults = ref(false);
+    const searchResults = ref([]);
+    const selectedFlight = ref(null);
+    const currentSearch = ref(null);
+    const sortBy = ref('price');
+    const showFilters = ref(false);
+    const resultsSection = ref(null);
     
-    // 使用 reactive refs 來包裝 store 中的狀態，以便在模板中直接使用
-    const loading = ref(false);
+    let searchTimeout = null;
     
-    // 計算屬性：從 store 獲取格式化的出發日期
-    const formattedDepartureDate = computed(() => searchStore.formattedDepartureDate);
-    
-    // 映射 store 中的搜索參數到本地 reactive 對象
-    const searchParams = computed(() => searchStore.searchParams);
-    
-    // 獲取篩選後的航班數據
-    const filteredFlights = computed(() => searchStore.filteredFlights);
-    
-    // 是否已經搜索過
-    const hasSearched = computed(() => searchStore.hasSearched);
-    
-    // 是否正在搜索
-    const isSearching = computed(() => searchStore.isSearching);
-    
-    // 獲取原始航班數據
-    const flights = computed(() => searchStore.flights);
-    
-    // 獲取篩選條件
-    const filters = computed(() => searchStore.filters);
-
-    // 自動滾動到結果區域
-    const scrollToResults = () => {
-      if (resultsContainer.value) {
-        console.log('[FlightSearch] 準備滾動到結果區域');
-        // 使用 nextTick 確保 DOM 已更新
-        nextTick(() => {
-          // 使用平滑滾動
-          resultsContainer.value.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
+    // 計算屬性
+    const sortedResults = computed(() => {
+      const results = [...searchResults.value];
+      
+      switch (sortBy.value) {
+        case 'price':
+          return results.sort((a, b) => {
+            const priceA = a.economy_price || a.business_price || a.first_price || 0;
+            const priceB = b.economy_price || b.business_price || b.first_price || 0;
+            return priceA - priceB;
           });
-          console.log('[FlightSearch] 已滾動到結果區域');
-        });
-      } else {
-        console.warn('[FlightSearch] 無法找到結果容器，滾動失敗');
+        case 'time':
+          return results.sort((a, b) => 
+            new Date(a.scheduled_departure) - new Date(b.scheduled_departure)
+          );
+        case 'duration':
+          return results.sort((a, b) => {
+            const durationA = new Date(a.scheduled_arrival) - new Date(a.scheduled_departure);
+            const durationB = new Date(b.scheduled_arrival) - new Date(b.scheduled_departure);
+            return durationA - durationB;
+          });
+        case 'airline':
+          return results.sort((a, b) => 
+            (a.airline_name || '').localeCompare(b.airline_name || '')
+          );
+        default:
+          return results;
+      }
+    });
+    
+    // 方法
+    const handleSearch = async (searchParams) => {
+      if (isSearching.value) return;
+      
+      isSearching.value = true;
+      currentSearch.value = searchParams;
+      showResults.value = false;
+      searchResults.value = [];
+      
+      try {
+        // 模擬搜尋時間，讓用戶看到專業的加載動畫
+        const minSearchTime = 4000; // 最少顯示4秒加載動畫
+        const searchStartTime = Date.now();
+        
+        const response = await searchFlights(searchParams);
+        
+        if (response.success && response.data) {
+          searchResults.value = response.data;
+          searchStore.setSearchResults(response.data);
+          
+          // 確保加載動畫至少顯示最小時間
+          const searchDuration = Date.now() - searchStartTime;
+          const remainingTime = Math.max(0, minSearchTime - searchDuration);
+          
+          if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime));
+          }
+          
+          showResults.value = true;
+          
+          // 平滑滾動到結果區域
+          await nextTick();
+          scrollToResults();
+        } else {
+          console.error('搜尋失敗:', response.message);
+          searchResults.value = [];
+          showResults.value = true;
+        }
+      } catch (error) {
+        console.error('搜尋時發生錯誤:', error);
+        searchResults.value = [];
+        showResults.value = true;
+      } finally {
+        isSearching.value = false;
       }
     };
-
-    // 滾動到特定航班卡片
-    const scrollToFlightCard = (flightId) => {
-      console.log(`[FlightSearch] 嘗試滾動到航班卡片 ID: ${flightId}`);
-      nextTick(() => {
-        const flightCard = document.getElementById(`flight-card-${flightId}`);
-        if (flightCard) {
-          console.log(`[FlightSearch] 找到航班卡片，準備滾動`);
-          flightCard.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
-          });
-          
-          // 高亮效果時間延長
-          flightCard.classList.add('highlight-card');
-          
-          // 延長高亮時間為3秒鐘
-          setTimeout(() => {
-            flightCard.classList.remove('highlight-card');
-          }, 3000);
-          
-          console.log(`[FlightSearch] 已滾動到航班卡片`);
-        } else {
-          console.warn(`[FlightSearch] 未找到航班卡片 ID: ${flightId}，改為滾動到結果區域`);
-          scrollToResults();
-        }
-      });
+    
+    const handleFlightSelection = (flight) => {
+      console.log('選擇航班:', flight);
+      searchStore.setSelectedFlight(flight);
+      // 這裡可以導航到預訂頁面或其他處理
     };
-
-    // 從詳情頁返回時檢查URL參數
-    onMounted(() => {
-      const fromDetail = route.query.fromDetail === 'true';
-      const shouldScrollToResults = route.query.scrollToResults === 'true';
-      const lastViewedFlight = route.query.lastViewedFlight;
+    
+    const handleViewDetails = (flight) => {
+      selectedFlight.value = flight;
+    };
+    
+    const closeFlightDetails = () => {
+      selectedFlight.value = null;
+    };
+    
+    const cancelSearch = () => {
+      isSearching.value = false;
+      currentSearch.value = null;
+    };
+    
+    const resetSearch = () => {
+      showResults.value = false;
+      searchResults.value = [];
+      selectedFlight.value = null;
+      currentSearch.value = null;
+    };
+    
+    const sortResults = () => {
+      // 排序邏輯在 computed 中處理
+    };
+    
+    const toggleFilters = () => {
+      showFilters.value = !showFilters.value;
+    };
+    
+    const formatSearchSummary = () => {
+      if (!currentSearch.value) return '';
       
-      console.log('[FlightSearch] onMounted - fromDetail:', fromDetail, 
-                  'scrollToResults:', shouldScrollToResults,
-                  'lastViewedFlight:', lastViewedFlight);
-
-      if (fromDetail && shouldScrollToResults && searchStore.hasSearched) {
-        setTimeout(() => {
-          if (lastViewedFlight) {
-            scrollToFlightCard(lastViewedFlight);
-          } else {
-            scrollToResults();
-          }
-        }, 300);
-      } 
-      else if (!fromDetail && searchStore.hasSearched && route.name === 'FlightSearch') { // 只有當前就是 FlightSearch 且非 fromDetail 才重置
-        console.log('[FlightSearch] 不是從詳情頁返回，重置搜索狀態');
-        searchStore.resetAll();
-        window.scrollTo(0, 0); // 新增：滾動到頂部
+      const { departure, arrival, date, return_date } = currentSearch.value;
+      const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('zh-TW', { 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      };
+      
+      const tripType = return_date ? '往返' : '單程';
+      const dateRange = return_date 
+        ? `${formatDate(date)} - ${formatDate(return_date)}`
+        : formatDate(date);
+      
+      return `${departure} → ${arrival} • ${tripType} • ${dateRange}`;
+    };
+    
+    const scrollToResults = () => {
+      if (resultsSection.value) {
+        const headerOffset = 100;
+        const elementPosition = resultsSection.value.offsetTop;
+        const offsetPosition = elementPosition - headerOffset;
         
-        if (Object.keys(route.query).length > 0) {
-          router.replace({ query: {} });
-        }
-      } else if (!fromDetail) { // 如果不是從詳情頁，且未觸發其他條件（例如首次加載或從其他非詳情頁跳轉）
-        window.scrollTo(0, 0); // 新增：滾動到頂部
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        });
+      }
+    };
+    
+    // 生命週期
+    onMounted(() => {
+      // 如果有之前的搜尋結果，顯示它們
+      const existingResults = searchStore.searchResults;
+      if (existingResults && existingResults.length > 0) {
+        searchResults.value = existingResults;
+        showResults.value = true;
+      }
+    });
+    
+    onBeforeUnmount(() => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
       }
     });
 
-    const fetchTaiwanAirports = async () => {
-      try {
-        const airports = await flightService.getTaiwanAirports();
-        if (airports && airports.length > 0) {
-          // 這裡我們不需要存儲機場數據，因為 SearchForm 組件會自己處理
-        }
-      } catch (error) {
-        console.error('獲取台灣機場資料時出錯:', error);
-      }
-    };
-
-    const handleSearch = async (params) => {
-      console.log('[FlightSearch] handleSearch 觸發，派遣 searchStore.searchFlights action，參數:', params);
-
-      // 設置最小載入動畫時間，提升用戶體驗
-      const minLoadingTime = 1500;
-      const startTime = Date.now();
-  
-      loading.value = true; // 控制本地動畫的顯示
-
-      // 派遣 store action 來執行搜索，不再在組件中直接調用 service
-      await searchStore.searchFlights(params);
-
-      // 搜索完成後（無論成功或失敗），平滑滾動到結果區域
-      await nextTick();
-      if (searchStore.hasResults) {
-        scrollToResults();
-      }
-    
-      // 計算已過時間，確保載入動畫至少顯示一段時間
-      const elapsedTime = Date.now() - startTime;
-      const remainingTime = minLoadingTime - elapsedTime;
-    
-      if (remainingTime > 0) {
-        setTimeout(() => {
-          loading.value = false;
-        }, remainingTime);
-      } else {
-        loading.value = false;
-      }
-    };
-
-    const handleFilterChange = (newFilters) => {
-      // 使用 store 的 applyFilters 方法應用篩選
-      searchStore.applyFilters(newFilters);
-    };
-
-    // 監聽路由變化以決定是否清除機場選擇
-    watch(
-      () => route.name, // 監聽路由名稱的變化
-      (toName, fromName) => {
-        console.log(`[FlightSearch] Route changed from ${fromName} to ${toName}`);
-        // 條件：導航到 FlightSearch 頁面，且來源不是 FlightDetail
-        if (toName === 'FlightSearch' && fromName && fromName !== 'FlightDetail') {
-          console.log('[FlightSearch] Clearing airport selections due to navigation from non-detail page.');
-          searchStore.clearAirportSelections();
-        }
-      }
-    );
-
-    fetchTaiwanAirports();
-
     return {
-      flights,
-      filteredFlights,
-      loading,
       isSearching,
-      hasSearched,
-      searchParams,
-      filters,
-      formattedDepartureDate,
+      showResults,
+      searchResults,
+      selectedFlight,
+      currentSearch,
+      sortBy,
+      showFilters,
+      resultsSection,
+      sortedResults,
       handleSearch,
-      handleFilterChange,
-      resultsContainer
+      handleFlightSelection,
+      handleViewDetails,
+      closeFlightDetails,
+      cancelSearch,
+      resetSearch,
+      sortResults,
+      toggleFilters,
+      formatSearchSummary
     };
   }
 };
 </script>
 
 <style scoped>
+/* 簡潔航班搜尋頁面設計 */
 .flight-search-page {
-  min-height: 90vh;
-  background-color: var(--color-background);
-  scroll-behavior: smooth; /* 添加平滑滾動支持 */
+  min-height: 100vh;
+  background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
+  padding-bottom: 4rem; /* 增加底部空間 */
 }
 
-/* 添加高亮效果 */
-:deep(.highlight-card) {
-  animation: highlight-pulse 2s ease-in-out;
-  position: relative;
-  z-index: 5; /* 提高 z-index 使卡片顯示在前面 */
-  border-radius: 0.5rem;
-  overflow: hidden;
+/* 搜尋區域 */
+.search-section {
+  background: white;
+  padding: 3rem 0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 }
 
-:deep(.highlight-card::before) {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 2px solid rgba(0, 95, 115, 0.4);
-  border-radius: 0.5rem;
-  animation: border-glow 2s ease-in-out;
-  pointer-events: none;
-}
-
-@keyframes highlight-pulse {
-  0% { 
-    box-shadow: 0 0 0 0 rgba(0, 95, 115, 0);
-    transform: translateY(0);
-  }
-  20% {
-    box-shadow: 0 0 15px 2px rgba(0, 95, 115, 0.2);
-    transform: translateY(-2px);
-  }
-  50% { 
-    box-shadow: 0 0 20px 5px rgba(0, 95, 115, 0.3); 
-    transform: translateY(-4px);
-  }
-  80% {
-    box-shadow: 0 0 15px 2px rgba(0, 95, 115, 0.2);
-    transform: translateY(-2px);
-  }
-  100% { 
-    box-shadow: 0 0 0 0 rgba(0, 95, 115, 0);
-    transform: translateY(0);
-  }
-}
-
-@keyframes border-glow {
-  0% { 
-    opacity: 0;
-    border-color: rgba(0, 95, 115, 0);
-  }
-  25% { 
-    opacity: 1;
-    border-color: rgba(0, 95, 115, 0.6);
-  }
-  75% { 
-    opacity: 1;
-    border-color: rgba(0, 95, 115, 0.6);
-  }
-  100% { 
-    opacity: 0;
-    border-color: rgba(0, 95, 115, 0);
-  }
-}
-
-/* 搜索背景 */
-.search-background {
-  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg'); /* 恢復背景圖片 */
-  background-size: cover;
-  background-position: center;
-  /* background-color: var(--color-secondary); */ /* 移除橘色背景 */
-  position: relative;
-  color: #333; /* 將文字顏色改回深色以適應淺色背景 */
-  padding: 40px 0;
-  overflow: hidden;
-}
-
-.search-background::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.7); /* 恢復淺色半透明遮罩 */
-  /* background-color: rgba(0, 0, 0, 0.1); */ /* 移除深色遮罩 */
-  z-index: 0;
-}
-
-.search-background .page-container {
-  position: relative;
-  z-index: 1;
-}
-
-/* 頁面容器 */
-.page-container {
+.search-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 1rem;
 }
 
-/* 空狀態容器樣式 */
-.empty-state-container {
-  margin-top: 40px; /* 增加與搜尋區塊的間距 */
-  margin-bottom: 60px; /* 控制與頁腳的間距 */
-  padding: 0;
-}
-
-/* 頁面標題區 */
-.page-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-
-.page-title {
-  font-size: 2rem;
-  margin-bottom: 8px;
-  font-weight: 700;
-  color: var(--color-primary); /* 修改顏色 */
-}
-
-.page-description {
-  font-size: 1.1rem;
-  font-weight: 300;
-  opacity: 0.9;
-  /* color: var(--color-text-secondary); */ /* Changed to a lighter shade of white for orange background */
-  color: rgba(255, 255, 255, 0.85);
-}
-
-/* 搜索面板 */
-.search-panel {
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-/* 結果容器 */
-.results-container {
-  margin-top: 20px;
+/* 結果區域 */
+.results-section {
+  background: white;
   min-height: 50vh;
-  scroll-margin-top: 20px; /* 滾動時的上邊距，確保頂部不會被遮擋 */
+  margin-top: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 1200px; /* 統一最大寬度 */
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* 路線摘要 */
-.route-summary {
-  background-color: white;
-  padding: 16px;
-  margin-bottom: 20px;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+.results-container {
+  padding: 3rem 1rem;
 }
 
-.route-info {
+/* 預設畫面 */
+.default-state-section {
+  max-width: 1200px;
+  margin: 2rem auto 0;
+}
+
+/* 搜尋摘要 */
+.search-summary {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, 
+    rgba(248, 250, 252, 0.8) 0%, 
+    rgba(255, 255, 255, 0.9) 100%
+  );
+  border-radius: 20px;
+  border: 1px solid rgba(229, 231, 235, 0.8);
 }
 
-.airports-display {
+.summary-content {
+  flex: 1;
+}
+
+.summary-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #005F73;
+  margin: 0 0 0.5rem 0;
   display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.result-count {
+  background: linear-gradient(135deg, #F4A261 0%, #E76F51 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 16px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.summary-details {
+  color: #6B7280;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* 搜尋控制項 */
+.search-controls {
+  display: flex;
+  gap: 1rem;
   align-items: center;
 }
 
-.airport-code {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--color-primary);
+.sort-select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  background: white;
+  color: #374151;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.route-line {
-  position: relative;
-  width: 100px;
-  height: 2px;
-  background-color: var(--color-border);
-  margin: 0 16px;
+.sort-select:hover,
+.sort-select:focus {
+  border-color: #005F73;
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 95, 115, 0.08);
 }
 
-.route-arrow {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-top: 5px solid transparent;
-  border-bottom: 5px solid transparent;
-  border-left: 8px solid var(--color-border);
-}
-
-.date-display {
-  font-size: 1rem;
-  color: var(--color-text-secondary);
-}
-
-/* 搜索結果佈局 */
-.search-results-layout {
-  display: grid;
-  grid-template-columns: 250px 1fr;
-  gap: 20px;
-}
-
-/* 篩選面板 */
-.filters-panel {
-  background-color: white;
-  padding: 16px;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-}
-
-.filters-header {
-  margin-bottom: 16px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.filters-title {
-  font-size: 1.2rem;
+.filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 95, 115, 0.1);
+  border: 2px solid #005F73;
+  border-radius: 12px;
+  color: #005F73;
   font-weight: 600;
-  color: var(--color-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* 航班結果面板 */
-.flights-panel {
+.filter-toggle:hover {
+  background: #005F73;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.filter-icon {
+  font-size: 1rem;
+}
+
+/* 航班列表 */
+.flight-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* 空結果狀態 */
+.empty-results {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   min-height: 400px;
 }
 
-/* 載入指示器 */
-.loading-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(255, 255, 255, 0.8);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+.empty-content {
+  text-align: center;
+  max-width: 500px;
+  padding: 3rem 2rem;
 }
 
-.flight-search-loader {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2rem;
-  padding: 3rem 0;
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
 }
 
-.loader-track {
-  position: relative;
-  width: 10rem;
-  height: 0.25rem;
-  background-color: #f3f4f6;
-  border-radius: 9999px;
-  overflow: hidden;
+.empty-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #005F73;
+  margin-bottom: 1rem;
 }
 
-.loader-progress {
-  position: absolute;
-  height: 100%;
-  width: 0%;
-  background-color: #005F73;
-  border-radius: 9999px;
-  animation: flightPath 2s infinite;
+.empty-description {
+  color: #6B7280;
+  margin-bottom: 2rem;
+  line-height: 1.6;
 }
 
-.loader-dot {
-  position: absolute;
-  right: -0.5rem;
-  top: -0.375rem;
-  width: 1rem;
-  height: 1rem;
-  background-color: #005F73;
-  border-radius: 9999px;
+.reset-search-btn {
+  background: #005F73;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.loader-text {
-  color: #6C757D;
-  font-weight: 500;
-  font-size: 1rem;
+.reset-search-btn:hover {
+  background: #004A5A;
+  transform: translateY(-2px);
 }
 
-@keyframes flightPath {
-  0% { width: 0; opacity: 0; }
-  20% { opacity: 1; }
-  80% { opacity: 1; }
-  100% { width: 100%; opacity: 0; }
-}
-
-/* 響應式 */
+/* 響應式設計 */
 @media (max-width: 768px) {
-  .search-results-layout {
-    grid-template-columns: 1fr;
+  .search-section {
+    padding: 2rem 0;
   }
 
-  .route-summary {
+  .search-summary {
     flex-direction: column;
-    gap: 10px;
-  }
-
-  .route-info {
-    flex-direction: column;
+    gap: 1rem;
     align-items: flex-start;
-    gap: 10px;
+  }
+  
+  .search-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .default-title {
+    font-size: 2rem;
+  }
+  
+  .search-tips {
+    grid-template-columns: 1fr;
   }
 }
 </style> 

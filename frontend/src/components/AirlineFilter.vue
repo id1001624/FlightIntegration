@@ -17,30 +17,35 @@
     
     <div class="text-sm text-text-secondary py-2" v-if="loading">載入中...</div>
     <div class="text-sm text-text-secondary py-2" v-else-if="availableAirlines.length === 0">沒有可用的航空公司</div>
-    <div v-else class="max-h-48 overflow-y-auto space-y-2.5 pr-2">
-      <div
-        v-for="airline in availableAirlines"
-        :key="airline.code"
-      >
-        <label class="flex items-center cursor-pointer text-sm py-1">
+    <div v-else class="space-y-1 max-h-60 overflow-y-auto">
+      <div v-for="airline in availableAirlines" :key="airline.code" class="flex items-center">
+        <label class="flex items-center cursor-pointer text-sm py-1 w-full" :class="{ 'opacity-50 cursor-not-allowed': airline.flightCount === 0 }">
           <input
             type="checkbox"
             :value="airline.code"
             :checked="isSelected(airline.code)"
+            :disabled="airline.flightCount === 0"
             @change="toggleAirline(airline.code)"
-            class="h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0"
+            class="h-4 w-4 border-gray-300 text-primary focus:ring-primary flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           />
-          <span class="flex items-center text-text-primary flex-grow min-w-0 ml-3">
-            <img 
-              v-if="getFullLogoUrl(airline.logo)" 
-              :src="getFullLogoUrl(airline.logo)" 
-              :alt="airline.name" 
-              class="h-6 w-6 mr-2 object-contain flex-shrink-0"
-            />
-            <span v-else class="inline-block mr-2 w-6 h-6 flex-shrink-0"></span>
-            <span class="truncate">{{ airline.name }}</span>
-          </span>
-          <span class="ml-auto text-xs text-text-secondary pl-2 flex-shrink-0">({{ airline.flightCount || 0 }})</span>
+          <div class="ml-3 flex items-center flex-1 min-w-0">
+            <div class="w-6 h-6 flex-shrink-0 mr-2 flex items-center justify-center">
+              <img
+                v-if="getFullLogoUrl(airline.logo)"
+                :src="getFullLogoUrl(airline.logo)"
+                :alt="airline.name + ' logo'"
+                class="w-6 h-6 object-contain"
+                @error="handleImageError"
+              />
+              <div v-else class="w-6 h-6 bg-gray-200 rounded text-xs flex items-center justify-center text-gray-500">
+                {{ airline.code.slice(0, 2) }}
+              </div>
+            </div>
+            <span class="text-text-primary truncate flex-1">{{ airline.name }}</span>
+            <span class="text-text-secondary text-xs ml-2 flex-shrink-0" :class="{ 'text-gray-400': airline.flightCount === 0 }">
+              ({{ airline.flightCount }})
+            </span>
+          </div>
         </label>
       </div>
     </div>
@@ -180,12 +185,17 @@ export default {
       }
     };
 
+    const handleImageError = (event) => {
+      event.target.src = '/path/to/default-image.jpg'; // 替換為實際的默認圖片路徑
+    };
+
     return {
       availableAirlines,
       isSelected,
       toggleAirline,
       toggleAllAirlines,
-      getFullLogoUrl // 暴露給模板使用
+      getFullLogoUrl,
+      handleImageError
     };
   }
 }

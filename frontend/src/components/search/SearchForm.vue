@@ -1,118 +1,974 @@
 <template>
-  <div class="bg-white p-6 shadow-sm relative z-20">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
-      <!-- Row 1: Departure & Arrival -->
-      <div>
-        <AirportSelector 
-          id="departure"
-          label="出發地"
-          placeholder="選擇或搜尋出發機場"
-          :airports="taiwanAirports"
-          v-model="formData.departureAirport"
-          :loading="loadingTaiwanAirports"
-          :error="errors.departureAirport"
-          :disabled="isSearching"
-          :isDeparture="true"
-          @change="onDepartureChange"
-          @select-recent-route="handleRecentRouteSelected"
-          class="square-selector"
-        />
+  <div class="search-form-container">
+    <div class="search-form-wrapper">
+      <!-- 主搜索卡片 -->
+      <div class="search-card">
+        <!-- 標題區域 - Typography-driven -->
+        <div class="search-header">
+          <h1 class="search-title">搜尋航班</h1>
+          <div class="search-subtitle">找到您的完美航線</div>
+        </div>
+
+        <!-- 搜索表單 - 幾何布局 -->
+        <form @submit.prevent="handleSearch" class="search-form">
+          <!-- 航線選擇 - 雙欄布局 -->
+          <div class="route-section">
+            <div class="route-header">
+              <span class="section-label">航線</span>
+            </div>
+            
+            <div class="route-inputs">
+              <!-- 出發地 -->
+              <div class="input-group departure-group">
+                <label class="input-label">出發</label>
+                <div class="airport-input-wrapper">
+                  <input
+                    v-model="formData.departure"
+                    type="text"
+                    class="airport-input departure-input"
+                    placeholder="台北 Taipei"
+                    @input="handleDepartureInput"
+                    @focus="handleDepartureFocus"
+                    @click="handleDepartureFocus"
+                    autocomplete="off"
+                  />
+                  <div class="input-accent departure-accent"></div>
+                </div>
+                
+                <!-- 出發地下拉選單 -->
+                <div v-if="isDepartureDropdownOpen && departureOptions.length" class="dropdown departure-dropdown">
+                  <div class="dropdown-header">
+                    <span class="dropdown-title">選擇出發地</span>
+                  </div>
+                  <div class="dropdown-content">
+                    <div 
+                      v-for="airport in departureOptions" 
+                      :key="airport.airport_id"
+                      class="dropdown-item"
+                      @click="selectDeparture(airport)"
+                    >
+                      <div class="airport-info">
+                        <span class="airport-code">{{ airport.iata_code }}</span>
+                        <span class="airport-name">{{ airport.name_zh || airport.name_en }}</span>
+                      </div>
+                      <div class="airport-location">{{ airport.city_zh || airport.city_en }}</div>
+                    </div>
+                  </div>
+                </div>
       </div>
         
-      <div>
-        <AirportSelector 
-          id="arrival"
-          label="目的地"
-          placeholder="選擇或搜尋目的地機場"
-          :airports="destinationAirports"
-          v-model="formData.arrivalAirport"
-          :loading="loadingDestinations"
-          :error="errors.arrivalAirport"
-          :disabled="!formData.departureAirport || isSearching"
-          @select-recent-route="handleRecentRouteSelected"
-          class="square-selector"
-        />
+              <!-- 目的地 -->
+              <div class="input-group arrival-group">
+                <label class="input-label">目的地</label>
+                <div class="airport-input-wrapper">
+                  <input
+                    v-model="formData.arrival"
+                    type="text"
+                    class="airport-input arrival-input"
+                    placeholder="東京 Tokyo"
+                    @input="handleArrivalInput"
+                    @focus="handleArrivalFocus"
+                    @click="handleArrivalFocus"
+                    autocomplete="off"
+                  />
+                  <div class="input-accent arrival-accent"></div>
+                </div>
+                
+                <!-- 目的地下拉選單 -->
+                <div v-if="isArrivalDropdownOpen && arrivalOptions.length" class="dropdown arrival-dropdown">
+                  <div class="dropdown-header">
+                    <span class="dropdown-title">選擇目的地</span>
+                  </div>
+                  <div class="dropdown-content">
+                    <div 
+                      v-for="airport in arrivalOptions" 
+                      :key="airport.airport_id"
+                      class="dropdown-item"
+                      @click="selectArrival(airport)"
+                    >
+                      <div class="airport-info">
+                        <span class="airport-code">{{ airport.iata_code }}</span>
+                        <span class="airport-name">{{ airport.name_zh || airport.name_en }}</span>
+                      </div>
+                      <div class="airport-location">{{ airport.city_zh || airport.city_en }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
       </div>
       
-      <!-- Row 2: Dates -->
-      <div>
-        <DateSelector 
-          id="departure-date"
-          label="出發日期"
+          <!-- 日期與乘客選擇 - 三欄布局 -->
+          <div class="details-section">
+            <div class="section-label">詳細資訊</div>
+            
+            <div class="details-inputs">
+              <!-- 出發日期 -->
+              <div class="input-group date-group">
+                <label class="input-label">出發日期</label>
+                <input
           v-model="formData.departureDate"
-          :error="errors.departureDate"
-          @change="onDepartureDateChange"
-          class="square-selector"
+                  type="date"
+                  class="date-input"
+                  :min="new Date().toISOString().split('T')[0]"
         />
       </div>
         
-      <div>
-        <DateSelector 
-          id="return-date"
-          label="回程日期 (選填)"
+              <!-- 回程日期 -->
+              <div class="input-group date-group">
+                <label class="input-label">回程日期</label>
+                <input
           v-model="formData.returnDate"
-          :min-date="formData.departureDate"
-          :error="errors.returnDate"
-          class="square-selector"
+                  type="date"
+                  class="date-input"
+                  :min="formData.departureDate"
         />
       </div>
       
-      <!-- Row 3: Passenger & Cabin Selection Trigger / Search Button -->
-      <div class="md:col-span-1">
-        <label class="block text-sm font-medium text-gray-700 mb-1">旅客與艙等</label>
+              <!-- 乘客與艙等 -->
+              <div class="input-group passenger-group">
+                <label class="input-label">乘客與艙等</label>
         <button 
+                  type="button"
+                  class="passenger-button"
           @click="openPassengerModal"
-          type="button"
-          class="w-full text-left bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 square-selector flex justify-between items-center"
-          :disabled="isSearching"
-        >
-          <span>{{ passengerCabinDisplay }}</span>
-          <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                >
+                  <div class="passenger-info">
+                    <span class="passenger-count">{{ getTotalPassengers() }} 位乘客</span>
+                    <span class="cabin-class">{{ getCabinClassName() }}</span>
+                  </div>
+                  <div class="button-accent"></div>
         </button>
+              </div>
+            </div>
       </div>
         
-      <div class="flex items-end">
-        <button 
-          class="bg-primary text-white w-full py-2.5 rounded-md shadow-sm hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-150 ease-in-out"
-          @click="submitSearch"
-          :disabled="isSearching || loadingTaiwanAirports || loadingDestinations"
-          :class="{ 'opacity-50 cursor-not-allowed': isSearching || loadingTaiwanAirports || loadingDestinations }"
-        >
-          <span v-if="isSearching">搜尋中...</span>
-          <span v-else>搜尋航班</span>
+          <!-- 搜索按鈕 - 強調設計 -->
+          <div class="search-action">
+            <button type="submit" class="search-submit-btn" :disabled="isLoading">
+              <span v-if="!isLoading" class="btn-text">搜尋航班</span>
+              <span v-else class="btn-text">搜尋中...</span>
+              <div class="btn-background"></div>
         </button>
-      </div>
+          </div>
+        </form>
     </div>
 
-    <!-- Passenger and Cabin Selection Modal -->
+      <!-- 乘客艙等選擇彈窗 -->
     <PassengerCabinSelectModal
-      :visible="isPassengerModalVisible"
-      :initial-passengers="formData.passengers"
-      :initial-cabin-class="formData.cabinClass"
+        v-if="isPassengerModalVisible"
+        :is-visible="isPassengerModalVisible"
+        :passengers="formData.passengers"
+        :cabin-class="formData.cabinClass"
       @close="closePassengerModal"
       @confirm="handlePassengerConfirm"
     />
-
-    <!-- (可選) 顯示已選路線 -->
-    <div v-if="formData.departureAirport && formData.arrivalAirport" class="mt-4 pt-3 border-t border-gray-200 text-center">
-        <p class="text-sm text-gray-600">
-            <span class="font-medium">{{ formData.departureAirport.name }} ({{ formData.departureAirport.code }})</span>
-            <span class="mx-2">→</span>
-            <span class="font-medium">{{ formData.arrivalAirport.name }} ({{ formData.arrivalAirport.code }})</span>
-        </p>
     </div>
-
   </div>
 </template>
 
 <script>
-import AirportSelector from '../AirportSelector.vue';
-import DateSelector from '../DateSelector.vue';
-import PassengerCabinSelectModal from '../ui/PassengerCabinSelectModal.vue';
-import flightService from '@/api/services/flightService';
-import { ref, reactive, onMounted, watch, computed } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { getAirports, getTaiwanAirports, searchFlights } from '@/api/services/flightService'
+import PassengerCabinSelectModal from '@/components/ui/PassengerCabinSelectModal.vue'
+
+export default {
+  name: 'SearchForm',
+  components: {
+    PassengerCabinSelectModal
+  },
+  setup() {
+    // 表單數據
+    const formData = reactive({
+      departure: '',
+      arrival: '',
+      departureCode: '',
+      arrivalCode: '',
+        departureDate: '',
+        returnDate: '',
+      passengers: {
+        adults: 1,
+        children: 0,
+        infants: 0
+      },
+      cabinClass: 'economy'
+    })
+
+    // 狀態管理
+    const isLoading = ref(false)
+    const isDepartureDropdownOpen = ref(false)
+    const isArrivalDropdownOpen = ref(false)
+    const isPassengerModalVisible = ref(false)
+    
+    // 機場選項
+    const departureOptions = ref([])
+    const arrivalOptions = ref([])
+    const allAirports = ref([])
+
+    // 生命週期
+    onMounted(async () => {
+      await loadAirports()
+      setupClickOutside()
+    })
+
+    onUnmounted(() => {
+      document.removeEventListener('click', handleClickOutside)
+    })
+
+    // 載入機場數據
+    const loadAirports = async () => {
+      try {
+        const airports = await getAirports()
+        allAirports.value = airports
+      } catch (error) {
+        console.error('載入機場失敗:', error)
+      }
+    }
+
+    // 搜索邏輯
+    const handleDepartureInput = (event) => {
+      const query = event.target.value
+      if (query.length >= 1) {
+        departureOptions.value = filterAirports(query)
+        isDepartureDropdownOpen.value = true
+      } else {
+        departureOptions.value = []
+        isDepartureDropdownOpen.value = false
+      }
+    }
+
+    const handleDepartureFocus = () => {
+      // 點擊或聚焦時顯示所有台灣機場
+      if (formData.departure === '') {
+        departureOptions.value = allAirports.value.filter(airport => 
+          airport.country === 'Taiwan' || airport.country === 'TW'
+        ).slice(0, 10)
+      } else {
+        departureOptions.value = filterAirports(formData.departure)
+      }
+      isDepartureDropdownOpen.value = true
+    }
+
+    const handleArrivalInput = (event) => {
+      const query = event.target.value
+      if (query.length >= 1) {
+        arrivalOptions.value = filterAirports(query)
+        isArrivalDropdownOpen.value = true
+      } else {
+        arrivalOptions.value = []
+        isArrivalDropdownOpen.value = false
+      }
+    }
+
+    const handleArrivalFocus = () => {
+      // 點擊或聚焦時顯示熱門目的地
+      if (formData.arrival === '') {
+        const popularDestinations = ['NRT', 'HKG', 'ICN', 'SIN', 'LAX', 'MFM']
+        arrivalOptions.value = allAirports.value.filter(airport => 
+          popularDestinations.includes(airport.iata_code)
+        )
+      } else {
+        arrivalOptions.value = filterAirports(formData.arrival)
+      }
+      isArrivalDropdownOpen.value = true
+    }
+
+    const filterAirports = (query) => {
+      return allAirports.value.filter(airport => 
+        airport.name_zh?.includes(query) ||
+        airport.name_en?.toLowerCase().includes(query.toLowerCase()) ||
+        airport.city_zh?.includes(query) ||
+        airport.city_en?.toLowerCase().includes(query.toLowerCase()) ||
+        airport.iata_code?.toLowerCase().includes(query.toLowerCase())
+      ).slice(0, 8)
+    }
+
+    // 選擇機場
+    const selectDeparture = (airport) => {
+      formData.departure = airport.name_zh || airport.name_en
+      formData.departureCode = airport.iata_code
+      isDepartureDropdownOpen.value = false
+    }
+
+    const selectArrival = (airport) => {
+      formData.arrival = airport.name_zh || airport.name_en
+      formData.arrivalCode = airport.iata_code
+      isArrivalDropdownOpen.value = false
+    }
+
+    // 乘客相關
+    const openPassengerModal = () => {
+      isPassengerModalVisible.value = true
+    }
+
+    const closePassengerModal = () => {
+      isPassengerModalVisible.value = false
+    }
+
+    const handlePassengerConfirm = (data) => {
+      formData.passengers = { ...data.passengers }
+      formData.cabinClass = data.cabinClass
+      closePassengerModal()
+    }
+
+    const getTotalPassengers = () => {
+      return formData.passengers.adults + formData.passengers.children + formData.passengers.infants
+    }
+
+    const getCabinClassName = () => {
+      const classNames = {
+        economy: '經濟艙',
+        business: '商務艙',
+        first: '頭等艙'
+      }
+      return classNames[formData.cabinClass] || '經濟艙'
+    }
+
+    // 表單提交
+    const handleSearch = async () => {
+      if (!validateForm()) return
+      
+      isLoading.value = true
+      try {
+        // 發送搜索事件給父組件
+        // 這裡可以調用實際的搜索API
+        console.log('搜索參數:', formData)
+      } catch (error) {
+        console.error('搜索失敗:', error)
+      } finally {
+        isLoading.value = false
+      }
+    }
+
+    const validateForm = () => {
+      if (!formData.departureCode || !formData.arrivalCode) {
+        alert('請選擇出發地和目的地')
+        return false
+      }
+      if (!formData.departureDate) {
+        alert('請選擇出發日期')
+        return false
+      }
+      return true
+    }
+
+    // 點擊外部關閉下拉選單
+    const handleClickOutside = (event) => {
+      const departureContainer = event.target.closest('.departure-group')
+      const arrivalContainer = event.target.closest('.arrival-group')
+      
+      if (!departureContainer) {
+        isDepartureDropdownOpen.value = false
+      }
+      if (!arrivalContainer) {
+        isArrivalDropdownOpen.value = false
+      }
+    }
+
+    const setupClickOutside = () => {
+      document.addEventListener('click', handleClickOutside)
+    }
+
+    return {
+      formData,
+      isLoading,
+      isDepartureDropdownOpen,
+      isArrivalDropdownOpen,
+      isPassengerModalVisible,
+      departureOptions,
+      arrivalOptions,
+      handleDepartureInput,
+      handleDepartureFocus,
+      handleArrivalInput,
+      handleArrivalFocus,
+      selectDeparture,
+      selectArrival,
+      openPassengerModal,
+      closePassengerModal,
+      handlePassengerConfirm,
+      getTotalPassengers,
+      getCabinClassName,
+      handleSearch
+    }
+  }
+}
+</script>
+
+<style scoped>
+/* === CSS 變數 === */
+:root {
+  --primary-color: #005F73;
+  --secondary-color: #F4A261;
+  --accent-color: #E76F51;
+  --background-light: #F8FAFC;
+  --white: #FFFFFF;
+  --text-dark: #1A202C;
+  --text-medium: #4A5568;
+  --text-light: #718096;
+  --border-light: #E2E8F0;
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-medium: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* === 主容器 === */
+.search-form-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  position: relative;
+}
+
+.search-form-wrapper {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 3rem;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* === 搜索卡片 === */
+.search-card {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  border: none;
+  backdrop-filter: none;
+  position: relative;
+  z-index: 10;
+}
+
+/* === 標題區域 === */
+.search-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.search-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.search-subtitle {
+  font-size: 1.125rem;
+  color: var(--text-medium);
+  font-weight: 500;
+}
+
+/* === 搜索表單 === */
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* === 路線選擇區塊 === */
+.route-section {
+  position: relative;
+}
+
+.route-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.section-label {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  letter-spacing: 0.025em;
+}
+
+.route-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  position: relative;
+}
+
+/* === 輸入群組 === */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  position: relative;
+}
+
+.input-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.airport-input-wrapper {
+  position: relative;
+}
+
+.airport-input {
+  width: 100%;
+  padding: 1.25rem 1.5rem;
+  border: 2px solid var(--border-light);
+  border-radius: 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  background: var(--white);
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.airport-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4px rgba(0, 95, 115, 0.1);
+}
+
+.airport-input::placeholder {
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.input-accent {
+  position: absolute;
+  bottom: 0;
+  left: 1.5rem;
+  right: 1.5rem;
+  height: 3px;
+  border-radius: 1.5px;
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+  transform-origin: left;
+  z-index: 3;
+}
+
+.departure-accent {
+  background: var(--secondary-color);
+}
+
+.arrival-accent {
+  background: var(--primary-color);
+}
+
+.airport-input:focus + .input-accent {
+  transform: scaleX(1);
+}
+
+/* === 下拉選單 === */
+.dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--white);
+  border: 2px solid var(--border-light);
+  border-top: none;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1000;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.dropdown-header {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+  background: var(--background-light);
+}
+
+.dropdown-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-medium);
+}
+
+.dropdown-item {
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-light);
+  transition: background 0.2s ease;
+}
+
+.dropdown-item:hover {
+  background: var(--background-light);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.airport-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.airport-code {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  padding: 0.25rem 0.5rem;
+  background: rgba(0, 95, 115, 0.1);
+  border-radius: 4px;
+}
+
+.airport-name {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.airport-location {
+  font-size: 0.875rem;
+  color: var(--text-light);
+}
+
+/* === 詳細資訊區塊 === */
+.details-section {
+  margin-bottom: 2.5rem;
+}
+
+.details-inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.date-input {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-dark);
+  background: var(--white);
+  transition: all 0.2s ease;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.passenger-button {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  background: var(--white);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.passenger-button:hover {
+  border-color: var(--primary-color);
+}
+
+.passenger-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.passenger-count {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.cabin-class {
+  font-size: 0.875rem;
+  color: var(--text-medium);
+}
+
+.button-accent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--primary-color);
+  transform: scaleX(0);
+  transition: transform 0.2s ease;
+  transform-origin: left;
+}
+
+.passenger-button:hover .button-accent {
+  transform: scaleX(1);
+}
+
+/* === 搜索按鈕 === */
+.search-action {
+  display: flex;
+  justify-content: center;
+}
+
+.search-submit-btn {
+  background: var(--primary-color);
+  color: var(--white);
+  border: none;
+  padding: 1.25rem 3rem;
+  border-radius: 16px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  min-width: 200px;
+}
+
+.search-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 95, 115, 0.3);
+}
+
+.search-submit-btn:active {
+  transform: translateY(0);
+}
+
+.search-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-text {
+  position: relative;
+  z-index: 2;
+}
+
+.btn-background {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.search-submit-btn:hover .btn-background {
+  left: 100%;
+}
+
+/* === 響應式設計 === */
+@media (max-width: 768px) {
+  .search-card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .search-title {
+    font-size: 2.5rem;
+  }
+  
+  .route-inputs {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .details-inputs {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+</style> 
+<template>
+  <div class="journey-search-container">
+    <!-- 搜尋標題區域 -->
+    <div class="search-header">
+      <h1 class="search-title">探索您的下一趟旅程</h1>
+      <p class="search-subtitle">找到完美的航班，開始您的精彩旅程</p>
+    </div>
+
+    <!-- 主要搜尋表單 -->
+    <div class="search-form-wrapper">
+      <form @submit.prevent="submitSearch" class="journey-form">
+        <!-- 航線選擇區域 -->
+        <div class="route-selection">
+          <div class="route-inputs">
+            <!-- 出發地 -->
+            <div class="input-group departure-group">
+              <label class="input-label">
+                <span class="label-text">出發地</span>
+                <span class="label-icon">✈</span>
+              </label>
+        <AirportSelector 
+                v-model="formData.departureAirport"
+                placeholder="選擇出發機場"
+          :airports="taiwanAirports"
+          :loading="loadingTaiwanAirports"
+          :error="errors.departureAirport"
+          :isDeparture="true"
+                class="airport-input departure-input"
+          @change="onDepartureChange"
+          @select-recent-route="handleRecentRouteSelected"
+        />
+      </div>
+        
+            <!-- 路線交換按鈕 -->
+            <div class="route-swap">
+              <button 
+                type="button" 
+                class="swap-button"
+                @click="swapAirports"
+                title="交換出發地與目的地"
+              >
+                <div class="swap-icon">
+                  <div class="swap-arrow swap-arrow-1"></div>
+                  <div class="swap-arrow swap-arrow-2"></div>
+                </div>
+              </button>
+            </div>
+
+            <!-- 目的地 -->
+            <div class="input-group destination-group">
+              <label class="input-label">
+                <span class="label-text">目的地</span>
+                <span class="label-icon">🎯</span>
+              </label>
+        <AirportSelector 
+                v-model="formData.arrivalAirport"
+                placeholder="選擇目的地機場"
+          :airports="destinationAirports"
+          :loading="loadingDestinations"
+          :error="errors.arrivalAirport"
+                class="airport-input destination-input"
+        />
+            </div>
+          </div>
+      </div>
+      
+        <!-- 日期與選項區域 -->
+        <div class="travel-options">
+          <!-- 日期選擇 -->
+          <div class="date-selection">
+            <div class="input-group date-group">
+              <label class="input-label">
+                <span class="label-text">出發日期</span>
+                <span class="label-icon">📅</span>
+              </label>
+        <DateSelector 
+          v-model="formData.departureDate"
+          :error="errors.departureDate"
+                class="date-input"
+          @change="onDepartureDateChange"
+        />
+      </div>
+        
+            <div class="input-group date-group">
+              <label class="input-label">
+                <span class="label-text">回程日期</span>
+                <span class="label-icon optional-icon">📅</span>
+                <span class="optional-tag">選填</span>
+              </label>
+        <DateSelector 
+          v-model="formData.returnDate"
+          :error="errors.returnDate"
+                :minDate="formData.departureDate"
+                class="date-input"
+                placeholder="單程票請留空"
+        />
+            </div>
+      </div>
+      
+          <!-- 乘客與艙等 -->
+          <div class="passenger-cabin-selection">
+            <div class="input-group passenger-group">
+              <label class="input-label">
+                <span class="label-text">乘客與艙等</span>
+                <span class="label-icon">👥</span>
+              </label>
+        <button 
+                type="button"
+          @click="openPassengerModal"
+                class="passenger-selector"
+              >
+                <div class="passenger-display">
+                  <span class="passenger-text">{{ passengerCabinDisplay }}</span>
+                  <span class="dropdown-arrow">▼</span>
+                </div>
+        </button>
+            </div>
+          </div>
+      </div>
+        
+        <!-- 搜尋按鈕區域 -->
+        <div class="search-action">
+        <button 
+            type="submit" 
+            class="search-button"
+          :disabled="isSearching || loadingTaiwanAirports || loadingDestinations"
+          >
+            <div class="button-content">
+              <span v-if="!isSearching" class="button-text">
+                <span class="search-icon">🔍</span>
+                搜尋航班
+              </span>
+              <div v-else class="searching-state">
+                <div class="search-loader">
+                  <div class="loader-ring"></div>
+                  <div class="loader-dot"></div>
+                </div>
+                <span class="searching-text">搜尋中...</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </form>
+
+      <!-- 最近搜尋快捷方式 -->
+      <div class="recent-searches" v-if="recentSearches.length > 0">
+        <h3 class="recent-title">最近搜尋</h3>
+        <div class="recent-routes">
+          <button
+            v-for="(route, index) in recentSearches.slice(0, 3)"
+            :key="index"
+            @click="handleRecentRouteSelected(route)"
+            class="recent-route-chip"
+          >
+            <span class="route-text">
+              {{ route.departureAirport?.name || route.departureAirport?.code }} 
+              → 
+              {{ route.arrivalAirport?.name || route.arrivalAirport?.code }}
+            </span>
+        </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 乘客艙等選擇彈窗 -->
+    <PassengerCabinSelectModal
+      v-if="isPassengerModalVisible"
+      :passengers="formData.passengers"
+      :cabinClass="formData.cabinClass"
+      @close="closePassengerModal"
+      @confirm="handlePassengerConfirm"
+    />
+  </div>
+</template>
+
+<script>
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { useSearchStore } from '@/store/modules/search';
-import { useRoute } from 'vue-router';
+import AirportSelector from '@/components/AirportSelector.vue';
+import DateSelector from '@/components/DateSelector.vue';
+import PassengerCabinSelectModal from '@/components/ui/PassengerCabinSelectModal.vue';
+import { getAirports, getDestinations } from '@/api/services/flightService';
 
 export default {
   name: 'SearchForm',
@@ -130,263 +986,77 @@ export default {
   emits: ['search'],
   setup(props, { emit }) {
     const searchStore = useSearchStore();
-    const route = useRoute();
     
+    // 響應式數據
     const taiwanAirports = ref([]);
     const destinationAirports = ref([]);
     const loadingTaiwanAirports = ref(false);
     const loadingDestinations = ref(false);
-
     const isPassengerModalVisible = ref(false);
 
-    const getLocalDateString = () => {
-      const date = new Date();
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
     const formData = reactive({
-        departureAirport: searchStore.searchParams.departureAirport || null,
-        arrivalAirport: searchStore.searchParams.arrivalAirport || null,
-        departureDate: searchStore.searchParams.departureDate || getLocalDateString(),
-        returnDate: searchStore.searchParams.returnDate || '',
-        cabinClass: searchStore.searchParams.cabinClass || 'Economy',
-        passengers: searchStore.searchParams.passengers || { adults: 1, children: 0, infants: 0 },
-    });
-
-    const passengerCabinDisplay = computed(() => {
-      const { adults, children, infants } = formData.passengers;
-      const totalPassengers = adults + children + infants;
-      const cabinText = cabinClassesMap[formData.cabinClass] || formData.cabinClass;
-      return `${totalPassengers}位旅客, ${cabinText}`;
-    });
-
-    const cabinClassesMap = {
-      'Economy': '經濟艙',
-      'Premium Economy': '優質經濟艙',
-      'Business': '商務艙',
-      'First': '頭等艙'
-    };
-
-    watch(() => searchStore.searchParams.departureAirport, (newVal) => {
-      if (newVal === null) {
-        console.log('[SearchForm] Detected store reset, clearing local form airports.');
-        formData.departureAirport = null;
-        formData.arrivalAirport = null;
-        destinationAirports.value = [];
-      }
+      departureAirport: null,
+      arrivalAirport: null,
+      departureDate: '',
+      returnDate: '',
+      passengers: { adults: 1, children: 0, infants: 0 },
+      cabinClass: 'ECONOMY'
     });
 
     const errors = reactive({
         departureAirport: '',
         arrivalAirport: '',
         departureDate: '',
-        returnDate: '',
+      returnDate: ''
     });
 
-    const fetchTaiwanAirports = async () => {
-      if (taiwanAirports.value.length > 0) return;
-      
-      try {
-        loadingTaiwanAirports.value = true;
-        const airportsData = await flightService.getTaiwanInternationalAirports();
-        
-        let airportsArray = [];
-        if (Array.isArray(airportsData)) {
-          airportsArray = airportsData;
-        } else if (airportsData && airportsData.data && Array.isArray(airportsData.data)) {
-          airportsArray = airportsData.data;
-        } else if (airportsData && typeof airportsData === 'object') {
-          airportsArray = [airportsData];
-        } else {
-          throw new Error('無效的機場數據格式');
-        }
-        
-        taiwanAirports.value = airportsArray.map(airport => ({
-          code: airport.airport_id || airport.code,
-                      name: airport.name_zh || airport.name_en || airport.name || '未知機場',
-            name_zh: airport.name_zh || airport.name || '',
-          country: airport.country,
-          region: airport.region || '台灣',
-          activity_score: airport.activity_score || 0
-        }));
+    // 計算屬性
+    const recentSearches = computed(() => searchStore.recentSearches);
+    
+    const passengerCabinDisplay = computed(() => {
+      const total = formData.passengers.adults + formData.passengers.children + formData.passengers.infants;
+      const cabinMap = {
+        'ECONOMY': '經濟艙',
+        'BUSINESS': '商務艙',
+        'FIRST': '頭等艙'
+      };
+      return `${total} 位乘客, ${cabinMap[formData.cabinClass]}`;
+    });
 
+    // 方法
+    const fetchTaiwanAirports = async () => {
+      loadingTaiwanAirports.value = true;
+      try {
+        const response = await getAirports();
+        if (response.success && response.data) {
+          taiwanAirports.value = response.data.filter(airport => 
+            airport.country === 'Taiwan'
+          ).sort((a, b) => {
+            const scoreA = Number(a.activity_score) || 0;
+            const scoreB = Number(b.activity_score) || 0;
+            return scoreB - scoreA;
+          });
+        }
       } catch (error) {
-        console.error('獲取台灣國際機場失敗:', error);
+        console.error('獲取台灣機場失敗:', error);
       } finally {
         loadingTaiwanAirports.value = false;
       }
     };
 
-    const checkUrlParams = async () => {
-      if (route.query.from && route.query.to && 
-          (!formData.departureAirport || !formData.arrivalAirport)) {
-        console.log('[SearchForm] 從URL參數填充機場信息:', route.query.from, route.query.to);
-        
-        try {
-          loadingTaiwanAirports.value = true;
-          loadingDestinations.value = true;
-          
-          const [fromResponse, toResponse] = await Promise.all([
-            flightService.getAirportByCode(route.query.from),
-            flightService.getAirportByCode(route.query.to)
-          ]);
-          
-          // 處理出發地響應
-          if (fromResponse) {
-            let fromAirportData = null;
-            if (fromResponse.success && fromResponse.data) {
-              fromAirportData = fromResponse.data;
-            } else if (typeof fromResponse === 'object' && (fromResponse.code || fromResponse.airport_id)) {
-              fromAirportData = fromResponse;
-            }
-            
-            if (fromAirportData) {
-              // **確保 formData.departureAirport 包含 code 屬性**
-              formData.departureAirport = {
-                ...fromAirportData,
-                code: fromAirportData.code || fromAirportData.airport_id
-              };
-              console.log('[SearchForm] 已設置出發地機場 (含code):', JSON.parse(JSON.stringify(formData.departureAirport)));
-              
-              // 獲取所有機場信息
-              const allAirportsResponse = await flightService.getAllAirports();
-              if (allAirportsResponse) {
-                let allAirportsArray = [];
-                if (allAirportsResponse.success && Array.isArray(allAirportsResponse.data)) {
-                  allAirportsArray = allAirportsResponse.data;
-                } else if (Array.isArray(allAirportsResponse)) {
-                  allAirportsArray = allAirportsResponse;
-                }
-                // **確保 destinationAirports 中的對象包含 code 屬性**
-                destinationAirports.value = allAirportsArray.map(ap => ({
-                  ...ap,
-                  code: ap.code || ap.airport_id
-                }));
-              }
-            }
-          }
-          
-          // 處理目的地響應
-          if (toResponse) {
-            let toAirportData = null;
-            if (toResponse.success && toResponse.data) {
-              toAirportData = toResponse.data;
-            } else if (typeof toResponse === 'object' && (toResponse.code || toResponse.airport_id)) {
-              toAirportData = toResponse;
-            }
-            
-            if (toAirportData) {
-              // **確保 formData.arrivalAirport 包含 code 屬性**
-              formData.arrivalAirport = {
-                ...toAirportData,
-                code: toAirportData.code || toAirportData.airport_id
-              };
-              console.log('[SearchForm] 已設置目的地機場 (含code):', JSON.parse(JSON.stringify(formData.arrivalAirport)));
-            }
-          }
-        } catch (error) {
-          console.error('[SearchForm] 獲取機場信息時出錯:', error);
-        } finally {
-          loadingTaiwanAirports.value = false;
-          loadingDestinations.value = false;
-        }
-      }
-    };
-
-    const onDepartureChange = async (selectedAirport) => {
-      console.log('SearchForm: onDepartureChange received (v-model restored):', JSON.parse(JSON.stringify(selectedAirport)));
-      console.log('SearchForm: formData.departureAirport after v-model update:', JSON.parse(JSON.stringify(formData.departureAirport)));
-
-      if (!selectedAirport) {
-        console.log('出發地已被清除，重置目的地和目的地列表');
-        formData.arrivalAirport = null;
+    const onDepartureChange = async (airport) => {
+      if (!airport || !airport.code) {
         destinationAirports.value = [];
-        return;
-      }
-
-      if (!formData.arrivalAirport || 
-          (formData.departureAirport && formData.departureAirport.code !== selectedAirport?.code)) {
-        formData.arrivalAirport = null;
-        destinationAirports.value = [];
-      }
-
-      // 檢查機場代碼是否有效，防止使用 'N/A' 或空值作為機場代碼
-      const airportCode = selectedAirport?.code;
-      if (!airportCode || airportCode === 'N/A') {
-        console.log('無效或缺失的 airport code，提前退出 onDepartureChange');
-        errors.arrivalAirport = '請選擇有效的出發機場';
         return;
       }
 
       loadingDestinations.value = true;
-      errors.arrivalAirport = '';
       try {
-        console.log(`獲取目的地: 出發=${airportCode}, 日期=${formData.departureDate}`);
-        const destinations = await flightService.getDestinations(airportCode, formData.departureDate);
-        console.log('原始目的地數據:', destinations);
-
-        // 確保 destinations 是數組
-        let destinationsArray = [];
-        if (Array.isArray(destinations)) {
-          destinationsArray = destinations;
-        } else if (destinations && destinations.success && Array.isArray(destinations.data)) {
-          destinationsArray = destinations.data;
-        }
-
-        if (destinationsArray && destinationsArray.length > 0) {
-          const mappedDestinations = destinationsArray.map(airport => {
-            const code = airport.code || airport.airport_id || 'N/A';
-            const name = airport.name_zh || airport.name_en || airport.name || '未知名稱';
-            const country = airport.country || '';
-
-            let region = '其他';
-            if (['TPE', 'TSA', 'KHH', 'RMQ', 'TNN', 'CYI', 'HUN', 'TTT', 'MZG', 'KNH', 'MFK', 'LZN', 'KYD', 'GNI', 'TXG', 'PIF'].includes(code) || country === 'Taiwan') {
-              region = '台灣';
-            } else if (country === 'China' || ['PEK', 'SHA', 'PVG', 'CAN', 'CTU', 'SZX', 'XIY', 'KMG', 'HGH', 'CSX', 'TAO', 'NKG', 'DLC', 'TSN'].some(c => code.includes(c))) {
-              region = '中國';
-            } else if (country === 'Japan' || ['NRT', 'HND', 'KIX', 'ITM', 'FUK', 'CTS', 'NGO', 'OKA'].some(c => code.includes(c))) {
-              region = '東北亞';
-            } else if (country === 'South Korea' || ['ICN', 'GMP', 'PUS', 'CJU'].some(c => code.includes(c))) {
-              region = '東北亞';
-            } else if (['HKG', 'MFM'].includes(code) || country === 'Hong Kong' || country === 'Macau') {
-              region = '香港/澳門';
-            } else if (['Thailand', 'Vietnam', 'Singapore', 'Malaysia', 'Philippines', 'Indonesia', 'Cambodia', 'Myanmar', 'Laos', 'Brunei'].includes(country)) {
-              region = '東南亞';
-            } else if (['United States', 'Canada', 'Mexico', 'Brazil', 'Argentina', 'Chile', 'Peru', 'Colombia'].includes(country)) {
-              region = '美洲';
-            } else if (['United Kingdom', 'France', 'Germany', 'Italy', 'Spain', 'Netherlands', 'Sweden', 'Russia', 'Switzerland', 'Portugal', 'Greece', 'Turkey'].includes(country)) {
-              region = '歐洲';
-            } else if (['Australia', 'New Zealand', 'Fiji', 'Papua New Guinea', 'Guam'].includes(country)) {
-              region = '大洋洲';
-            }
-            
-            return {
-              id: airport.id || airport.airport_id,
-              code: code,
-              name: name,
-                          name_zh: airport.name_zh || '',
-            name_en: airport.name_en || airport.name || '',
-              city: airport.city || '',
-              country: country,
-              region: region
-            };
-          });
-          console.log('處理後目的地數據:', mappedDestinations);
-          destinationAirports.value = mappedDestinations;
-          
-          const regionOrder = ['台灣', '東北亞', '香港/澳門', '中國', '東南亞', '美洲', '歐洲', '大洋洲', '其他'];
-          destinationAirports.value.sort((a, b) => {
-            const regionAIndex = regionOrder.indexOf(a.region);
-            const regionBIndex = regionOrder.indexOf(b.region);
-            if (regionAIndex !== regionBIndex) {
-              return regionAIndex - regionBIndex;
-            }
-            return (a.name || '').localeCompare(b.name || '');
-          });
-          
+        const response = await getDestinations(airport.code);
+        if (response.success && response.data) {
+          destinationAirports.value = response.data.sort((a, b) => 
+            (a.name || '').localeCompare(b.name || '')
+          );
         } else {
           destinationAirports.value = [];
           errors.arrivalAirport = '此出發地無可用目的地';
@@ -400,6 +1070,16 @@ export default {
       }
     };
 
+    const swapAirports = () => {
+      const temp = formData.departureAirport;
+      formData.departureAirport = formData.arrivalAirport;
+      formData.arrivalAirport = temp;
+      
+      if (formData.departureAirport && formData.departureAirport.code) {
+        onDepartureChange(formData.departureAirport);
+      }
+    };
+
     const onDepartureDateChange = () => {
       if (formData.returnDate && new Date(formData.returnDate) < new Date(formData.departureDate)) {
         formData.returnDate = '';
@@ -410,16 +1090,11 @@ export default {
     };
 
     const handleRecentRouteSelected = (route) => {
-      console.log('[SearchForm] Recent route selected:', route);
-      
-      // **確保從最近搜索記錄設置的機場物件包含 code 屬性**
       if (route.departureAirport) {
         formData.departureAirport = {
           ...route.departureAirport,
           code: route.departureAirport.code || route.departureAirport.airport_id
         };
-      } else {
-        formData.departureAirport = null;
       }
       
       if (route.arrivalAirport) {
@@ -427,40 +1102,24 @@ export default {
           ...route.arrivalAirport,
           code: route.arrivalAirport.code || route.arrivalAirport.airport_id
         };
-      } else {
-        formData.arrivalAirport = null;
       }
-      
-      console.log('[SearchForm] After recent route selection (departure):', JSON.parse(JSON.stringify(formData.departureAirport)));
-      console.log('[SearchForm] After recent route selection (arrival):', JSON.parse(JSON.stringify(formData.arrivalAirport)));
       
       if (formData.departureAirport && formData.departureAirport.code) {
         onDepartureChange(formData.departureAirport);
-      } else {
-        destinationAirports.value = [];
       }
     };
 
     const validateForm = () => {
       let isValid = true;
-      errors.departureAirport = '';
-      errors.arrivalAirport = '';
-      errors.departureDate = '';
-      errors.returnDate = '';
+      Object.keys(errors).forEach(key => errors[key] = '');
 
-      if (!formData.departureAirport) {
+      if (!formData.departureAirport || !formData.departureAirport.code) {
         errors.departureAirport = '請選擇出發機場';
-        isValid = false;
-      } else if (!formData.departureAirport.code || formData.departureAirport.code === 'N/A') {
-        errors.departureAirport = '請選擇有效的出發機場';
         isValid = false;
       }
       
-      if (!formData.arrivalAirport) {
+      if (!formData.arrivalAirport || !formData.arrivalAirport.code) {
         errors.arrivalAirport = '請選擇目的地機場';
-        isValid = false;
-      } else if (!formData.arrivalAirport.code || formData.arrivalAirport.code === 'N/A') {
-        errors.arrivalAirport = '請選擇有效的目的地機場';
         isValid = false;
       }
       
@@ -468,6 +1127,7 @@ export default {
         errors.departureDate = '請選擇出發日期';
         isValid = false;
       }
+
       if (formData.returnDate) {
         const depDate = new Date(formData.departureDate);
         const retDate = new Date(formData.returnDate);
@@ -476,28 +1136,12 @@ export default {
           isValid = false;
         }
       }
+
       return isValid;
     };
 
     const submitSearch = () => {
-      if (!validateForm() || props.isSearching || loadingTaiwanAirports.value || loadingDestinations.value) {
-        return;
-      }
-      
-      // 即使通過了 validateForm，也再次檢查關鍵條件
-      if (!formData.departureAirport || !formData.departureAirport.code || 
-          formData.departureAirport.code === 'N/A' ||
-          !formData.arrivalAirport || !formData.arrivalAirport.code || 
-          formData.arrivalAirport.code === 'N/A') {
-        console.error('搜索前檢測到無效的機場代碼');
-        if (!formData.departureAirport || !formData.departureAirport.code || formData.departureAirport.code === 'N/A') {
-          errors.departureAirport = '請選擇有效的出發機場';
-        }
-        if (!formData.arrivalAirport || !formData.arrivalAirport.code || formData.arrivalAirport.code === 'N/A') {
-          errors.arrivalAirport = '請選擇有效的目的地機場';
-        }
-        return;
-      }
+      if (!validateForm() || props.isSearching) return;
       
       const searchData = {
         departure: formData.departureAirport.code,
@@ -508,22 +1152,13 @@ export default {
       };
       
       emit('search', searchData);
-      searchStore.setSearchParams({
-        departureAirport: formData.departureAirport,
-        arrivalAirport: formData.arrivalAirport,
-        departureDate: formData.departureDate,
-        returnDate: formData.returnDate,
-        cabinClass: formData.cabinClass,
-        passengers: formData.passengers,
-      });
       
-      if (formData.departureAirport && formData.departureAirport.code && 
-          formData.arrivalAirport && formData.arrivalAirport.code) {
+      // 保存搜尋參數和歷史
+      searchStore.setSearchParams({ ...formData });
         searchStore.addRecentSearch({
           departureAirport: { ...formData.departureAirport },
           arrivalAirport: { ...formData.arrivalAirport }
         });
-      }
     };
 
     const openPassengerModal = () => {
@@ -542,7 +1177,6 @@ export default {
 
     onMounted(async () => {
       await fetchTaiwanAirports();
-      await checkUrlParams();
     });
 
     return {
@@ -552,35 +1186,435 @@ export default {
       loadingDestinations,
       formData,
       errors,
-      onDepartureChange,
-      onDepartureDateChange,
-      submitSearch,
+      recentSearches,
+      passengerCabinDisplay,
       isPassengerModalVisible,
+      onDepartureChange,
+      swapAirports,
+      onDepartureDateChange,
+      handleRecentRouteSelected,
+      submitSearch,
       openPassengerModal,
       closePassengerModal,
-      handlePassengerConfirm,
-      passengerCabinDisplay,
-      handleRecentRouteSelected
+      handlePassengerConfirm
     };
   }
 };
 </script>
 
 <style scoped>
-/* 方正設計 */
-:deep(.square-selector input),
-:deep(.square-selector select),
-button {
-  border-radius: 0 !important; /* 移除圓角 */
+/* Structured Journey Minimalism 設計系統 */
+.journey-search-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  background: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.95) 0%, 
+    rgba(248, 250, 252, 0.98) 100%
+  );
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  box-shadow: 
+    0 8px 32px rgba(0, 95, 115, 0.08),
+    0 4px 16px rgba(0, 95, 115, 0.04);
+  position: relative;
+  overflow: hidden;
 }
 
-:deep(.square-selector .input),
-:deep(.square-selector .form-input) {
-  border-radius: 0 !important;
+.journey-search-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(0, 95, 115, 0.2) 50%, 
+    transparent 100%
+  );
 }
 
-:deep(.loading-spinner),
-:deep(.animate-spin) {
-  border-radius: 50%; /* 保持載入動畫為圓形 */
+/* 搜尋標題區域 */
+.search-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.search-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #005F73;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.search-subtitle {
+  font-size: 1.125rem;
+  color: #6B7280;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+/* 搜尋表單 */
+.search-form-wrapper {
+  position: relative;
+}
+
+.journey-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+/* 航線選擇區域 */
+.route-selection {
+  position: relative;
+}
+
+.route-inputs {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+/* 交換按鈕 */
+.route-swap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding-bottom: 2rem;
+}
+
+.swap-button {
+  width: 48px;
+  height: 48px;
+  border: 2px solid #E5E7EB;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.swap-button:hover {
+  border-color: #005F73;
+  transform: rotate(180deg) scale(1.1);
+  box-shadow: 0 8px 20px rgba(0, 95, 115, 0.15);
+}
+
+.swap-icon {
+  position: relative;
+  width: 20px;
+  height: 20px;
+}
+
+.swap-arrow {
+  position: absolute;
+  width: 12px;
+  height: 2px;
+  background: #005F73;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.swap-arrow-1 {
+  top: 6px;
+  left: 4px;
+  transform: rotate(45deg);
+}
+
+.swap-arrow-2 {
+  top: 12px;
+  left: 4px;
+  transform: rotate(-45deg);
+}
+
+/* 輸入組件 */
+.input-group {
+  position: relative;
+}
+
+.input-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.label-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label-icon {
+  font-size: 1rem;
+  opacity: 0.7;
+}
+
+.optional-tag {
+  font-size: 0.75rem;
+  color: #9CA3AF;
+  font-weight: 400;
+  background: #F3F4F6;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+}
+
+/* 旅行選項區域 */
+.travel-options {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.date-selection {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* 乘客選擇器 */
+.passenger-selector {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #E5E7EB;
+  border-radius: 12px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.passenger-selector:hover {
+  border-color: #005F73;
+  box-shadow: 0 4px 12px rgba(0, 95, 115, 0.08);
+}
+
+.passenger-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.passenger-text {
+  color: #374151;
+  font-weight: 500;
+}
+
+.dropdown-arrow {
+  color: #9CA3AF;
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+/* 搜尋按鈕 */
+.search-action {
+  margin-top: 1rem;
+}
+
+.search-button {
+  width: 100%;
+  padding: 1.25rem 2rem;
+  background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.search-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.2) 50%, 
+    transparent 100%
+  );
+  transition: left 0.5s ease;
+}
+
+.search-button:hover::before {
+  left: 100%;
+}
+
+.search-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 95, 115, 0.25);
+}
+
+.search-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.search-icon {
+  font-size: 1.25rem;
+}
+
+/* 搜尋中狀態 */
+.searching-state {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.search-loader {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.loader-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: search-spin 1s linear infinite;
+}
+
+.loader-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: search-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes search-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes search-pulse {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.8); }
+}
+
+/* 最近搜尋 */
+.recent-searches {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #E5E7EB;
+}
+
+.recent-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6B7280;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.recent-routes {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.recent-route-chip {
+  padding: 0.5rem 1rem;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 24px;
+  font-size: 0.875rem;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.recent-route-chip:hover {
+  background: #005F73;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 95, 115, 0.15);
+}
+
+/* 響應式設計 */
+@media (max-width: 1024px) {
+  .travel-options {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .route-inputs {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .route-swap {
+    order: 2;
+    padding-bottom: 0;
+    margin: -0.5rem 0;
+  }
+  
+  .destination-group {
+    order: 3;
+  }
+  
+  .date-selection {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .search-title {
+    font-size: 2rem;
+  }
+  
+  .journey-search-container {
+    margin: 1rem;
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-title {
+    font-size: 1.75rem;
+  }
+  
+  .search-subtitle {
+    font-size: 1rem;
+  }
+  
+  .journey-form {
+    gap: 2rem;
+  }
 }
 </style> 

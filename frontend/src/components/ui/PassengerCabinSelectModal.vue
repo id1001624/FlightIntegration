@@ -1,165 +1,493 @@
 <template>
-  <AnimatePresence>
-    <motion.div
-      v-if="visible"
-      :initial="{ opacity: 0, y: 50, scale: 0.9 }"
-      :animate="{ opacity: 1, y: 0, scale: 1 }"
-      :exit="{ opacity: 0, y: 30, scale: 0.95 }"
-      :transition="{ type: 'spring', stiffness: 350, damping: 25, mass: 0.8 }"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      @click.self="emitClose"
-    >
-      <motion.div
-        :initial="{ opacity: 0, scale: 0.8 }"
-        :animate="{ opacity: 1, scale: 1 }"
-        :transition="{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }"
-        class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 space-y-6"
-      >
-        <!-- 標題 -->
-        <div class="text-center">
-          <h2 class="text-2xl font-semibold text-gray-800">選擇旅客與艙等</h2>
-        </div>
+  <div
+    v-if="isVisible"
+    class="modal-overlay"
+    @click.self="$emit('close')"
+  >
+    <div class="modal-content">
+      <!-- 標題 -->
+      <div class="modal-header">
+        <h2 class="modal-title">選擇旅客與艙等</h2>
+        <button @click="$emit('close')" class="close-btn">×</button>
+      </div>
 
-        <!-- 旅客選擇區域 -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-medium text-gray-700 border-b pb-2">旅客人數</h3>
-          <!-- 成人 -->
-          <PassengerCounter
-            label="成人"
-            description="12歲或以上"
-            :count="selectedPassengers.adults"
-            @update:count="(count) => updatePassengerCount('adults', count)"
-            :min-count="1"
-          ></PassengerCounter>
-          <!-- 兒童 -->
-          <PassengerCounter
-            label="兒童"
-            description="2-11歲"
-            :count="selectedPassengers.children"
-            @update:count="(count) => updatePassengerCount('children', count)"
-            :max-count="9"
-          ></PassengerCounter>
-          <!-- 嬰兒 -->
-          <PassengerCounter
-            label="嬰兒 (不佔位)"
-            description="0-1歲"
-            :count="selectedPassengers.infants"
-            @update:count="(count) => updatePassengerCount('infants', count)"
-            :max-count="selectedPassengers.adults"
-          ></PassengerCounter>
+      <!-- 旅客選擇區域 -->
+      <div class="passengers-section">
+        <h3 class="section-title">旅客人數</h3>
+        
+        <!-- 成人 -->
+        <div class="passenger-row">
+          <div class="passenger-info">
+            <div class="passenger-type">成人</div>
+            <div class="passenger-desc">12歲或以上</div>
+          </div>
+          <div class="counter-controls">
+            <button 
+              @click="updatePassengerCount('adults', localPassengers.adults - 1)"
+              :disabled="localPassengers.adults <= 1"
+              class="counter-btn"
+            >
+              -
+            </button>
+            <span class="counter-value">{{ localPassengers.adults }}</span>
+            <button 
+              @click="updatePassengerCount('adults', localPassengers.adults + 1)"
+              :disabled="localPassengers.adults >= 9"
+              class="counter-btn"
+            >
+              +
+            </button>
+          </div>
         </div>
+        
+        <!-- 兒童 -->
+        <div class="passenger-row">
+          <div class="passenger-info">
+            <div class="passenger-type">兒童</div>
+            <div class="passenger-desc">2-11歲</div>
+          </div>
+          <div class="counter-controls">
+            <button 
+              @click="updatePassengerCount('children', localPassengers.children - 1)"
+              :disabled="localPassengers.children <= 0"
+              class="counter-btn"
+            >
+              -
+            </button>
+            <span class="counter-value">{{ localPassengers.children }}</span>
+            <button 
+              @click="updatePassengerCount('children', localPassengers.children + 1)"
+              :disabled="localPassengers.children >= 9"
+              class="counter-btn"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        
+        <!-- 嬰兒 -->
+        <div class="passenger-row">
+          <div class="passenger-info">
+            <div class="passenger-type">嬰兒 (不佔位)</div>
+            <div class="passenger-desc">0-1歲</div>
+          </div>
+          <div class="counter-controls">
+            <button 
+              @click="updatePassengerCount('infants', localPassengers.infants - 1)"
+              :disabled="localPassengers.infants <= 0"
+              class="counter-btn"
+            >
+              -
+            </button>
+            <span class="counter-value">{{ localPassengers.infants }}</span>
+            <button 
+              @click="updatePassengerCount('infants', localPassengers.infants + 1)"
+              :disabled="localPassengers.infants >= localPassengers.adults"
+              class="counter-btn"
+            >
+              +
+            </button>
+          </div>
+        </div>
+      </div>
 
-        <!-- 艙等選擇區域 -->
-        <div class="space-y-3">
-          <h3 class="text-lg font-medium text-gray-700 border-b pb-2">選擇艙等</h3>
-          <select
-            v-model="selectedCabinClass"
-            class="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 transition duration-150 ease-in-out"
+      <!-- 艙等選擇區域 -->
+      <div class="cabin-section">
+        <h3 class="section-title">選擇艙等</h3>
+        <div class="cabin-options">
+          <label 
+            v-for="option in cabinOptions" 
+            :key="option.value"
+            class="cabin-option"
+            :class="{ active: localCabinClass === option.value }"
           >
-            <option v-for="cabin in cabinClasses" :key="cabin.value" :value="cabin.value">
-              {{ cabin.text }}
-            </option>
-          </select>
+            <input 
+              type="radio" 
+              :value="option.value" 
+              v-model="localCabinClass"
+              class="cabin-radio"
+            />
+            <div class="cabin-info">
+              <div class="cabin-name">{{ option.name }}</div>
+              <div class="cabin-desc">{{ option.description }}</div>
+            </div>
+          </label>
         </div>
+      </div>
 
-        <!-- 操作按鈕 -->
-        <div class="flex justify-end space-x-3 pt-4">
-          <button
-            @click="emitClose"
-            class="px-6 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
-          >
-            取消
-          </button>
-          <button
-            @click="handleConfirm"
-            class="px-6 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition duration-150 ease-in-out"
-          >
-            確認
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  </AnimatePresence>
+      <!-- 操作按鈕 -->
+      <div class="modal-actions">
+        <button
+          @click="$emit('close')"
+          class="cancel-btn"
+        >
+          取消
+        </button>
+        <button
+          @click="handleConfirm"
+          class="confirm-btn"
+        >
+          確認
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
-<script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
-import { motion, AnimatePresence } from 'motion-v';
-import PassengerCounter from './PassengerCounter.vue'; // 導入獨立的組件
+<script>
+import { ref, reactive, computed, watch } from 'vue';
 
-// Props
-const props = defineProps({
-  visible: {
-    type: Boolean,
-    default: false,
-  },
-  initialPassengers: {
-    type: Object,
-    default: () => ({ adults: 1, children: 0, infants: 0 }),
-  },
-  initialCabinClass: {
-    type: String,
-    default: 'Economy', 
-  },
-});
-
-// Emits
-const emit = defineEmits(['close', 'confirm']);
-
-// 內部狀態
-const selectedPassengers = reactive({ ...props.initialPassengers });
-const selectedCabinClass = ref(props.initialCabinClass);
-
-// 監聽 props 變化以更新內部狀態
-watch(() => props.initialPassengers, (newVal) => {
-  Object.assign(selectedPassengers, newVal);
-}, { deep: true });
-
-watch(() => props.initialCabinClass, (newVal) => {
-  selectedCabinClass.value = newVal;
-});
-
-// 艙等選項
-const cabinClasses = ref([
-  { value: 'Economy', text: '經濟艙' },
-  { value: 'Premium Economy', text: '優質經濟艙' },
-  { value: 'Business', text: '商務艙' },
-  { value: 'First', text: '頭等艙' },
-]);
-
-// 更新乘客數量的方法
-const updatePassengerCount = (type: 'adults' | 'children' | 'infants', count: number) => {
-  const currentAdults = selectedPassengers.adults;
-  
-  if (type === 'adults') {
-    selectedPassengers.adults = Math.max(1, count); // 成人至少為1
-    // 如果成人數量減少，確保嬰兒數量不超過新的成人數量
-    if (selectedPassengers.infants > selectedPassengers.adults) {
-      selectedPassengers.infants = selectedPassengers.adults;
+export default {
+  name: 'PassengerCabinSelectModal',
+  props: {
+    passengers: {
+      type: Object,
+      default: () => ({ adults: 1, children: 0, infants: 0 })
+    },
+    cabinClass: {
+      type: String,
+      default: 'ECONOMY'
     }
-  } else if (type === 'children') {
-    selectedPassengers.children = Math.max(0, Math.min(count, 9)); // 兒童 0-9
-  } else if (type === 'infants') {
-    selectedPassengers.infants = Math.max(0, Math.min(count, currentAdults)); // 嬰兒 0 - 成人數
+  },
+  emits: ['close', 'confirm'],
+  setup(props, { emit }) {
+    // 計算是否顯示 modal
+    const isVisible = computed(() => true);
+    
+    // 本地狀態
+    const localPassengers = reactive({
+      adults: props.passengers.adults || 1,
+      children: props.passengers.children || 0,
+      infants: props.passengers.infants || 0
+    });
+    
+    const localCabinClass = ref(props.cabinClass || 'ECONOMY');
+    
+    // 艙等選項
+    const cabinOptions = [
+      {
+        value: 'ECONOMY',
+        name: '經濟艙',
+        description: '標準服務，經濟實惠'
+      },
+      {
+        value: 'PREMIUM_ECONOMY',
+        name: '豪華經濟艙',
+        description: '升級服務，更大空間'
+      },
+      {
+        value: 'BUSINESS',
+        name: '商務艙',
+        description: '優質服務，舒適座椅'
+      },
+      {
+        value: 'FIRST',
+        name: '頭等艙',
+        description: '頂級服務，豪華體驗'
+      }
+    ]
+    
+    // 監聽 props 變化
+    watch(() => props.passengers, (newVal) => {
+      localPassengers.adults = newVal.adults || 1;
+      localPassengers.children = newVal.children || 0;
+      localPassengers.infants = newVal.infants || 0;
+    }, { deep: true, immediate: true });
+    
+    watch(() => props.cabinClass, (newVal) => {
+      localCabinClass.value = newVal || 'ECONOMY';
+    }, { immediate: true });
+    
+    // 更新乘客數量
+    const updatePassengerCount = (type, count) => {
+      if (type === 'adults') {
+        localPassengers.adults = Math.max(1, Math.min(count, 9));
+        // 確保嬰兒數量不超過成人數量
+        if (localPassengers.infants > localPassengers.adults) {
+          localPassengers.infants = localPassengers.adults;
+        }
+      } else if (type === 'children') {
+        localPassengers.children = Math.max(0, Math.min(count, 9));
+      } else if (type === 'infants') {
+        localPassengers.infants = Math.max(0, Math.min(count, localPassengers.adults));
+      }
+    };
+    
+    // 確認選擇
+    const handleConfirm = () => {
+      emit('confirm', {
+        passengers: { ...localPassengers },
+        cabinClass: localCabinClass.value
+      });
+    };
+    
+    return {
+      isVisible,
+      localPassengers,
+      localCabinClass,
+      cabinOptions,
+      updatePassengerCount,
+      handleConfirm
+    };
   }
 };
-
-const emitClose = () => {
-  emit('close');
-};
-
-const handleConfirm = () => {
-  emit('confirm', {
-    passengers: { ...selectedPassengers },
-    cabinClass: selectedCabinClass.value,
-  });
-  emitClose(); 
-};
-
 </script>
 
 <style scoped>
-.fixed.inset-0 {
-  overscroll-behavior: contain; 
+/* === Modal覆蓋層 === */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+/* === Modal內容 === */
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  width: 100%;
+  max-width: 500px;
+  padding: 2rem;
+  transform: scale(1);
+  transition: all 0.3s ease;
+}
+
+/* === Modal標題 === */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.close-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.close-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+/* === 乘客選擇區域 === */
+.passengers-section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.passenger-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.passenger-row:last-child {
+  border-bottom: none;
+}
+
+.passenger-info {
+  flex: 1;
+}
+
+.passenger-type {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.passenger-desc {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.counter-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.counter-btn {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid #d1d5db;
+  background: white;
+  border-radius: 50%;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.counter-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.counter-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.counter-value {
+  font-weight: 500;
+  color: #374151;
+  min-width: 2rem;
+  text-align: center;
+}
+
+/* === 艙等選擇區域 === */
+.cabin-section {
+  margin-bottom: 2rem;
+}
+
+.cabin-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cabin-option {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cabin-option:hover {
+  border-color: #d1d5db;
+  background: #f9fafb;
+}
+
+.cabin-option.active {
+  border-color: #059669;
+  background: #ecfdf5;
+}
+
+.cabin-radio {
+  margin-right: 0.75rem;
+  accent-color: #059669;
+}
+
+.cabin-info {
+  flex: 1;
+}
+
+.cabin-name {
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 0.25rem;
+}
+
+.cabin-desc {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+/* === 操作按鈕 === */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.cancel-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #e5e7eb;
+}
+
+.confirm-btn {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: white;
+  background: #059669;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.confirm-btn:hover {
+  background: #047857;
+}
+
+/* === 響應式設計 === */
+@media (max-width: 640px) {
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+  
+  .modal-content {
+    padding: 1.5rem;
+  }
+  
+  .passenger-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .counter-controls {
+    align-self: flex-end;
+  }
 }
 </style> 

@@ -108,7 +108,7 @@
 <script setup>
 import { ref, computed, reactive, watch } from 'vue';
 import flightService from '@/api/services/flightService'; // 確保路徑正確
-import defaultLogo from '@/assets/images/origin-airline.png'; // 確保你有預設圖片
+import defaultLogo from '@/assets/images/origin-airline.jpg'; // 確保你有預設圖片
 
 // **讀取環境變數並移除 /api**
 const backendUrl = import.meta.env.VITE_API_BASE_URL.replace('/api', '');

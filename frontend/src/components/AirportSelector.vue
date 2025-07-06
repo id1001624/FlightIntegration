@@ -655,7 +655,7 @@ export default {
 }
 
 /* 增加 focus-within 樣式使父容器在 input focus 時有邊框 */
-.input.focus-within\\:border-primary:focus-within {
+.input:focus-within {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 1px var(--color-primary);
 }
@@ -664,5 +664,226 @@ export default {
 .recent-searches .sticky,
 .p-2.border-b.sticky {
   top: 0; /* 確保搜尋框和最近搜尋標題在滾動時固定在下拉選單頂部 */
+}
+
+/* Tailwind Fallback 樣式 - 確保即使 Tailwind 不工作時也能正常顯示 */
+.relative {
+  position: relative;
+}
+
+.absolute {
+  position: absolute;
+}
+
+.fixed {
+  position: fixed;
+}
+
+.top-0 {
+  top: 0;
+}
+
+.left-0 {
+  left: 0;
+}
+
+.right-0 {
+  right: 0;
+}
+
+.z-50 {
+  z-index: 50;
+}
+
+.z-30 {
+  z-index: 30;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.max-w-sm {
+  max-width: 24rem;
+}
+
+.h-60 {
+  height: 15rem;
+}
+
+.bg-white {
+  background-color: white;
+}
+
+.border {
+  border-width: 1px;
+  border-color: #d1d5db;
+}
+
+.border-gray-300 {
+  border-color: #d1d5db;
+}
+
+.rounded-md {
+  border-radius: 0.375rem;
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+.overflow-y-auto {
+  overflow-y: auto;
+}
+
+.p-3 {
+  padding: 0.75rem;
+}
+
+.p-2 {
+  padding: 0.5rem;
+}
+
+.px-3 {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.py-1 {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+  position: relative; 
+  padding-bottom: 1.5rem; 
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.text-gray-600 {
+  color: #6b7280;
+}
+
+.text-gray-500 {
+  color: #9ca3af;
+}
+
+.text-gray-900 {
+  color: #111827;
+}
+
+.text-blue-600 {
+  color: #2563eb;
+}
+
+.text-red-500 {
+  color: #ef4444;
+}
+
+.bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+.bg-blue-50 {
+  background-color: #eff6ff;
+}
+
+.hover-bg-gray-100:hover {
+  background-color: #f3f4f6;
+}
+
+.hover-bg-blue-100:hover {
+  background-color: #dbeafe;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+.opacity-50 {
+  opacity: 0.5;
+}
+
+.transition-colors {
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+}
+
+.focus-outline-none:focus {
+  outline: none;
+}
+
+.focus-ring-2:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.focus-border-blue-500:focus {
+  border-color: #3b82f6;
+}
+
+.border-b {
+  border-bottom-width: 1px;
+}
+
+.sticky {
+  position: sticky;
+}
+
+.space-y-1 > * + * {
+  margin-top: 0.25rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style> 

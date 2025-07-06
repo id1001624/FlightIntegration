@@ -1,15 +1,15 @@
 <template>
-  <footer class="main-footer bg-journey-gradient text-white py-12 mt-16">
+  <footer class="main-footer bg-journey-gradient text-white py-12 mt-16 relative z-15">
     <div class="container mx-auto px-4">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         <!-- Column 1: 關於 -->
         <div>
           <h4 class="text-lg font-semibold mb-4 text-white">關於 Flight Integration</h4>
           <ul class="space-y-2">
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 關於我們</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 媒體中心</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 人才招募</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 合作夥伴</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">關於我們</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">媒體中心</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">人才招募</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">合作夥伴</a></li>
           </ul>
         </div>
 
@@ -17,10 +17,10 @@
         <div>
           <h4 class="text-lg font-semibold mb-4 text-white">條款與政策</h4>
           <ul class="space-y-2">
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 服務條款</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 隱私權保護政策</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> Cookie 使用政策</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 智慧財產權</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">服務條款</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">隱私權保護政策</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">Cookie 使用政策</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">智慧財產權</a></li>
           </ul>
         </div>
 
@@ -28,10 +28,10 @@
         <div>
           <h4 class="text-lg font-semibold mb-4 text-white">相關連結</h4>
           <ul class="space-y-2">
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 常見問題</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 網站導覽</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> 航班動態 (僅示意)</a></li>
-            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 flex items-center text-sm"><span class="mr-1">›</span> API 文件 (僅示意)</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">常見問題</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">網站導覽</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">航班動態 (僅示意)</a></li>
+            <li><a href="#" class="text-gray-100 hover:text-white hover:translate-x-1 transition-all duration-200 text-sm">API 文件 (僅示意)</a></li>
           </ul>
         </div>
 
@@ -91,6 +91,138 @@ export default {
 </script>
 
 <style scoped>
+/* Fallback 樣式 - 確保即使 Tailwind 不工作時也能正常顯示 */
+.main-footer {
+  background: linear-gradient(120deg, #005F73 0%, #0A9396 100%);
+  color: white;
+  padding: 3rem 0;
+  margin-top: 4rem;
+  position: relative;
+  z-index: 15;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.grid {
+  display: grid;
+  gap: 2rem;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: white;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+li {
+  margin-bottom: 0.5rem;
+}
+
+a {
+  color: #f1f3f5;
+  text-decoration: none;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+a:hover {
+  color: white;
+  transform: translateX(0.25rem);
+}
+
+.flex {
+  display: flex;
+}
+
+.space-x-3 > * + * {
+  margin-left: 0.75rem;
+}
+
+.w-12 {
+  width: 3rem;
+}
+
+.h-12 {
+  height: 3rem;
+}
+
+.bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.rounded-full {
+  border-radius: 9999px;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.transition-all {
+  transition: all 0.2s ease;
+}
+
+.hover\:bg-secondary:hover {
+  background-color: #F4A261;
+}
+
+.hover\:scale-110:hover {
+  transform: scale(1.1);
+}
+
+.p-2 {
+  padding: 0.5rem;
+}
+
+.w-8 {
+  width: 2rem;
+}
+
+.h-8 {
+  height: 2rem;
+}
+
+.mt-6 {
+  margin-top: 1.5rem;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-gray-100 {
+  color: #f1f3f5;
+}
+
 /* .footer-link 用 class 直接定義在模板中 */
 /* .social-icon 用 class 直接定義在模板中 */
 
@@ -106,10 +238,5 @@ export default {
 
 .line-icon-container:hover .line-text {
   fill: #F4A261;
-}
-
-/* 確保容器在不同斷點下的最大寬度 */
-.container {
-  max-width: 1280px;
 }
 </style> 

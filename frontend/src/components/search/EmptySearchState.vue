@@ -7,7 +7,7 @@
         <div class="sky-animation">
           <div class="plane-container" :class="{ 'animate-plane': isVisible }">
             <div class="plane-light-effect"></div>
-            <img src="@/assets/images/sky-views/flighticon.png" alt="Flight Icon" class="plane-icon-img" />
+            <img src="@/assets/images/sky-views/flighticon.png" alt="Flight Icon" class="plane-icon-img" loading="lazy" />
             <div class="engine-animation"></div>
           </div>
           <div class="clouds">

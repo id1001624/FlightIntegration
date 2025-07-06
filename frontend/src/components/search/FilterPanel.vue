@@ -210,6 +210,25 @@ export default {
         defaultPriceRange.value = { ...newValue }; // 更新 defaultPriceRange 以供可能的重置邏輯使用
     }, { immediate: true }); // immediate 確保初始計算完成後立即設置
 
+    // 當flights變化時，自動選中所有有航班的航空公司
+    watch(() => props.flights, (newFlights) => {
+      if (newFlights && newFlights.length > 0 && allAirlines.value.length > 0) {
+        // 獲取當前搜尋結果中的所有航空公司代碼
+        const availableAirlineCodes = new Set();
+        newFlights.forEach(flight => {
+          const airlineCode = flight.airline?.code;
+          if (airlineCode) {
+            availableAirlineCodes.add(airlineCode);
+          }
+        });
+        
+        // 預設選中所有有航班的航空公司
+        selectedAirlines.value = Array.from(availableAirlineCodes);
+        
+        console.log('自動選中有航班的航空公司:', selectedAirlines.value);
+      }
+    }, { immediate: true });
+
     return {
       selectedAirlines,
       priceRange,

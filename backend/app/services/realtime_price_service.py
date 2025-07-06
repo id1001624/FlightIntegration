@@ -81,61 +81,29 @@ class RealtimePriceService:
         self.cache_duration_hours = 4  # 默認緩存 4 小時
         self.max_api_calls_per_search = 4  # 每次搜索最多調用 4 個艙等的 API
     
-    async def search_flight_prices(self, origin: str, destination: str, 
-                                 departure_date, cabin_preference: Optional[str] = None,
-                                 use_cache: bool = True) -> Dict:
-        """
-        搜索航班價格 - 主要入口方法
+    async def search_flight_prices(self, origin: str, destination: str, departure_date: str, 
+                                   cabin_preference: Optional[str] = None, use_cache: bool = True) -> Dict:
+        """搜索航班價格 - 臨時禁用緩存避免事務錯誤"""
         
-        Args:
-            origin: 出發機場 IATA 代碼
-            destination: 到達機場 IATA 代碼  
-            departure_date: 出發日期 (YYYY-MM-DD 字符串或 datetime.date 對象)
-            cabin_preference: 艙等偏好 (ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST)
-            use_cache: 是否使用緩存
-            
-        Returns:
-            Dict: 包含航班和價格信息的字典
-        """
+        logger.info(f"開始搜索航班價格：{origin} -> {destination}, 日期: {departure_date}, 艙等: {cabin_preference}")
+        
         try:
-            # 統一處理日期格式
-            if hasattr(departure_date, 'strftime'):
-                # datetime.date 或 datetime.datetime 對象
-                departure_date_str = departure_date.strftime('%Y-%m-%d')
-            else:
-                # 假設是字符串
-                departure_date_str = str(departure_date)
-            
-            # 1. 檢查緩存
-            if use_cache:
-                cached_result = await self._get_cached_prices(origin, destination, departure_date_str, cabin_preference)
-                if cached_result:
-                    logger.info(f"使用緩存數據：{origin}->{destination} on {departure_date_str}")
+            # 臨時禁用緩存功能，直接返回空結果讓controller回退到靜態查詢
+            logger.info("臨時禁用實時價格緩存，回退到靜態航班數據")
                     return {
-                        "success": True,
-                        "data": cached_result,
-                        "source": "cache",
-                        "message": "從緩存獲取價格數據"
-                    }
-            
-            # 2. 調用 Amadeus API 獲取實時數據
-            api_result = await self._fetch_realtime_prices(origin, destination, departure_date_str, cabin_preference)
-            
-            if not api_result["success"]:
-                return api_result
-            
-            # 3. 保存到緩存（異步，不阻塞響應）
-            if use_cache and api_result["data"]:
-                asyncio.create_task(self._save_to_cache(origin, destination, departure_date_str, api_result["data"]))
-            
-            return api_result
+                "success": False,
+                "data": [],
+                "message": "實時價格服務暫時禁用，使用靜態數據",
+                "source": "disabled_cache"
+            }
             
         except Exception as e:
-            logger.error(f"搜索航班價格時發生錯誤：{e}", exc_info=True)
+            logger.error(f"搜索航班價格時發生錯誤：{e}")
             return {
                 "success": False,
-                "message": "搜索航班價格時發生內部錯誤",
-                "error": str(e)
+                "data": [],
+                "message": f"搜索失敗：{str(e)}",
+                "source": "error"
             }
     
     async def _get_cached_prices(self, origin: str, destination: str, departure_date: str, cabin_class: Optional[str] = None) -> Optional[List[Dict]]:
@@ -233,7 +201,7 @@ class RealtimePriceService:
             api_timeout = 45  # 45秒超時
             
             logger.info(f"開始查詢 Amadeus API：{origin}->{destination} on {departure_date}")
-            
+                
             # 使用 asyncio.wait_for 設置總體超時
             result = await asyncio.wait_for(
                 amadeus_service.search_flight_offers(
@@ -243,19 +211,19 @@ class RealtimePriceService:
                     max_results=max_results
                 ),
                 timeout=api_timeout
-            )
-            
-            all_offers = []
-            if result and isinstance(result, dict) and 'data' in result:
-                all_offers = result['data']
-                logger.info(f"Amadeus API 返回 {len(all_offers)} 個航班報價")
+                )
                 
-                # 如果指定了艙等偏好，過濾結果
-                if cabin_preference and all_offers:
-                    cabin_preference_upper = cabin_preference.upper()
-                    logger.info(f"按艙等 {cabin_preference_upper} 過濾結果")
+            all_offers = []
+                if result and isinstance(result, dict) and 'data' in result:
+                    all_offers = result['data']
+                logger.info(f"Amadeus API 返回 {len(all_offers)} 個航班報價")
             else:
                 logger.warning(f"Amadeus API 未返回有效數據：{result}")
+            
+            # 如果指定了艙等偏好，過濾結果
+            if cabin_preference and all_offers:
+                cabin_preference_upper = cabin_preference.upper()
+                logger.info(f"按艙等 {cabin_preference_upper} 過濾結果")
             
             if not all_offers:
                 return {
@@ -295,14 +263,7 @@ class RealtimePriceService:
                     )
                 
                 logger.info(f"成功適配 {len(adapted_offers)} 個航班報價")
-                
-                return {
-                    "success": True,
-                    "data": adapted_offers,
-                    "source": "amadeus_api",
-                    "message": f"成功獲取 {len(adapted_offers)} 個航班報價"
-                }
-                
+            
             except asyncio.TimeoutError:
                 logger.error("適配航班數據時超時")
                 return {
@@ -311,12 +272,19 @@ class RealtimePriceService:
                     "error": "適配器超時"
                 }
             
+            return {
+                "success": True,
+                "data": adapted_offers,
+                "source": "amadeus_api",
+                "message": f"成功獲取 {len(adapted_offers)} 個航班報價"
+            }
+            
         except asyncio.TimeoutError:
-            logger.error(f"Amadeus API 調用超時：{origin}->{destination}")
+            logger.error("適配航班數據時超時")
             return {
                 "success": False,
-                "message": "API 調用超時，請稍後重試",
-                "error": "API 超時"
+                "message": "處理航班數據時超時",
+                "error": "適配器超時"
             }
         except Exception as e:
             logger.error(f"從 Amadeus API 獲取價格時發生錯誤：{e}")
@@ -332,13 +300,13 @@ class RealtimePriceService:
             except Exception as cleanup_error:
                 logger.warning(f"清理 Amadeus 服務時發生錯誤：{cleanup_error}")
     
-    async def _save_to_cache(self, origin: str, destination: str, departure_date: str, offers: List[Dict]):
-        """將搜索結果保存到緩存 - 基於業界最佳實踐優化"""
+    async def _save_to_cache(self, origin: str, destination: str, departure_date: str, offers: List[Dict], cabin_preference: Optional[str] = None):
+        """將搜索結果保存到緩存 - 修復事務管理"""
         try:
             departure_dt = datetime.strptime(departure_date, '%Y-%m-%d')
             
-            # 生成緩存鍵
-            cache_key = f"{origin}_{destination}_{departure_date}"
+            # 生成緩存鍵（包含艙等信息）
+            cache_key = f"{origin}_{destination}_{departure_date}_{cabin_preference or 'ALL'}"
             
             # 保存高優先級結果到緩存
             priority_flights = offers[:max(5, len(offers) // 3)]  # 取前5個或前1/3
@@ -349,6 +317,9 @@ class RealtimePriceService:
                 amadeus_offer_id = flight.get("id") or flight.get("flight_id")
                 if not amadeus_offer_id:
                     continue
+                
+                # 確定艙等 - 優先使用搜索時指定的艙等，否則使用航班數據中的艙等
+                flight_cabin_class = cabin_preference or flight.get("cabin_class") or flight.get("price", {}).get("cabin_class") or "ECONOMY"
                     
                 cache_obj = TicketPrice(
                     amadeus_offer_id=amadeus_offer_id,
@@ -359,7 +330,7 @@ class RealtimePriceService:
                     # 價格信息
                     total_price=flight.get("price", {}).get("amount"),
                     currency=flight.get("price", {}).get("currency", "TWD"),
-                    cabin_class=flight.get("cabin_class"),
+                    cabin_class=flight_cabin_class,  # 使用確定的艙等
                     
                     # 新增：完整航班信息
                     airline_code=flight.get("airline", {}).get("code"),
@@ -381,14 +352,25 @@ class RealtimePriceService:
                 )
                 cache_objects.append(cache_obj)
             
-            # 保存到數據庫
-            db.session.add_all(cache_objects)
-            db.session.commit()
-            
-            logger.info(f"成功緩存 {len(priority_flights)} 個航班報價（業界最佳實踐：前5個或前1/3）")
+            if cache_objects:
+                # 使用獨立的事務保存緩存
+                try:
+                    db.session.add_all(cache_objects)
+                    db.session.commit()
+                    logger.info(f"成功緩存 {len(cache_objects)} 個航班報價（艙等: {cabin_preference or 'ALL'}）")
+                except Exception as commit_error:
+                    logger.error(f"緩存提交時發生錯誤：{commit_error}")
+                    db.session.rollback()
+                    raise
+            else:
+                logger.warning("沒有有效的航班數據可緩存")
             
         except Exception as e:
             logger.error(f"保存緩存時發生錯誤：{e}")
+            try:
+                db.session.rollback()
+            except Exception as rollback_error:
+                logger.error(f"回滾事務時發生錯誤：{rollback_error}")
     
     async def get_price_history(self, origin: str, destination: str, 
                               days_back: int = 30) -> Dict:

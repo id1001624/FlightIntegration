@@ -8,8 +8,8 @@
       <!-- 頂部導航 -->
       <header class="header">
         <div class="logo-container">
-          <router-link to="/" class="logo">
-            <img src="@/assets/images/logo/logo.png" alt="Logo" class="logo-image">
+          <router-link to="/" class="logo" @click.prevent="$router.push('/')">
+            <img src="@/assets/images/logo/logo.jpg" alt="Logo" class="logo-image">
             <span class="logo-text">Flight Integration</span>
           </router-link>
         </div>
@@ -89,11 +89,9 @@ export default {
 </script>
 
 <style>
-/* 全局重置 */
+/* 全局重置 - 僅保留box-sizing */
 *, *::before, *::after {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 /* 根變量 - 與Tailwind配置保持一致 */
@@ -159,6 +157,8 @@ html, body {
   background-color: var(--color-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
 }
 
 /* 主容器 */
@@ -168,26 +168,95 @@ html, body {
   overflow: hidden;
 }
 
-/* 旅程背景層 */
+/* 旅程背景層 - 全站背景效果 */
 .journey-background {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: url('@/assets/images/sky-views/vista-wei-xYNC73QAqc8-unsplash.jpg');
+  z-index: 0;
+  overflow: hidden;
+  /* 基礎圖片層 */
+  background: url('@/assets/images/sky-views/vista.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.08; /* 降低不透明度使其更淡 */
-  z-index: 0;
-  filter: blur(1px); /* 輕微模糊 */
+}
+
+/* 多層次雲霧效果疊加 - 確保可讀性 */
+.journey-background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* 模擬山脈層次的多重漸層 */
+  background: 
+    /* 最上層：柔和雲霧效果 */
+    radial-gradient(ellipse at 30% 20%, rgba(240, 244, 247, 0.6) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 30%, rgba(232, 238, 242, 0.5) 0%, transparent 60%),
+    /* 中層：山脈深度效果 */
+    linear-gradient(165deg, 
+      rgba(184, 212, 227, 0.45) 0%,
+      rgba(127, 179, 200, 0.35) 35%,
+      rgba(90, 138, 168, 0.40) 70%,
+      rgba(74, 122, 152, 0.50) 100%
+    ),
+    /* 底層：品牌色彩融合 + 白色覆蓋確保可讀性 */
+    linear-gradient(135deg, 
+      rgba(255, 255, 255, 0.35) 0%, 
+      rgba(255, 255, 255, 0.25) 25%,
+      rgba(0, 95, 115, 0.04) 50%, 
+      rgba(244, 162, 97, 0.02) 75%,
+      rgba(255, 255, 255, 0.30) 100%
+    );
+  opacity: 0.60;
+}
+
+/* 動態浮雲效果 - 暫時停用動畫 */
+.journey-background::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  /* 大型柔和雲朵效果 */
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(248, 250, 252, 0.12) 0%, transparent 25%),
+    radial-gradient(circle at 80% 20%, rgba(240, 244, 247, 0.08) 0%, transparent 30%),
+    radial-gradient(circle at 40% 40%, rgba(255, 255, 255, 0.06) 0%, transparent 35%);
+  /* animation: cloudDrift 80s ease-in-out infinite; */
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* 雲霧飄動動畫 - 更慢更柔和 */
+@keyframes cloudDrift {
+  0%, 100% { 
+    transform: translate(-3%, -3%) rotate(0deg) scale(1); 
+    opacity: 0.2;
+  }
+  25% { 
+    transform: translate(-2%, -4%) rotate(0.3deg) scale(1.01); 
+    opacity: 0.15;
+  }
+  50% { 
+    transform: translate(-4%, -2%) rotate(-0.3deg) scale(0.99); 
+    opacity: 0.25;
+  }
+  75% { 
+    transform: translate(-2.5%, -3.5%) rotate(0.2deg) scale(1.005); 
+    opacity: 0.18;
+  }
 }
 
 /* 內容容器 */
 .content-container {
   position: relative;
-  z-index: 1;
+  z-index: 10;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -196,13 +265,56 @@ html, body {
   padding: 0 var(--spacing-md);
 }
 
-/* 頭部 */
+/* 主要內容 */
+.main-content {
+  flex: 1;
+  padding: var(--spacing-xl) 0;
+  position: relative;
+  z-index: 5;
+  /* 確保內容不受背景transform影響 */
+  transform: none !important;
+}
+
+/* 移除重複的樣式定義，將在後面與原有樣式合併 */
+
+/* 響應式優化 - 移動設備上減少動畫 */
+@media (max-width: 768px) {
+  .journey-background::after {
+    animation: none; /* 移動設備上停用動畫節省性能 */
+    opacity: 0.1;
+  }
+  
+  .journey-background::before {
+    opacity: 0.97; /* 增加覆蓋確保移動設備上的可讀性 */
+  }
+  
+  .header {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* 減弱動畫效果選項（用戶偏好） */
+@media (prefers-reduced-motion: reduce) {
+  .journey-background::after {
+    animation: none;
+  }
+}
+
+/* 頭部 - 增強背景效果 */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-lg) 0;
+  padding: var(--spacing-lg);
   border-bottom: 1px solid var(--color-border);
+  /* 背景效果增強 */
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  margin-bottom: var(--spacing-md);
+  box-shadow: 0 2px 12px rgba(0, 95, 115, 0.08);
+  position: relative;
+  z-index: 20;
 }
 
 .logo-container {
@@ -317,11 +429,12 @@ html, body {
   bottom: 0;
 }
 
-/* 移動版導航選單 */
+/* 移動版導航選單 - 增強背景效果 */
 .mobile-menu {
   display: none;
   flex-direction: column;
-  background-color: var(--color-base);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
   position: fixed;
   top: 70px;
   left: 0;
@@ -331,7 +444,7 @@ html, body {
   z-index: 100;
   opacity: 0;
   transition: opacity var(--transition-normal), height var(--transition-normal);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(0, 95, 115, 0.15);
 }
 
 .mobile-menu-open {
@@ -354,22 +467,24 @@ html, body {
   color: var(--color-primary);
 }
 
-/* 主要內容 */
-.main-content {
-  flex: 1;
-  padding: var(--spacing-xl) 0;
-}
-
-/* 頁腳 */
+/* 頁腳 - 增強背景效果 */
 .footer {
   margin-top: auto;
-  padding: var(--spacing-lg) 0;
+  padding: var(--spacing-lg);
   border-top: 1px solid var(--color-border);
+  /* 背景效果增強 */
+  background: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  margin-top: var(--spacing-md);
+  box-shadow: 0 2px 8px rgba(0, 95, 115, 0.06);
+  position: relative;
+  z-index: 15;
 }
 
 .footer-content {
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   font-size: 0.875rem;
 }
 
