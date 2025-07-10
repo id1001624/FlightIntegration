@@ -2,39 +2,41 @@
   <div class="home-container">
     <!-- 英雄區塊 -->
     <section class="hero-section">
-      <div class="container hero-container-flex">
-        <div class="hero-content">
-          <h1 class="hero-title animate-fade-in">探索無限旅程</h1>
-          <p class="hero-subtitle animate-fade-in">整合台灣國內、離島、國際直飛航線，輕鬆規劃您的行程</p>
-          <div class="hero-cta animate-fade-in animate-delay-1">
-            <button @click="startSearch" class="primary-btn">
-              <span>立即搜尋航班</span>
-              <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </button>
-            <a href="#features" class="secondary-btn">了解更多</a>
-          </div>
+      <div class="hero-content">
+        <h1 class="hero-title animate-fade-in">探索無限旅程</h1>
+        <p class="hero-subtitle animate-fade-in">整合台灣國內、離島、國際直飛航線，輕鬆規劃您的行程</p>
+        <div class="hero-cta animate-fade-in animate-delay-1">
+          <router-link to="/flight-search" class="primary-btn">
+            <span>立即搜尋航班</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </router-link>
+          <a href="#features" class="secondary-btn">了解更多</a>
         </div>
-        <div class="hero-visual animate-fade-in animate-delay-2">
-          <div class="journey-elements">
-            <!-- 飛機飛行路徑元素 -->
-            <div class="journey-path">
-              <svg class="journey-path-line" width="100%" height="100%" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20,100 C70,50 130,180 280,80" stroke="currentColor" stroke-width="2" stroke-dasharray="5,5" />
+      </div>
+      <div class="hero-visual animate-fade-in animate-delay-2">
+        <div class="journey-elements">
+          <!-- 飛機飛行路徑元素 -->
+          <div class="journey-path">
+            <svg class="journey-path-line" width="100%" height="100%" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M20,100 C70,50 130,180 280,80" stroke="#005F73" stroke-width="2" stroke-dasharray="5,5" />
+            </svg>
+            <div class="journey-airplane">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
               </svg>
-              <div class="journey-airplane">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
-                </svg>
-              </div>
             </div>
-            <!-- 漂浮雲朵 -->
-            <div class="floating-clouds">
-              <div class="cloud cloud-1"></div>
-              <div class="cloud cloud-2"></div>
-              <div class="cloud cloud-3"></div>
-            </div>
+          </div>
+          <!-- 雲朵漂浮元素 -->
+          <div class="floating-clouds">
+            <div class="cloud cloud-1"></div>
+            <div class="cloud cloud-2"></div>
+            <div class="cloud cloud-3"></div>
+          </div>
+          <!-- 主視覺圖片 -->
+          <div class="visual-element">
+            <img src="@/assets/images/sky-views/3gzzr6tf.jpg" alt="航空視圖" class="hero-image">
           </div>
         </div>
       </div>
@@ -134,84 +136,128 @@ export default {
 </script>
 
 <style scoped>
-/* 全局容器和佈局 */
+/* 基本容器 */
 .home-container {
-  background-color: #F0F4F8;
-  color: #333;
+  width: 100%;
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
+/* 動畫類 */
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-delay-1 {
+  animation-delay: 0.2s;
+}
+
+.animate-delay-2 {
+  animation-delay: 0.4s;
+}
+
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.animate-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* 英雄區塊 */
 .hero-section {
-  background: linear-gradient(135deg, #E0F7FA 0%, #B2EBF2 100%);
-  padding: 6rem 0;
-  overflow: hidden;
-  position: relative;
-}
-
-.hero-container-flex {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 2rem;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-xl, 6rem) 2rem;
+  gap: var(--spacing-xl, 4rem);
+  position: relative;
+  min-height: 550px;
+  overflow: hidden;
+  background-color: #ffffff;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .hero-content {
-  flex-basis: 50%;
-  z-index: 10;
+  flex: 1;
+  max-width: 550px;
+  position: relative;
+  z-index: 2;
 }
 
 .hero-title {
   font-size: 3.5rem;
-  font-weight: bold;
-  color: #004D40;
-  margin-bottom: 1rem;
-  line-height: 1.2;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-bottom: var(--spacing-md, 1rem);
+  color: var(--color-primary, #005F73);
+  position: relative;
+}
+
+.hero-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background-color: var(--color-secondary, #F4A261);
 }
 
 .hero-subtitle {
   font-size: 1.25rem;
-  color: #00796B;
-  margin-bottom: 2.5rem;
+  color: var(--color-text-secondary, #555);
+  margin-bottom: var(--spacing-lg, 1.5rem);
+  line-height: 1.5;
 }
 
 .hero-cta {
   display: flex;
-  gap: 1.5rem;
-}
-
-.primary-btn, .secondary-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem 1.8rem;
-  border-radius: 50px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  cursor: pointer;
+  justify-content: center;
+  gap: var(--spacing-md, 1rem);
 }
 
 .primary-btn {
-  background-color: #00796B;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-md, 0.8rem) var(--spacing-lg, 1.8rem);
+  background-color: var(--color-primary, #005F73);
   color: white;
-  border: 2px solid #00796B;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: all var(--transition-fast, 0.2s);
 }
 
 .primary-btn:hover {
-  background-color: #004D40;
-  border-color: #004D40;
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 77, 64, 0.25);
+  background-color: var(--color-primary-dark, #004c5a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 95, 115, 0.2);
 }
 
-.btn-icon {
-  transition: transform 0.3s ease;
+.primary-btn .btn-icon {
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  transition: transform var(--transition-fast, 0.2s);
 }
 
 .primary-btn:hover .btn-icon {
@@ -219,46 +265,102 @@ export default {
 }
 
 .secondary-btn {
+  display: inline-block;
+  padding: var(--spacing-md, 0.8rem) var(--spacing-lg, 1.8rem);
   background-color: transparent;
-  color: #00796B;
-  border: 2px solid #00796B;
+  color: var(--color-primary, #005F73);
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--color-primary, #005F73);
+  border-radius: 4px;
+  transition: all var(--transition-fast, 0.2s);
 }
 
 .secondary-btn:hover {
-  background-color: #00796B;
-  color: white;
-  transform: translateY(-3px);
-  box-shadow: 0 8px 20px rgba(0, 121, 107, 0.2);
+  background-color: rgba(0, 95, 115, 0.05);
+  transform: translateY(-2px);
 }
 
-/* 視覺動畫區塊 */
 .hero-visual {
-  flex-basis: 50%;
+  flex: 1;
   position: relative;
-  min-height: 300px;
+  min-height: 400px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .journey-elements {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.visual-element {
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 4/3;
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  transform: perspective(1000px) rotateY(-5deg) rotateX(5deg);
+  transition: all 0.5s ease;
+}
+
+.visual-element:hover {
+  transform: perspective(1000px) rotateY(0deg) rotateX(0deg);
+}
+
+.hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.visual-element:hover .hero-image {
+  transform: scale(1.05);
+}
+
+/* 飛機飛行路徑動畫 */
+.journey-path {
   position: absolute;
+  width: 300px;
+  height: 200px;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 100%;
-  height: 100%;
+  z-index: 1;
+  opacity: 0.6;
 }
 
-/* 飛行路徑動畫 */
-.journey-path {
-  position: absolute;
+.journey-path-line {
   width: 100%;
   height: 100%;
-  color: #00796B;
 }
 
 .journey-path-line path {
-  stroke-dasharray: 410;
-  stroke-dashoffset: 410;
-  animation: drawPath 4s ease-in-out 1s forwards;
+  stroke: #005F73;
+  stroke-width: 2;
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: drawPath 3s forwards;
+}
+
+.journey-airplane {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  color: var(--color-primary, #005F73);
+  top: 50%;
+  left: 7%;
+  transform: translateY(-50%);
+  animation: flyPlane 3s forwards;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
 }
 
 @keyframes drawPath {
@@ -267,95 +369,70 @@ export default {
   }
 }
 
-.journey-airplane {
-  position: absolute;
-  color: #D32F2F;
-  offset-path: path('M20,100 C70,50 130,180 280,80');
-  animation: flyPlane 4s ease-in-out 1s forwards;
-  opacity: 0;
-}
-
 @keyframes flyPlane {
   0% {
-    offset-distance: 0%;
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
     opacity: 1;
   }
   100% {
-    offset-distance: 100%;
-    opacity: 1;
+    transform: translate(260px, -20px) rotate(-15deg);
   }
 }
 
-/* 漂浮雲朵動畫 */
+/* 漂浮雲朵 */
 .floating-clouds {
   position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  top: 0;
+  left: 0;
+  pointer-events: none;
 }
 
 .cloud {
   position: absolute;
-  background: white;
-  border-radius: 50px;
-  opacity: 0.6;
-  animation: floatCloud 20s linear infinite;
+  background-color: white;
+  border-radius: 50%;
+  opacity: 0.7;
+  z-index: 0;
+  filter: blur(4px);
 }
 
 .cloud-1 {
-  width: 120px;
+  width: 100px;
   height: 40px;
-  top: 20%;
-  left: -150px;
-  animation-duration: 25s;
-  animation-delay: -5s;
+  top: 30%;
+  left: 10%;
+  animation: floatCloud 15s infinite ease-in-out;
 }
 
 .cloud-2 {
   width: 80px;
   height: 30px;
-  top: 40%;
-  left: -100px;
-  animation-duration: 20s;
-  animation-delay: 0s;
+  top: 60%;
+  right: 20%;
+  animation: floatCloud 12s infinite ease-in-out reverse;
 }
 
 .cloud-3 {
-  width: 100px;
-  height: 35px;
-  top: 70%;
-  left: -120px;
-  animation-duration: 18s;
-  animation-delay: -10s;
+  width: 120px;
+  height: 45px;
+  bottom: 20%;
+  left: 25%;
+  animation: floatCloud 20s infinite ease-in-out;
 }
 
 @keyframes floatCloud {
-  from {
-    transform: translateX(0);
+  0%, 100% {
+    transform: translate(0, 0);
   }
-  to {
-    transform: translateX(calc(1200px + 150px));
-  }
-}
-
-
-/* 通用淡入動畫 */
-.animate-fade-in {
-  opacity: 0;
-  animation: fadeIn 0.8s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  to {
-    opacity: 1;
+  50% {
+    transform: translate(30px, -15px);
   }
 }
-
-.animate-delay-1 { animation-delay: 0.3s; }
-.animate-delay-2 { animation-delay: 0.6s; }
-
 
 /* 特色區塊 */
 .features-section {
@@ -411,13 +488,14 @@ export default {
 
 /* 響應式設計 */
 @media (max-width: 992px) {
-  .hero-container-flex {
+  .hero-section {
     flex-direction: column;
     text-align: center;
+    gap: 2rem;
   }
 
   .hero-content {
-    margin-bottom: 4rem;
+    margin-bottom: 2rem;
   }
   
   .hero-cta {
@@ -431,7 +509,7 @@ export default {
 
 @media (max-width: 768px) {
   .hero-section, .features-section {
-    padding: 4rem 0;
+    padding: 4rem 1rem;
   }
 
   .hero-title {
@@ -440,6 +518,11 @@ export default {
 
   .section-title {
     font-size: 2rem;
+  }
+
+  .hero-cta {
+    flex-direction: column;
+    align-items: center;
   }
 }
 </style>

@@ -11,9 +11,9 @@ export const useSearchStore = defineStore('search', {
     searchParams: {
       departureAirport: null,
       arrivalAirport: null,
-      departureDate: null,
-      returnDate: null,
-      cabinClass: 'Economy',
+      departureDate: new Date().toISOString().split('T')[0], // 默認為今天
+      returnDate: '',
+      cabinClass: 'ECONOMY', // 改為大寫以匹配後端
       passengers: { adults: 1, children: 0, infants: 0 }
     },
     
@@ -64,6 +64,11 @@ export const useSearchStore = defineStore('search', {
   },
   
   actions: {
+    // 新的 Action，用於靈活更新部分搜索參數
+    updateSearchParams(payload) {
+      this.searchParams = { ...this.searchParams, ...payload };
+    },
+
     // 新增：載入最近搜尋記錄
     loadRecentSearches() {
       try {
@@ -120,7 +125,7 @@ export const useSearchStore = defineStore('search', {
       }
     },
     
-    // 更新搜索參數
+    // 更新搜索參數 (保留舊方法以防萬一，但新功能將使用 updateSearchParams)
     setSearchParams(params) {
       // 創建深拷貝以避免對原始對象的修改影響 store
       const paramsCopy = JSON.parse(JSON.stringify(params));
@@ -142,7 +147,7 @@ export const useSearchStore = defineStore('search', {
       
       // 更新其他參數
       this.searchParams.departureDate = paramsCopy.departureDate || this.searchParams.departureDate;
-      this.searchParams.returnDate = paramsCopy.returnDate || this.searchParams.returnDate;
+      this.searchParams.returnDate = paramsCopy.returnDate || ''; // 確保可以是空值
       this.searchParams.cabinClass = paramsCopy.cabinClass || this.searchParams.cabinClass;
     },
     

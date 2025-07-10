@@ -543,11 +543,3 @@ export const searchFlights = flightService.searchFlights.bind(flightService);
 export const getFlightDetails = flightService.getFlightDetails.bind(flightService);
 
 export default flightService;
-export const getAirports = flightService.getAirports.bind(flightService);
-export const getDestinations = flightService.getDestinations.bind(flightService);
-export const getTaiwanAirports = flightService.getTaiwanAirports.bind(flightService);
-export const getAirlines = flightService.getAirlines.bind(flightService);
-export const searchFlights = flightService.searchFlights.bind(flightService);
-export const getFlightDetails = flightService.getFlightDetails.bind(flightService);
-
-export default flightService;
