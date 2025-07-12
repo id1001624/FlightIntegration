@@ -250,54 +250,82 @@ export default {
 </script>
 
 <style scoped>
-/* 基本容器和背景 */
+/* 基本容器和背景 - 現代化設計 */
 .journey-search-container {
-  padding: 2rem 1rem;
-  background: #f0f4f8;
+  padding: 3rem 1rem;
+  background: linear-gradient(135deg, #F8FAFC 0%, #E2E8F0 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-height: 60vh;
+  position: relative;
 }
 
-/* 搜尋標題 */
+/* 搜尋標題 - 增強視覺層次 */
 .search-header {
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 2;
 }
 
 .search-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  color: #004d40;
+  font-size: 3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #005F73 0%, #0A9396 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 1rem;
+  line-height: 1.2;
 }
 
 .search-subtitle {
-  font-size: 1.1rem;
-  color: #00796b;
+  font-size: 1.2rem;
+  color: #64748B;
   margin-top: 0.5rem;
+  font-weight: 400;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
 }
 
-/* 表單容器 */
+/* 表單容器 - 玻璃態設計 */
 .search-form-wrapper {
   width: 100%;
-  max-width: 1000px;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 2.5rem;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  max-width: 1100px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 3rem;
+  border-radius: 24px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.search-form-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 95, 115, 0.3), transparent);
 }
 
 .journey-form {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 2.5rem;
 }
 
-/* 搜尋按鈕區域 */
+/* 搜尋按鈕區域 - 現代化設計 */
 .search-action {
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   display: flex;
   justify-content: center;
 }
@@ -307,20 +335,22 @@ export default {
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  padding: 0 2.5rem;
-  height: 56px;
-  min-width: 220px;
-  border-radius: 12px;
+  padding: 0 3rem;
+  height: 64px;
+  min-width: 240px;
+  border-radius: 16px;
   font-size: 1.1rem;
   font-weight: 700;
   color: #fff;
-  background: linear-gradient(135deg, #00796B, #004D40);
+  background: linear-gradient(135deg, #005F73 0%, #0A9396 50%, #94D3AC 100%);
   border: none;
   cursor: pointer;
   position: relative;
   overflow: hidden;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 95, 115, 0.2);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:
+    0 8px 32px rgba(0, 95, 115, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .search-button:hover:not(:disabled) {

@@ -1,0 +1,523 @@
+---
+type: "agent_requested"
+description: "錯誤處理與日誌記錄指南"
+---
+# 錯誤處理與日誌記錄指南
+
+本文檔定義了臺灣航班整合系統的錯誤處理和日誌記錄標準，以提高系統穩定性、可監控性和問題排查效率。
+
+## 1. 錯誤處理架構
+
+### 1.1 後端全局錯誤處理
+
+後端使用統一的錯誤處理機制，確保一致的錯誤響應格式。所有未捕獲的異常將通過中間件/裝飾器統一處理:
+
+```python
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """全局異常處理器"""
+    
+    # 記錄詳細錯誤信息到日誌
+    app.logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+    
+    # 決定響應狀態碼
+    if isinstance(e, HTTPException):
+        status_code = e.code
+    else:
+        status_code = 500  # 默認為內部服務器錯誤
+    
+    # 生成響應
+    response = {
+        "success": False,
+        "data": None,
+        "message": str(e) if app.debug else "發生內部伺服器錯誤",
+        "error_code": "INTERNAL_SERVER_ERROR"
+    }
+    
+    return jsonify(response), status_code
+```
+
+### 1.2 自定義異常類
+
+為不同類型的錯誤定義自定義異常類，便於標準化錯誤處理:
+
+```python
+class APIError(Exception):
+    """API錯誤基類"""
+    
+    def __init__(self, message, status_code=400, error_code=None):
+        self.message = message
+        self.status_code = status_code
+        self.error_code = error_code
+        super().__init__(self.message)
+
+class ResourceNotFoundError(APIError):
+    """資源未找到錯誤"""
+    
+    def __init__(self, resource_type, resource_id):
+        message = f"{resource_type} 未找到: {resource_id}"
+        error_code = f"{resource_type.upper()}_NOT_FOUND"
+        super().__init__(message, 404, error_code)
+
+class ValidationError(APIError):
+    """資料驗證錯誤"""
+    
+    def __init__(self, message, error_code="VALIDATION_ERROR"):
+        super().__init__(message, 400, error_code)
+
+# 其他自定義異常類...
+```
+
+### 1.3 前端錯誤處理
+
+前端使用 Axios 攔截器統一處理 API 錯誤:
+
+```javascript
+// api/index.js
+import axios from 'axios';
+
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// 響應攔截器
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    const errorResponse = error.response;
+    
+    // 記錄錯誤到控制台
+    console.error('API Error:', error);
+    
+    if (errorResponse && errorResponse.data) {
+      // 使用伺服器返回的錯誤信息
+      const errorMessage = errorResponse.data.message || '發生未知錯誤';
+      const errorCode = errorResponse.data.error_code || 'UNKNOWN_ERROR';
+      
+      // 根據錯誤碼處理特定錯誤
+      switch (errorCode) {
+        case 'FLIGHT_NOT_FOUND':
+          // 特定錯誤處理...
+          break;
+        // 其他錯誤碼處理...
+      }
+      
+      // 可以通過Vue全局事件總線或狀態管理器通知UI顯示錯誤
+      // 例如: EventBus.emit('show-error', errorMessage);
+      
+      return Promise.reject({ message: errorMessage, code: errorCode });
+    } else {
+      // 網絡錯誤等情況
+      return Promise.reject({ message: '無法連接到伺服器，請稍後再試', code: 'NETWORK_ERROR' });
+    }
+  }
+);
+
+export default apiClient;
+```
+
+## 2. 日誌記錄標準
+
+### 2.1 日誌級別定義
+
+遵循標準日誌級別並定義清晰的使用場景:
+
+| 級別 | 使用場景 | 例子 |
+|---|---|---|
+| **CRITICAL** | 嚴重錯誤導致系統無法運行 | 資料庫連接完全失敗，應用無法啟動 |
+| **ERROR** | 運行時錯誤，需要立即關注 | API 調用異常，資料庫查詢失敗 |
+| **WARNING** | 可能導致問題的情況，應該關注 | API 響應緩慢，數據格式異常但可處理 |
+| **INFO** | 系統運行的重要信息 | 伺服器啟動/停止，航班數據同步完成 |
+| **DEBUG** | 詳細的調試信息 | API 請求/響應內容，函數調用參數 |
+
+### 2.2 日誌格式標準
+
+使用結構化日誌格式，確保一致性和可解析性:
+
+```
+[TIMESTAMP] [LEVEL] [COMPONENT] [REQUEST_ID] [USER_ID] - Message (Additional JSON context)
+```
+
+範例:
+```
+[2025-03-15 14:30:45,123] [ERROR] [flight_controller] [req-a1b2c3] [user-123] - Failed to search flights ({"departure": "TPE", "arrival": "HKG", "error": "Connection timeout"})
+```
+
+### 2.3 日誌記錄位置
+
+後端日誌存儲在規定的目錄結構下:
+
+```
+logs/
+├── app.log          # 一般應用日誌
+├── error.log        # 僅錯誤級別
+├── access.log       # API 訪問日誌
+└── sync/
+    ├── flights.log  # 航班數據同步日誌
+    └── prices.log   # 價格數據同步日誌
+```
+
+### 2.4 日誌配置
+
+Python 後端使用 `logging` 模塊進行日誌配置:
+
+```python
+import os
+import logging
+from logging.handlers import RotatingFileHandler
+import json
+
+def setup_logging(app):
+    """設置應用的日誌系統"""
+    
+    # 確保日誌目錄存在
+    os.makedirs('logs', exist_ok=True)
+    os.makedirs('logs/sync', exist_ok=True)
+    
+    # 創建日誌處理器
+    log_level = logging.DEBUG if app.debug else logging.INFO
+    log_format = '[%(asctime)s] [%(levelname)s] [%(name)s] [%(request_id)s] [%(user_id)s] - %(message)s'
+    
+    # 主應用日誌
+    main_handler = RotatingFileHandler('logs/app.log', maxBytes=10485760, backupCount=10)
+    main_handler.setLevel(log_level)
+    main_handler.setFormatter(logging.Formatter(log_format))
+    
+    # 錯誤日誌
+    error_handler = RotatingFileHandler('logs/error.log', maxBytes=10485760, backupCount=10)
+    error_handler.setLevel(logging.ERROR)
+    error_handler.setFormatter(logging.Formatter(log_format))
+    
+    # 配置根日誌記錄器
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+    root_logger.addHandler(main_handler)
+    root_logger.addHandler(error_handler)
+    
+    # 配置 Flask 日誌處理
+    app.logger.handlers = []
+    app.logger.propagate = True
+    
+    # 添加自定義 Filter 提供 request_id 和 user_id
+    class ContextFilter(logging.Filter):
+        def filter(self, record):
+            from flask import request, g
+            record.request_id = getattr(g, 'request_id', 'no-request-id')
+            record.user_id = getattr(g, 'user_id', 'anonymous')
+            return True
+    
+    for handler in root_logger.handlers:
+        handler.addFilter(ContextFilter())
+    
+    app.logger.info("Logging system initialized")
+```
+
+### 2.5 請求追蹤
+
+為每個請求生成唯一標識符，用於跨服務追蹤:
+
+```python
+import uuid
+from flask import g, request
+
+@app.before_request
+def before_request():
+    """為每個請求分配唯一 ID"""
+    request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+    g.request_id = request_id
+    
+    # 從會話或令牌獲取用戶ID
+    g.user_id = get_user_id_from_request() or 'anonymous'
+    
+    # 記錄請求開始
+    app.logger.info(f"Request started: {request.method} {request.path} (params: {json.dumps(dict(request.args))})")
+```
+
+## 3. 前端日誌與錯誤處理
+
+### 3.1 前端日誌記錄
+
+使用自定義日誌包裝器統一管理前端日誌:
+
+```javascript
+// utils/logger.js
+const LogLevel = {
+  ERROR: 'ERROR',
+  WARN: 'WARN',
+  INFO: 'INFO',
+  DEBUG: 'DEBUG'
+};
+
+// 當前環境的日誌級別
+const currentLevel = import.meta.env.DEV ? LogLevel.DEBUG : LogLevel.INFO;
+
+// 日誌序列化並附加上下文
+function formatLog(level, message, context = {}) {
+  const timestamp = new Date().toISOString();
+  return {
+    timestamp,
+    level,
+    message,
+    context: {
+      ...context,
+      url: window.location.href,
+      userAgent: navigator.userAgent
+    }
+  };
+}
+
+const logger = {
+  debug(message, context) {
+    if (currentLevel === LogLevel.DEBUG) {
+      console.debug(message, context);
+    }
+  },
+  
+  info(message, context) {
+    if (currentLevel === LogLevel.DEBUG || currentLevel === LogLevel.INFO) {
+      console.info(message, context);
+    }
+  },
+  
+  warn(message, context) {
+    if (currentLevel !== LogLevel.ERROR) {
+      console.warn(message, context);
+      this._sendToServer(LogLevel.WARN, message, context);
+    }
+  },
+  
+  error(message, context) {
+    console.error(message, context);
+    this._sendToServer(LogLevel.ERROR, message, context);
+  },
+  
+  // 選擇性地將日誌發送到後端
+  _sendToServer(level, message, context) {
+    if (level === LogLevel.ERROR || level === LogLevel.WARN) {
+      const logData = formatLog(level, message, context);
+      
+      // 使用 Beacon API 避免阻塞或在頁面卸載時丟失
+      navigator.sendBeacon('/api/v1/client-logs', JSON.stringify(logData));
+    }
+  }
+};
+
+export default logger;
+```
+
+### 3.2 全局錯誤處理
+
+捕獲全局的未處理錯誤:
+
+```javascript
+// main.js
+import { createApp } from 'vue';
+import App from './App.vue';
+import router from './router';
+import logger from './utils/logger';
+
+const app = createApp(App);
+
+// 全局錯誤處理
+app.config.errorHandler = (err, vm, info) => {
+  logger.error('Vue application error', {
+    error: err.toString(),
+    component: vm?.$options?.name || 'Unknown',
+    info,
+    stack: err.stack
+  });
+};
+
+// 未捕獲的 Promise 錯誤
+window.addEventListener('unhandledrejection', (event) => {
+  logger.error('Unhandled Promise rejection', {
+    reason: event.reason?.toString(),
+    stack: event.reason?.stack
+  });
+});
+
+// 一般 JS 錯誤
+window.addEventListener('error', (event) => {
+  logger.error('Uncaught JS Error', {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    stack: event.error?.stack
+  });
+});
+
+app.use(router).mount('#app');
+```
+
+## 4. 監控與告警
+
+### 4.1 使用 Sentry
+
+整合 Sentry 進行錯誤監控與性能追蹤:
+
+```python
+# 後端 Sentry 整合
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+
+def init_sentry(app):
+    """初始化 Sentry 錯誤跟踪"""
+    if not app.debug and app.config.get('SENTRY_DSN'):
+        sentry_sdk.init(
+            dsn=app.config['SENTRY_DSN'],
+            integrations=[
+                FlaskIntegration(),
+            ],
+            environment=app.config.get('FLASK_ENV', 'production'),
+            traces_sample_rate=0.1
+        )
+        app.logger.info("Sentry initialized for error tracking")
+```
+
+```javascript
+// 前端 Sentry 整合
+import * as Sentry from '@sentry/vue';
+import { BrowserTracing } from '@sentry/tracing';
+
+// 在不同環境使用不同 DSN
+const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
+
+if (sentryDsn) {
+  Sentry.init({
+    app,
+    dsn: sentryDsn,
+    integrations: [
+      new BrowserTracing({
+        routingInstrumentation: Sentry.vueRouterInstrumentation(router),
+        tracingOrigins: ['localhost', 'my-site-url.com', /^\//]
+      })
+    ],
+    environment: import.meta.env.MODE,
+    tracesSampleRate: 0.1
+  });
+}
+```
+
+### 4.2 日誌監控與告警
+
+- 使用 ELK Stack (Elasticsearch, Logstash, Kibana) 或 Graylog 進行日誌收集和分析
+- 設置基於日誌級別和關鍵字的告警機制
+- 建立告警規則:
+  - ERROR 級別日誌超過特定閾值觸發告警
+  - 航班數據同步失敗觸發高優先級告警
+  - API 錯誤率超過閾值觸發告警
+
+### 4.3 健康檢查端點
+
+提供專用的健康檢查 API 端點:
+
+```python
+@app.route('/api/v1/health')
+def health_check():
+    """系統健康檢查端點，提供系統各組件狀態"""
+    
+    health_status = {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "components": {
+            "database": check_database_health(),
+            "external_apis": {
+                "tdx": check_tdx_api_health(),
+                "flightstats": check_flightstats_health(),
+            },
+            "cache": check_cache_health(),
+        },
+        "version": app.config.get('VERSION', 'unknown')
+    }
+    
+    # 如果任何組件不健康，修改總體狀態
+    for component, status in health_status["components"].items():
+        if isinstance(status, dict) and status.get("status") != "ok":
+            health_status["status"] = "degraded"
+            break
+    
+    return jsonify(health_status)
+```
+
+## 5. 故障診斷與修復流程
+
+### 5.1 故障處理流程
+
+1. **檢測**: 通過監控系統或用戶報告發現問題
+2. **記錄**: 創建錯誤報告，記錄錯誤細節
+3. **分類**: 確定嚴重性和優先級
+4. **診斷**: 通過日誌和監控數據識別根本原因
+5. **緩解**: 實施臨時解決方案減輕影響
+6. **修復**: 開發永久解決方案
+7. **驗證**: 測試修復程序
+8. **部署**: 將修復部署到生產環境
+9. **回顧**: 分析事件，確定防止再次發生的措施
+
+### 5.2 日誌分析工具
+
+使用以下工具分析日誌並診斷問題:
+
+- `grep`, `awk`, `sed` 等基本工具進行快速日誌過濾
+- 編寫專用日誌解析腳本提取關鍵信息
+- 使用 Kibana 或類似工具進行日誌可視化和模式識別
+
+### 5.3 常見問題診斷指南
+
+| 問題類型 | 診斷步驟 | 關鍵日誌模式 |
+|---|---|---|
+| API 超時 | 1. 檢查資料庫響應時間<br>2. 檢查外部 API 調用延遲<br>3. 檢查服務器資源使用率 | ERROR.*connection timed out<br>WARNING.*response delayed |
+| 數據不一致 | 1. 檢查同步日誌<br>2. 驗證資料庫完整性<br>3. 檢查轉換邏輯 | ERROR.*data mismatch<br>WARNING.*inconsistent data |
+| 認證問題 | 1. 檢查 token 有效性<br>2. 檢查權限設置<br>3. 檢查用戶會話 | ERROR.*authentication failed<br>WARNING.*invalid token |
+
+## 6. 工具與最佳實踐
+
+### 6.1 推薦工具
+
+- **日誌收集與分析**: ELK Stack, Graylog, Loki
+- **監控**: Prometheus, Grafana
+- **錯誤追蹤**: Sentry
+- **性能監控**: New Relic, Datadog
+- **日誌旋轉**: logrotate (生產環境)
+
+### 6.2 最佳實踐
+
+- **結構化日誌**: 使用 JSON 格式記錄，便於機器處理
+- **關聯請求跟踪**: 在所有日誌中包含請求 ID
+- **敏感數據處理**: 在記錄前遮蔽密碼、令牌等敏感信息
+- **選擇性日誌**: 開發環境啟用詳細日誌，生產環境使用較高的日誌級別
+- **定期清理**: 設置日誌旋轉策略，避免磁盤空間耗盡
+- **保留政策**: 定義不同日誌的保留期，保持合規性
+
+### 6.3 審計日誌
+
+針對重要操作記錄審計日誌:
+
+```python
+def log_audit(user_id, action, resource_type, resource_id, details=None):
+    """記錄審計日誌"""
+    audit_log = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "user_id": user_id,
+        "action": action,  # 如: "create", "update", "delete"
+        "resource_type": resource_type,  # 如: "flight", "price_alert"
+        "resource_id": resource_id,
+        "details": details or {},
+        "ip_address": request.remote_addr,
+        "user_agent": request.user_agent.string
+    }
+    
+    # 記錄到審計日誌文件
+    audit_logger = logging.getLogger('audit')
+    audit_logger.info(json.dumps(audit_log))
+    
+    # 可選: 存儲到資料庫
+    # db.session.add(AuditLog(**audit_log))
+    # db.session.commit()
+```
+

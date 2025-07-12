@@ -1,0 +1,162 @@
+---
+type: "always_apply"
+---
+
+# 台灣航班整合系統專案規則
+
+## 1. 專案概述
+
+臺灣航班整合系統是一個全功能的航班搜索和信息平台，核心功能包括：
+
+- **基本航班查詢**：根據起飛地點、降落地點、時間起訖日（15天內）、航空公司、價錢等條件進行查詢
+- **LINE 機器人整合**：提供航班查詢、延誤停飛提示、常用詞小幫手、旅遊行程推薦與機票價格漲幅提示
+- **購票與社群功能**：整合購票、社群互動與舒適度評分
+- **進階功能**：航班起降狀態預測、當地天氣預測、機場設施導覽地圖
+
+## 2. 代碼庫結構
+
+### 文件命名規範
+- `test_xx.py` - 測試文件，必須放到 `tests/` 資料夾下
+- `debug_xx.py` - 調試文件，必須放到 `debug/` 資料夾下
+
+```
+FlightIntegration/
+├── backend/              # Flask後端
+│   ├── app/              # 應用核心
+│   │   ├── models/       # 資料庫模型
+│   │   ├── controllers/  # API端點控制器
+│   │   ├── services/     # 業務邏輯服務
+│   │   ├── schemas/      # 資料序列化模式
+│   │   ├── utils/        # 工具函數
+│   │   ├── scripts/      # 資料同步腳本
+│   │   └── static/       # 靜態資源
+│   ├── tests/            # 測試
+│   ├── debug/            # 調試工具
+│   └── logs/ 
+├── frontend/             # Vue 3前端
+│   ├── src/              # 源代碼
+│   │   ├── components/   # 元件
+│   │   ├── views/        # 頁面
+│   │   ├── router/       # 路由
+│   │   ├── store/        # 狀態管理
+│   │   ├── api/          # API服務
+│   │   └── utils/        # 工具函數
+│   └── dist/             # 構建輸出
+└── docs/                 # 項目文檔
+    ├── api/              # API文檔
+    ├── deployment/       # 部署指南
+    ├── development/      # 開發指南
+    ├── line/             # LINE Bot文檔
+    └── UI-UX/            # UI/UX設計文檔
+```
+
+## 3. 技術棧
+
+- **後端**：Python 3, Flask, SQLAlchemy, Flask-RESTful, Asyncpg
+- **前端**：Vue.js 3, Tailwind CSS, Axios, Pinia
+- **資料庫**：PostgreSQL (Neon雲端)
+- **部署**：Render (後端), Vercel (前端)
+- **API整合**：TDX API, FlightStats API, LINE Messaging API
+
+## 4. 當前任務
+
+- 前端機場排序
+
+> 使用 Augment Memories 系統進行專案記憶和任務追蹤，確保開發進度的持續性和上下文保持
+
+## 5. 開發指南
+
+### 5.1 代碼風格
+- **Python**：
+  - 使用 Snake case (例如 `get_flight_info`)
+  - 模塊名和文件名使用全小寫，可包含下劃線
+  - 類名使用 CamelCase (例如 `FlightService`)
+  - 常量使用全大寫 (例如 `MAX_PRICE`)
+  - 行長度限制在120字符
+
+- **JavaScript/Vue**：
+  - 使用 Camel case (例如 `getFlight`)
+  - 組件名使用 PascalCase (例如 `FlightCard.vue`)
+  - 避免使用內聯樣式，使用 Tailwind 類或 Scoped CSS
+  - 使用 ESLint 標準規則
+
+### 5.2 資料庫相關
+- 命名使用 Snake case
+- 使用有意義的表名和字段名
+- 添加適當的索引提升查詢效率
+- 避免直接拼接 SQL，使用 SQLAlchemy ORM
+
+### 5.3 API設計
+- RESTful API 風格
+- URL使用復數名詞 (例如 `/api/flights`)
+- 使用適當的 HTTP 方法和狀態碼
+- 返回一致的 JSON 格式
+
+### 5.4 前端組件開發
+- 遵循 Structured Journey Minimalism 設計風格
+- 組件拆分合理，保持單一職責
+- 性能優化：懶加載、緩存、防抖等
+- 確保響應式設計，適配各種設備
+
+### 5.5 LINE Bot開發
+- 使用 LINE Messaging API SDK v3
+- 消息處理與回復在 `line_controller.py`
+- Rich Menu 設計遵循UI風格一致性
+- 按照 `line-bot-integration.mdc` 規範實現功能
+
+## 6. 關鍵學習與提醒
+
+### 後端API契約遵守原則
+- **問題:** 後端API響應必須嚴格匹配前端預期的結構。字段名不匹配（如 `airport_id` vs `code`, `name_zh` vs `name`）會導致前端顯示錯誤。
+- **解決方案:** 後端控制器負責在序列化前預處理數據，確保API響應符合商定的schema。不要依賴前端來處理不一致的後端數據結構。
+
+### 前端數據映射簡化
+- 當後端提供一致且符合預期的數據時，前端映射邏輯（例如 `SearchForm.vue` 中的邏輯）會更簡單，更不容易出錯。
+
+### 前端輸入驗證
+- 在前端（例如 `SearchForm.vue` 的 `validateForm` 和 `submitSearch`）驗證用戶輸入和選擇，然後再將數據發送到後端。這可以防止無效請求（例如使用 'N/A' 作為機場代碼搜索）並提高健壯性。
+
+## 7. 目前問題與關注點
+
+### 7.1 前端整合挑戰
+- 前端 `flightService.js` 中的 `_handleResponse` 邏輯可能需要簡化以適應一致的後端響應
+- 機場區域分類邏輯依賴API返回的國家(country)資訊
+
+### 7.2 後端API契約遵守
+- 確保API響應嚴格符合前端期望的數據結構
+- 後端控制器需負責在序列化前預處理數據，確保API響應遵循商定的模式
+
+### 7.3 其他考量
+- 機場按航班數量排序可能需要顯著的後端更改以有效聚合航班數據
+- 需要確保中文搜索功能在各元件間的一致實現
+
+## 7.4 資源連結
+
+### 8.1 項目文檔
+- **UI設計指南** - Structured Journey Minimalism 設計系統
+- **LINE Bot整合指南** - LINE Bot 功能實現規範
+- **專案記憶** - 使用 Augment Memories 系統管理專案上下文
+
+### 8.2 參考指南
+- **後端架構設計** - 分層架構和 API 設計規範
+- **前端設計指南** - Vue.js 3 組件和狀態管理
+- **安全指南** - OWASP 安全最佳實踐
+- **產品需求** - 功能規格和業務邏輯
+- **技術棧** - 完整的技術選型和實施規範
+- **測試策略** - 單元測試、整合測試和 E2E 測試
+- **錯誤處理** - 統一的錯誤處理和日誌記錄
+
+## 9. 靈活性原則
+
+### 9.1 規則適應性
+- **規則可調整**：根據專案實際需求靈活調整規範
+- **例外處理**：特殊情況下可暫時偏離規則，但需記錄原因
+- **效率優先**：當規則影響開發效率時，優先考慮產品交付
+
+### 9.2 技術債務管理
+- **定期評估**：每個 Sprint 評估技術債務狀況
+- **優先級分類**：高/中/低優先級分類管理
+- **漸進改善**：分配時間進行技術債務清理
+
+
+

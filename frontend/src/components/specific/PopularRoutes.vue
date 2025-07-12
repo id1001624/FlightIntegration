@@ -357,35 +357,40 @@ export default {
   transform: scaleX(1);
 }
 
-/* === 路線網格 === */
+/* === 路線網格 - 統一尺寸 === */
 .routes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 2rem;
   margin-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-/* === 路線卡片 === */
+/* === 路線卡片 - 一致性設計 === */
 .route-card {
   background: var(--white);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.08),
-    0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08),
+    0 2px 8px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   position: relative;
-  transition: all 0.4s ease;
-  height: 400px;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 420px; /* 統一高度 */
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(229, 231, 235, 0.6);
 }
 
 .route-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 
-    0 12px 40px rgba(0, 0, 0, 0.15),
-    0 4px 8px rgba(0, 0, 0, 0.08);
+  transform: translateY(-12px) scale(1.02);
+  box-shadow:
+    0 20px 60px rgba(0, 95, 115, 0.15),
+    0 8px 16px rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 95, 115, 0.2);
 }
 
 /* === 卡片背景 === */

@@ -326,16 +326,15 @@ export default {
   transform: scale(1.05);
 }
 
-/* 飛機飛行路徑動畫 */
+/* 飛機飛行路徑動畫 - 修復定位 */
 .journey-path {
   position: absolute;
-  width: 300px;
-  height: 200px;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  width: 280px;
+  height: 180px;
+  top: 20%;
+  left: 10%;
   z-index: 1;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .journey-path-line {
@@ -356,11 +355,11 @@ export default {
   width: 24px;
   height: 24px;
   color: var(--color-primary, #005F73);
-  top: 50%;
+  top: 55%;
   left: 7%;
   transform: translateY(-50%);
-  animation: flyPlane 3s forwards;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.2));
+  animation: flyPlane 4s ease-in-out forwards;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 @keyframes drawPath {
@@ -374,11 +373,12 @@ export default {
     transform: translate(0, 0) rotate(0deg);
     opacity: 0;
   }
-  10% {
+  15% {
     opacity: 1;
   }
   100% {
-    transform: translate(260px, -20px) rotate(-15deg);
+    transform: translate(240px, -30px) rotate(-10deg);
+    opacity: 0.8;
   }
 }
 
