@@ -19,11 +19,11 @@
         <div class="journey-elements">
           <!-- 飛機飛行路徑元素 -->
           <div class="journey-path">
-            <svg class="journey-path-line" width="100%" height="100%" viewBox="0 0 300 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20,100 C70,50 130,180 280,80" stroke="#005F73" stroke-width="2" stroke-dasharray="5,5" />
+            <svg class="journey-path-line" width="100%" height="100%" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10,70 C50,30 90,90 180,40" stroke="#005F73" stroke-width="2" stroke-dasharray="5,5" />
             </svg>
             <div class="journey-airplane">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
               </svg>
             </div>
@@ -44,7 +44,7 @@
 
     <!-- 特色區塊 -->
     <section id="features" class="features-section">
-      <div class="container">
+      <div class="features-container">
         <h2 class="section-title">優質服務特色</h2>
         <div class="features-grid">
           <div class="feature-card animate-on-scroll">
@@ -139,6 +139,19 @@ export default {
 /* 基本容器 */
 .home-container {
   width: 100%;
+  padding: 3rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4rem;
+  min-height: 100vh;
+}
+
+/* 統一區塊寬度 */
+.hero-section,
+.features-section,
+.popular-routes-section {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 /* 動畫類 */
@@ -179,20 +192,18 @@ export default {
 
 /* 英雄區塊 */
 .hero-section {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--spacing-xl, 6rem) 2rem;
-  gap: var(--spacing-xl, 4rem);
+  justify-content: space-between;
+  padding: 4rem 3rem;
+  gap: 3rem;
   position: relative;
-  min-height: 550px;
-  overflow: hidden;
-  background-color: #ffffff;
-  max-width: 1200px;
-  margin: 0 auto;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  min-height: 500px;
 }
 
 .hero-content {
@@ -200,6 +211,7 @@ export default {
   max-width: 550px;
   position: relative;
   z-index: 2;
+  text-align: left;
 }
 
 .hero-title {
@@ -215,8 +227,7 @@ export default {
   content: '';
   position: absolute;
   bottom: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
   width: 60px;
   height: 3px;
   background-color: var(--color-secondary, #F4A261);
@@ -231,7 +242,7 @@ export default {
 
 .hero-cta {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--spacing-md, 1rem);
 }
 
@@ -326,15 +337,15 @@ export default {
   transform: scale(1.05);
 }
 
-/* 飛機飛行路徑動畫 - 修復定位 */
+/* 飛機飛行路徑動畫 - 修復定位到左上角 */
 .journey-path {
   position: absolute;
-  width: 280px;
-  height: 180px;
-  top: 20%;
-  left: 10%;
-  z-index: 1;
-  opacity: 0.7;
+  width: 200px;
+  height: 120px;
+  top: 5%;
+  left: 5%;
+  z-index: 2;
+  opacity: 0.8;
 }
 
 .journey-path-line {
@@ -345,26 +356,31 @@ export default {
 .journey-path-line path {
   stroke: #005F73;
   stroke-width: 2;
-  stroke-dasharray: 400;
-  stroke-dashoffset: 400;
-  animation: drawPath 3s forwards;
+  stroke-dasharray: 300;
+  stroke-dashoffset: 300;
+  animation: drawPath 3s ease-out forwards;
 }
 
 .journey-airplane {
   position: absolute;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   color: var(--color-primary, #005F73);
-  top: 55%;
-  left: 7%;
+  top: 60%;
+  left: 5%;
   transform: translateY(-50%);
   animation: flyPlane 4s ease-in-out forwards;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 2px 6px rgba(0, 95, 115, 0.4));
 }
 
 @keyframes drawPath {
-  to {
+  0% {
+    stroke-dashoffset: 300;
+    opacity: 0.3;
+  }
+  100% {
     stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 
@@ -373,12 +389,12 @@ export default {
     transform: translate(0, 0) rotate(0deg);
     opacity: 0;
   }
-  15% {
+  20% {
     opacity: 1;
   }
   100% {
-    transform: translate(240px, -30px) rotate(-10deg);
-    opacity: 0.8;
+    transform: translate(160px, -20px) rotate(-8deg);
+    opacity: 0.9;
   }
 }
 
@@ -436,80 +452,223 @@ export default {
 
 /* 特色區塊 */
 .features-section {
-  padding: 6rem 0;
-  background-color: #FFFFFF;
+  padding: 0 2rem;
+  position: relative;
+}
+
+.features-container {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 4rem 3rem;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .section-title {
   text-align: center;
   font-size: 2.5rem;
-  font-weight: bold;
-  margin-bottom: 4rem;
-  color: #004D40;
+  font-weight: 700;
+  margin-bottom: 3rem;
+  color: var(--color-primary, #005F73);
+  position: relative;
 }
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--color-primary, #005F73), var(--color-secondary, #F4A261));
+  border-radius: 2px;
+}
+
+/* 移除標題裝飾線條以保持簡潔設計 */
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  width: 100%;
 }
 
 .feature-card {
-  background: #F8F9FA;
-  padding: 2.5rem 2rem;
-  border-radius: 12px;
+  background: #FFFFFF !important;
+  padding: 3rem 2rem;
+  border-radius: 20px !important;
   text-align: center;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  border: 1px solid #E0E0E0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(229, 231, 235, 0.6) !important;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.08) !important,
+    0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  position: relative;
+  overflow: hidden !important;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
 }
 
+/* 移除卡片頂部裝飾條以保持簡潔設計 */
+
 .feature-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-12px) scale(1.02);
+  box-shadow:
+    0 20px 60px rgba(0, 95, 115, 0.15) !important,
+    0 8px 16px rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 95, 115, 0.2) !important;
 }
 
 .feature-icon {
   margin-bottom: 1.5rem;
-  color: #00796B;
+  color: var(--color-primary, #005F73);
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon {
+  transform: scale(1.1);
+  color: var(--color-secondary, #F4A261);
 }
 
 .feature-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #004D40;
+  color: var(--color-primary, #005F73);
+  transition: color 0.3s ease;
 }
 
 .feature-description {
   font-size: 1rem;
-  color: #555;
+  color: #64748b;
   line-height: 1.6;
+  transition: color 0.3s ease;
 }
 
+/* 強制圓角樣式 - 參考 PopularRoutes 成功實現 */
+.features-section .feature-card {
+  border-radius: 20px !important;
+  -webkit-border-radius: 20px !important;
+  -moz-border-radius: 20px !important;
+  -ms-border-radius: 20px !important;
+  -o-border-radius: 20px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* 覆蓋可能的 Tailwind 樣式 */
+.features-section .feature-card.card {
+  border-radius: 20px !important;
+}
+
+/* 偽元素已移除，無需額外圓角設定 */
+
 /* 響應式設計 */
+@media (max-width: 1200px) {
+  .home-container {
+    padding: 2rem 1rem;
+    gap: 3rem;
+  }
+
+  .hero-section,
+  .features-section,
+  .popular-routes-section {
+    margin: 0 1rem;
+  }
+
+  .hero-section {
+    padding: 3rem 2rem;
+    min-height: 400px;
+  }
+
+  .features-section {
+    padding: 3rem 2rem;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    padding: 2rem 1.5rem;
+    min-height: 260px;
+  }
+}
+
 @media (max-width: 992px) {
+  .home-container {
+    gap: 2.5rem;
+  }
+
   .hero-section {
     flex-direction: column;
     text-align: center;
     gap: 2rem;
+    padding: 3rem 2rem;
+    min-height: 350px;
   }
 
   .hero-content {
     margin-bottom: 2rem;
+    text-align: center;
   }
-  
+
+  .hero-title::after {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
   .hero-cta {
     justify-content: center;
+  }
+
+  .features-section {
+    padding: 2.5rem 2rem;
   }
 
   .hero-title {
     font-size: 3rem;
   }
+
+  .features-container {
+    padding: 0 1rem;
+  }
+
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .journey-path {
+    width: 150px;
+    height: 100px;
+    top: 8%;
+    left: 8%;
+  }
+
+  .journey-airplane {
+    width: 18px;
+    height: 18px;
+  }
 }
 
 @media (max-width: 768px) {
-  .hero-section, .features-section {
-    padding: 4rem 1rem;
+  .hero-section {
+    padding: 3rem 1rem;
+  }
+
+  .features-section {
+    padding: 2rem 1rem;
+  }
+
+  .features-container {
+    padding: 2rem;
   }
 
   .hero-title {
@@ -518,11 +677,92 @@ export default {
 
   .section-title {
     font-size: 2rem;
+    margin-bottom: 3rem;
   }
 
   .hero-cta {
     flex-direction: column;
     align-items: center;
+    gap: 1rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .feature-card {
+    padding: 2rem 1.5rem;
+    margin: 0 auto;
+    max-width: 100%;
+    min-height: 240px;
+    border-radius: 20px !important;
+  }
+
+  .journey-path {
+    display: none; /* 在小螢幕隱藏動畫避免干擾 */
+  }
+}
+
+@media (max-width: 768px) {
+  .home-container {
+    padding: 1.5rem 0.5rem;
+    gap: 2rem;
+  }
+
+  .hero-section,
+  .features-section,
+  .popular-routes-section {
+    margin: 0 0.5rem;
+  }
+
+  .hero-section {
+    padding: 2.5rem 1.5rem;
+    min-height: 300px;
+  }
+
+  .features-section {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-container {
+    padding: 1rem 0.25rem;
+    gap: 1.5rem;
+  }
+
+  .hero-section,
+  .features-section,
+  .popular-routes-section {
+    margin: 0 0.25rem;
+  }
+
+  .hero-section {
+    padding: 2rem 1rem;
+    min-height: 250px;
+  }
+
+  .features-section {
+    padding: 2rem 1rem;
+  }
+
+  .feature-card {
+    padding: 1.5rem 1rem;
+    min-height: 200px;
+  }
+
+  .feature-title {
+    font-size: 1.25rem;
+  }
+
+  .feature-description {
+    font-size: 0.9rem;
   }
 }
 </style>

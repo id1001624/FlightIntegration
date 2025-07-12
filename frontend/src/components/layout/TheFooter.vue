@@ -1,6 +1,6 @@
 <template>
   <footer class="main-footer bg-journey-gradient text-white py-12 mt-16 relative z-15">
-    <div class="container mx-auto px-4">
+    <div class="footer-container mx-auto px-4">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         <!-- Column 1: 關於 -->
         <div>
@@ -99,10 +99,11 @@ export default {
   margin-top: 4rem;
   position: relative;
   z-index: 15;
+  width: 100%;
 }
 
-.container {
-  max-width: 1280px;
+.footer-container {
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1rem;
 }

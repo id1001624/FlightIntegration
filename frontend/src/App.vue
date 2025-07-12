@@ -2,11 +2,10 @@
   <div id="app" class="app-container">
     <!-- 旅程背景層 -->
     <div class="journey-background"></div>
-    
-    <!-- 內容層 -->
-    <div class="content-container">
-      <!-- 頂部導航 -->
-      <header class="header">
+
+    <!-- 頂部導航 - 移出 content-container 實現全寬 -->
+    <header class="header">
+      <div class="header-content">
         <div class="logo-container">
           <router-link to="/" class="logo" @click.prevent="$router.push('/')">
             <img src="@/assets/images/logo/logo.jpg" alt="Logo" class="logo-image">
@@ -23,7 +22,11 @@
         <button class="mobile-menu-btn" @click="toggleMobileMenu">
           <span class="mobile-menu-icon"></span>
         </button>
-      </header>
+      </div>
+    </header>
+
+    <!-- 內容層 -->
+    <div class="content-container">
 
       <!-- 移動版選單 -->
       <div class="mobile-menu" :class="{'mobile-menu-open': mobileMenuOpen}">
@@ -42,16 +45,17 @@
         </router-view>
       </main>
 
-      <!-- 新的詳細頁腳 -->
-      <TheFooter />
-
-      <!-- 原有的簡單頁腳 (版權信息) -->
-      <footer class="footer">
-        <div class="footer-content">
-          <p>© 2025 Flight Integration System. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
+
+    <!-- 新的詳細頁腳 - 移出 content-container 實現全寬 -->
+    <TheFooter />
+
+    <!-- 原有的簡單頁腳 (版權信息) - 移出 content-container 實現全寬 -->
+    <footer class="footer">
+      <div class="footer-content">
+        <p>© 2025 Flight Integration System. All rights reserved.</p>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -166,6 +170,7 @@ html, body {
   min-height: 100vh;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
 /* 旅程背景層 - 全站背景效果 */
@@ -257,7 +262,7 @@ html, body {
 .content-container {
   position: relative;
   z-index: 10;
-  min-height: 100vh;
+  min-height: calc(100vh - 140px); /* 減去導覽列和頁腳的高度 */
   display: flex;
   flex-direction: column;
   max-width: 1440px;
@@ -300,21 +305,27 @@ html, body {
   }
 }
 
-/* 頭部 - 增強背景效果 */
+/* 頭部 - 全寬設計 */
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--spacing-lg);
+  width: 100%;
   border-bottom: 1px solid var(--color-border);
   /* 背景效果增強 */
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(10px);
-  border-radius: 8px;
-  margin-bottom: var(--spacing-md);
   box-shadow: 0 2px 12px rgba(0, 95, 115, 0.08);
   position: relative;
   z-index: 20;
+  margin-bottom: var(--spacing-md);
+}
+
+/* 頭部內容容器 - 限制內容寬度但保持頭部全寬 */
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg);
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 .logo-container {
@@ -467,25 +478,26 @@ html, body {
   color: var(--color-primary);
 }
 
-/* 頁腳 - 增強背景效果 */
+/* 頁腳 - 全寬設計 */
 .footer {
-  margin-top: auto;
-  padding: var(--spacing-lg);
+  width: 100%;
   border-top: 1px solid var(--color-border);
   /* 背景效果增強 */
   background: rgba(255, 255, 255, 0.90);
   backdrop-filter: blur(8px);
-  border-radius: 8px;
-  margin-top: var(--spacing-md);
   box-shadow: 0 2px 8px rgba(0, 95, 115, 0.06);
   position: relative;
   z-index: 15;
+  margin-top: var(--spacing-md);
 }
 
 .footer-content {
   text-align: center;
   color: var(--color-text-secondary);
   font-size: 0.875rem;
+  padding: var(--spacing-lg);
+  max-width: 1440px;
+  margin: 0 auto;
 }
 
 /* 頁面切換動畫 */
@@ -518,24 +530,28 @@ html, body {
 
 /* 響應式樣式 */
 @media (max-width: 768px) {
-  .header {
-    padding: var(--spacing-md) 0;
+  .header-content {
+    padding: var(--spacing-md);
   }
-  
+
   .main-nav {
     display: none; /* 在移動版隱藏 */
   }
-  
+
   .mobile-menu-btn {
     display: block; /* 在移動版顯示 */
   }
-  
+
   .mobile-menu {
     display: flex; /* 啟用彈出式選單 */
   }
-  
+
   .content-container {
     padding: 0 var(--spacing-sm);
+  }
+
+  .footer-content {
+    padding: var(--spacing-md);
   }
 }
 </style>

@@ -70,12 +70,11 @@
 ## 本地運行
 
 1.  **啟動後端服務**:
-    *   確保在 `backend` 目錄下，且虛擬環境已激活。
-    *   運行: `python run.py`
+    *   運行: `cd backend; .\venv\Scripts\activate; python run.py` (Windows)
+    *   或者: `cd backend; source venv/bin/activate; python run.py`
     *   服務預設在 `http://127.0.0.1:5000` 運行。
 2.  **啟動前端開發伺服器**:
-    *   確保在 `frontend` 目錄下。
-    *   運行: `npm run dev`
+    *   運行: `cd frontend; npm run dev`
     *   前端通常在 `http://localhost:5173` 或 `http://localhost:8080` 可訪問。
 
 ## 主要 API 端點

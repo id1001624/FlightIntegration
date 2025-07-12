@@ -25,7 +25,7 @@
         </div>
         
       <!-- 路線網格 -->
-      <div class="routes-grid">
+      <div class="routes-grid" :class="gridLayoutClass">
         <div
           v-for="route in filteredRoutes"
           :key="`${route.fromCode}-${route.toCode}`"
@@ -71,7 +71,7 @@
 
                 <div class="detail-item">
                   <span class="detail-label">每日航班</span>
-                  <span class="detail-value">{{ route.flightCount }} 班</span>
+                  <span class="detail-value">{{ route.flightCount }} 班/日</span>
           </div>
               </div>
 
@@ -131,7 +131,7 @@ export default {
         toCode: 'NRT',
         category: 'asia',
         price: 12500,
-        flightCount: 28,
+        flightCount: '25-35',
         duration: '3小時20分',
         image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: true,
@@ -145,7 +145,7 @@ export default {
         toCode: 'HKG',
         category: 'asia',
         price: 8900,
-        flightCount: 15,
+        flightCount: '12-18',
         duration: '1小時45分',
         image: 'https://images.unsplash.com/photo-1536599018102-9f803c140fc1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: true,
@@ -159,9 +159,9 @@ export default {
         toCode: 'MFM',
         category: 'asia',
         price: 9200,
-        flightCount: 12,
+        flightCount: '10-15',
         duration: '1小時30分',
-        image: 'https://images.unsplash.com/photo-1598970434795-0c54fe7c0648?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+        image: 'https://images.unsplash.com/photo-1556629538-fc3eba61504e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: false,
         isDirect: true,
         bestPrice: false
@@ -173,7 +173,7 @@ export default {
         toCode: 'ICN',
         category: 'asia',
         price: 15800,
-        flightCount: 22,
+        flightCount: '18-26',
         duration: '2小時45分',
         image: 'https://images.unsplash.com/photo-1517154421773-0529f29ea451?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: true,
@@ -187,7 +187,7 @@ export default {
         toCode: 'LAX',
         category: 'international',
         price: 28500,
-        flightCount: 8,
+        flightCount: '6-12',
         duration: '12小時30分',
         image: 'https://images.unsplash.com/photo-1580655653885-65763b2597d0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: false,
@@ -201,7 +201,7 @@ export default {
         toCode: 'SIN',
         category: 'asia',
         price: 18200,
-        flightCount: 18,
+        flightCount: '15-22',
         duration: '3小時45分',
         image: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
         isPopular: true,
@@ -216,6 +216,17 @@ export default {
         return popularRoutes.value
       }
       return popularRoutes.value.filter(route => route.category === activeCategory.value)
+    })
+
+    // 計算網格佈局類別
+    const gridLayoutClass = computed(() => {
+      const count = filteredRoutes.value.length
+      if (count === 1) {
+        return 'single-card'
+      } else if (count === 2) {
+        return 'two-cards'
+      }
+      return ''
     })
 
     // 設置活躍分類
@@ -234,6 +245,7 @@ export default {
       routeCategories,
       popularRoutes,
       filteredRoutes,
+      gridLayoutClass,
       setActiveCategory,
       handleRouteClick
     }
@@ -258,19 +270,21 @@ export default {
 
 /* === 主容器 === */
 .popular-routes {
-  padding: 2rem;
-  max-width: 1400px;
+  padding: 0 2rem;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .routes-container {
   background: rgba(255, 255, 255, 0.95);
-  padding: 3rem;
+  padding: 4rem 3rem;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   max-width: 1200px;
+  width: 100%;
+  min-height: 800px;
   margin: 0 auto;
 }
 
@@ -278,28 +292,54 @@ export default {
 .section-header {
   text-align: center;
   margin-bottom: 3rem;
+  padding-top: 0.5rem;
 }
 
 .header-content {
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .section-title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: var(--text-dark);
-  margin-bottom: 1rem;
+  color: var(--color-primary, #005F73);
+  margin: 0 0 0.75rem 0;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  text-align: center;
+  position: relative;
+  display: block;
+  width: 100%;
+  clear: both;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary, #005F73) 0%, var(--color-secondary, #F4A261) 100%);
 }
 
 .section-subtitle {
   font-size: 1.125rem;
-  color: var(--text-medium);
+  color: var(--color-text-secondary, #6C757D);
   font-weight: 400;
   max-width: 500px;
-  margin: 0 auto;
+  margin: 0 auto 0.5rem auto;
   line-height: 1.6;
+  text-align: center;
+  display: block;
+  width: auto;
+  clear: both;
 }
 
 /* === 分類篩選器 - 無 Icons 設計 === */
@@ -326,14 +366,32 @@ export default {
 }
 
 .filter-btn:hover {
+  background: rgba(0, 95, 115, 0.05);
+  border-color: var(--color-primary, #005F73);
+  color: var(--color-primary, #005F73);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 95, 115, 0.15);
+}
+
+.filter-btn:hover {
   border-color: var(--primary-color);
   color: var(--primary-color);
 }
 
 .filter-btn.active {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
-  color: var(--white);
+  background: var(--color-primary-light, #0A9396);
+  border-color: var(--color-primary-light, #0A9396);
+  color: var(--white, #FFFFFF);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(10, 147, 150, 0.25);
+}
+
+.filter-btn.active:hover {
+  background: var(--color-primary, #005F73);
+  border-color: var(--color-primary, #005F73);
+  color: var(--white, #FFFFFF);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 95, 115, 0.3);
 }
 
 .btn-text {
@@ -357,7 +415,11 @@ export default {
   transform: scaleX(1);
 }
 
-/* === 路線網格 - 統一尺寸 === */
+.filter-btn.active .btn-accent {
+  transform: scaleX(0);
+}
+
+/* === 路線網格 - 響應式佈局 === */
 .routes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
@@ -366,6 +428,26 @@ export default {
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
+  justify-content: center;
+}
+
+/* 單張卡片時的特殊佈局 */
+.routes-grid.single-card {
+  grid-template-columns: minmax(340px, 1200px);
+  justify-content: center;
+}
+
+/* 可選的其他寬度選項（註解保留供參考）
+選項1 - 與其他區塊完全一致: minmax(340px, 1200px)
+選項2 - 稍微保守一些: minmax(340px, 1000px)
+選項3 - 填滿整個容器: 1fr
+選項4 - 固定大尺寸: minmax(340px, 1100px)
+*/
+
+/* 兩張卡片時的特殊佈局 */
+.routes-grid.two-cards {
+  grid-template-columns: repeat(2, minmax(340px, 500px));
+  justify-content: center;
 }
 
 /* === 路線卡片 - 一致性設計 === */
@@ -436,7 +518,7 @@ export default {
 .content-background {
   background: var(--white);
   padding: 1.5rem;
-  border-radius: 0;
+  border-radius: 0 0 20px 20px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   flex: 1;
   display: flex;
@@ -624,7 +706,7 @@ export default {
   text-align: center;
   padding: 3rem 1rem;
   background: var(--background-light);
-  border-radius: 16px;
+  border-radius: 20px;
   border: 2px dashed var(--border-light);
 }
 

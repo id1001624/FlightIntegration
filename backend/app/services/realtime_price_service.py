@@ -90,7 +90,7 @@ class RealtimePriceService:
         try:
             # 臨時禁用緩存功能，直接返回空結果讓controller回退到靜態查詢
             logger.info("臨時禁用實時價格緩存，回退到靜態航班數據")
-                    return {
+            return {
                 "success": False,
                 "data": [],
                 "message": "實時價格服務暫時禁用，使用靜態數據",
@@ -212,10 +212,10 @@ class RealtimePriceService:
                 ),
                 timeout=api_timeout
                 )
-                
+
             all_offers = []
-                if result and isinstance(result, dict) and 'data' in result:
-                    all_offers = result['data']
+            if result and isinstance(result, dict) and 'data' in result:
+                all_offers = result['data']
                 logger.info(f"Amadeus API 返回 {len(all_offers)} 個航班報價")
             else:
                 logger.warning(f"Amadeus API 未返回有效數據：{result}")
